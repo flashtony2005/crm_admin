@@ -1,0 +1,160 @@
+@import "@heroui/styles";
+
+/* ── 设计令牌 ───────────────────────────────
+ * 基于 Confidency OS 风格：干净、柔和、以卡片/表格为核心的 SaaS 控制台。
+ * 通过 Tailwind v4 @theme 注入，可直接使用 bg-os-bg-base、text-os-primary 等。
+ * -------------------------------------------------------- */
+@theme {
+  /* 中性色 */
+  --color-os-bg-base: #F8F9FB;
+  --color-os-bg-sidebar: #F4F5F7;
+  --color-os-bg-card: #FFFFFF;
+  --color-os-bg-hover: #F9FAFB;
+  --color-os-bg-selected: #F3F0FF;
+  --color-os-border: #E5E7EB;
+  --color-os-border-light: #F3F4F6;
+  --color-os-text-primary: #111827;
+  --color-os-text-secondary: #6B7280;
+  --color-os-text-muted: #9CA3AF;
+
+  /* 强调色 */
+  --color-os-primary-50: #F3F0FF;
+  --color-os-primary-100: #E9E3FF;
+  --color-os-primary-500: #7C5CFF;
+  --color-os-primary-600: #6B4DE6;
+
+  /* 状态色：浅底深字 */
+  --color-os-success-bg: #DCFCE7;
+  --color-os-success-text: #166534;
+  --color-os-warning-bg: #FEF9C3;
+  --color-os-warning-text: #854D0E;
+  --color-os-info-bg: #DBEAFE;
+  --color-os-info-text: #1E40AF;
+  --color-os-danger-bg: #FEE2E2;
+  --color-os-danger-text: #991B1B;
+  --color-os-purple-bg: #F3E8FF;
+  --color-os-purple-text: #6B21A8;
+  --color-os-neutral-bg: #F3F4F6;
+  --color-os-neutral-text: #374151;
+
+  /* 圆角 */
+  --radius-os-sm: 8px;
+  --radius-os-md: 10px;
+  --radius-os-lg: 12px;
+  --radius-os-xl: 16px;
+
+  /* 阴影 */
+  --shadow-os-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-os-button: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-os-button-hover: 0 4px 12px rgba(124, 92, 255, 0.25);
+  --shadow-os-dropdown: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+/* 侧边栏滚动条美化 */
+.sidebar-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Firefox 滚动条样式 */
+.sidebar-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+/* 渐变按钮效果 */
+@layer utilities {
+  .btn-gradient {
+      background-image: linear-gradient(to right, #25aae1, #40e495, #30dd8a, #2bb673) !important;
+      background-size: 300% 100% !important;
+      box-shadow: 0 4px 15px 0 rgba(49, 196, 190, 0.75) !important;
+      transition: all .4s ease-in-out !important;
+  }
+
+  .btn-gradient:hover {
+      background-position: 100% 0 !important;
+  }
+
+  .btn-gradient:focus {
+      outline: none !important;
+  }
+
+  /* Tab 激活态：亮黄色渐变 */
+  .tab-active-gradient {
+      background-image: linear-gradient(to right, #fef08a, #fde047, #facc15, #eab308) !important;
+      background-size: 300% 100% !important;
+      box-shadow: 0 2px 8px 0 rgba(250, 204, 21, 0.5) !important;
+      transition: all .4s ease-in-out !important;
+  }
+
+  .tab-active-gradient:hover {
+      background-position: 100% 0 !important;
+  }
+}
+
+/* ── 页面级 Header 样式（参考 light 风格） ─────────────── */
+.dash-header {
+  flex-shrink: 0; z-index: 30;
+  background: #fff; border-bottom: 1px solid #e8eaed;
+}
+.dash-header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 48px; padding: 0 16px;
+}
+.dash-header-left { display: flex; align-items: center; gap: 10px; }
+.dash-crumb { display: flex; align-items: center; gap: 5px; }
+.dash-crumb-sep { font-size: 13px; color: #4b5563; }
+.dash-crumb-divider { color: #9ca3af; font-size: 12px; }
+.dash-crumb-cur { font-size: 13px; color: #111827; font-weight: 500; }
+.dash-header-right { display: flex; align-items: center; gap: 2px; }
+.dash-srch {
+  display: flex; align-items: center; gap: 6px;
+  background: #f3f4f6; border: 1px solid #e8eaed;
+  border-radius: 7px; padding: 0 10px; height: 29px; width: 148px;
+  transition: all .15s;
+}
+.dash-srch:focus-within { background: #fff; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+.dash-srch svg { width: 12px; height: 12px; color: #9ca3af; flex-shrink: 0; }
+.dash-srch input {
+  background: none; border: none; outline: none;
+  font-size: 12px; color: #111827; width: 100%; font-family: inherit;
+}
+.dash-srch input::placeholder { color: #9ca3af; }
+.dash-ibtn {
+  width: 30px; height: 30px; border-radius: 7px; border: none; background: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #4b5563; transition: background .1s,color .1s; position: relative;
+  padding: 0;
+}
+.dash-ibtn:hover { background: #f3f4f6; color: #111827; }
+.dash-ibtn svg { width: 15px; height: 15px; }
+.dash-notif-dot {
+  position: absolute; top: 6px; right: 7px;
+  width: 6px; height: 6px; background: #ef4444;
+  border-radius: 50%; border: 1.5px solid #fff;
+}
+.dash-ubadge {
+  display: inline-flex !important; align-items: center; gap: 6px;
+  padding: 3px 8px 3px 4px; border-radius: 7px;
+  cursor: pointer; transition: background .1s;
+}
+.dash-ubadge:hover { background: #f3f4f6; }
+.dash-uav {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg,#6366f1,#8b5cf6);
+  color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.dash-uname { font-size: 13px; font-weight: 500; color: #111827; }
