@@ -46,3 +46,6 @@ Thumbs.db
 web/test-results/
 web/playwright-report/
 server/cargo_build.err
+
+# ── TanStack Router 插件临时目录 ──
+web/.tanstack/
