@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost 化改造路线图 · cms-admin</title>
+<style>
+  :root {
+    --bg: #f7f8fb; --card: #ffffff; --ink: #1a2233; --muted: #6b7280;
+    --line: #e5e7eb; --brand: #7C5CFF; --brand-2: #6C4DF6;
+    --ok: #10b981; --todo: #f59e0b; --later: #94a3b8; --warn: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.6; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header.hero { background: linear-gradient(135deg, #6C4DF6, #A06BFF 70%); border-radius: 20px; padding: 40px 36px; color: #fff; margin-bottom: 28px; box-shadow: 0 18px 40px rgba(108,77,246,.25); }
+  header.hero h1 { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
+  header.hero p { margin-top: 10px; font-size: 14px; opacity: .92; max-width: 760px; }
+  header.hero .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  header.hero .badges span { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28); padding: 4px 12px; border-radius: 999px; font-size: 12px; }
+  .grid { display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; box-shadow: 0 2px 10px rgba(15,23,42,.04); }
+  .card h2 { font-size: 18px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .muted { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 8px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f9fafb; font-weight: 600; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .pill.ok { background: #ecfdf5; color: #059669; }
+  .pill.done { background: #d1fae5; color: #047857; }
+  .pill.todo { background: #fffbeb; color: #b45309; }
+  .pill.later { background: #f1f5f9; color: #64748b; }
+  .pill.warn { background: #fef2f2; color: #dc2626; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 11px; background: #eef2ff; color: #4338ca; margin-right: 4px; }
+  .arch { display: flex; flex-direction: column; gap: 10px; }
+  .arch .layer { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: #fff; }
+  .arch .layer .lt { font-size: 12px; font-weight: 700; color: var(--brand); letter-spacing: 1px; text-transform: uppercase; }
+  .arch .layer .lb { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .arch .layer .item { border: 1px solid var(--line); background: #f9fafb; border-radius: 8px; padding: 6px 12px; font-size: 12.5px; }
+  .arch .layer .item b { display: block; font-size: 12px; }
+  .arch .layer .item small { color: var(--muted); }
+  .arrow { text-align: center; color: var(--brand); font-size: 16px; }
+  .phase { border-left: 4px solid var(--brand); }
+  .phase.p1 { border-color: var(--ok); }
+  .phase.p2 { border-color: var(--todo); }
+  .phase.p3, .phase.p4, .phase.p5 { border-color: var(--later); }
+  .phase h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .phase .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .phase ul { padding-left: 18px; font-size: 13.5px; }
+  .phase li { margin: 4px 0; }
+  .phase .files { font-size: 12px; color: var(--muted); background: #f8fafc; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-family: ui-monospace, Consolas, monospace; }
+  .warnbox { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px 16px; font-size: 13px; color: #7f1d1d; }
+  .infobox { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 16px; font-size: 13px; color: #1e40af; }
+  .footer { margin-top: 32px; text-align: center; color: var(--muted); font-size: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; text-align: center; }
+  .kpi .n { font-size: 26px; font-weight: 800; color: var(--brand); }
+  .kpi .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  @media (max-width: 640px) { header.hero { padding: 28px 20px; } .card { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>🚀 Ghost 化改造路线图 · cms-admin → 现代开源 CMS</h1>
+    <p>以 Ghost 为参照，把当前「AI-Native 后台管理」演化为<b>专注写作、现代技术栈、可自托管</b>的内容发布平台：Markdown 写作、草稿/定时发布、标签分类、SEO/RSS、主题系统、会员订阅。Rust 高性能内核 + Turso 云库，兼顾自托管与官方托管。</p>
+    <div class="badges">
+      <span>🦀 Rust + Axum 内核</span>
+      <span>🗄️ Turso / libSQL 默认库</span>
+      <span>✍️ Markdown 双模式编辑器</span>
+      <span>📡 sitemap / RSS / OG</span>
+      <span>🎨 Handlebars 主题</span>
+      <span>💳 Stripe 会员订阅</span>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">6</div><div class="l">今日已交付改动</div></div>
+    <div class="kpi"><div class="n">8</div><div class="l">Ghost 核心特性覆盖</div></div>
+    <div class="kpi"><div class="n">5</div><div class="l">分阶段路线</div></div>
+    <div class="kpi"><div class="n">3</div><div class="l">需本地编译后端项</div></div>
+  </div>
+
+  <!-- 现状盘点 -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--brand)"></span>① 能力矩阵：现状 vs Ghost 目标</h2>
+    <table>
+      <tr><th>Ghost 特性</th><th>现状</th><th>说明</th></tr>
+      <tr><td>专注写作 · Markdown 编辑器</td><td><span class="pill done">✅ 今日增强</span></td><td>富文本 ⇄ Markdown 源码双模式切换，写作者可直接用 # / ** / ![img](url) / ``` 代码块</td></tr>
+      <tr><td>草稿 / 定时发布 / 标签</td><td><span class="pill done">✅ 今日增强</span></td><td>状态机已有（draft/pending_review/published/offline）；新增计划发布时间字段；标签已入库并前端展示徽标</td></tr>
+      <tr><td>封面图 / 摘要 / 内容概览</td><td><span class="pill done">✅ 今日增强</span></td><td>新增 featured_image 列（已迁移 DB）；摘要/列表/详情移动端已美化</td></tr>
+      <tr><td>现代化技术栈 · 高并发</td><td><span class="pill ok">已具备</span></td><td>Rust Axum 0.8 + Tokio 多线程 + SQLite/Turso，异步高性能</td></tr>
+      <tr><td>默认 Turso 数据库</td><td><span class="pill ok">已具备</span></td><td>cmsdb.rs 双后端：设 TURSO_URL+TURSO_AUTH_TOKEN 即连云库；未设则本地 SQLite</td></tr>
+      <tr><td>SEO：sitemap / RSS / OG / JSON-LD</td><td><span class="pill todo">⏳ 待编译</span></td><td>后端 sitemap.xml / rss.xml / robots.txt 源码已就绪；前端 OG/Twitter meta 已注入；JSON-LD 待补</td></tr>
+      <tr><td>公开站点 / 静态+动态混合</td><td><span class="pill later">待建</span></td><td>当前 /m 移动工作台需登录；公开阅读路由 + 静态缓存属 Phase 3</td></tr>
+      <tr><td>Handlebars 主题系统</td><td><span class="pill later">待建</span></td><td>Phase 3：handlebars-rust 渲染主题包 themes/</td></tr>
+      <tr><td>会员 / 订阅 / Stripe</td><td><span class="pill later">待建</span></td><td>Phase 4：members 表 + Stripe Checkout/Webhook</td></tr>
+      <tr><td>内容 API · REST / GraphQL</td><td><span class="pill ok">REST 已具备</span></td><td>REST 反射式网关齐全；GraphQL 属 Phase 5（async-graphql）</td></tr>
+      <tr><td>多用户协作（作者/编辑/管理员）</td><td><span class="pill ok">已具备</span></td><td>perm.rs 角色矩阵 + 按钮级权限；可扩展 contributor 角色</td></tr>
+    </table>
+  </div>
+
+  <!-- 目标架构 -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--brand)"></span>② 目标架构</h2>
+    <div class="arch">
+      <div class="layer"><div class="lt">客户端层</div>
+        <div class="lb">
+          <span class="item"><b>后台 Admin</b><small>React 管理界面（现有）</small></span>
+          <span class="item"><b>公开站点</b><small>Handlebars 主题渲染（P3）</small></span>
+          <span class="item"><b>阅读器 / PWA</b><small>/m 移动端（现有）</small></span>
+          <span class="item"><b>外部应用</b><small>REST / GraphQL API（P5）</small></span>
+        </div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer"><div class="lt">服务层（Rust Axum，单一二进制）</div>
+        <div class="lb">
+          <span class="item"><b>内容 API</b><small>CRUD 网关（现有）</small></span>
+          <span class="item"><b>认证 / RBAC</b><small>JWT + 角色矩阵（现有）</small></span>
+          <span class="item"><b>SEO 端点</b><small>sitemap/rss/robots（P2 编译生效）</small></span>
+          <span class="item"><b>公开阅读</b><small>/read/{id}（P3）</small></span>
+          <span class="item"><b>主题引擎</b><small>Handlebars 渲染（P3）</small></span>
+          <span class="item"><b>订阅计费</b><small>Stripe Webhook（P4）</small></span>
+        </div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer"><div class="lt">数据层</div>
+        <div class="lb">
+          <span class="item"><b>Turso / libSQL</b><small>云库（默认）</small></span>
+          <span class="item"><b>SQLite 本地</b><small>开发回退（现有）</small></span>
+          <span class="item"><b>uploads/ 静态目录</b><small>图片等媒体（P2）</small></span>
+          <span class="item"><b>themes/ 主题包</b><small>Handlebars 模板（P3）</small></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 路线 -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--brand)"></span>③ 分阶段落地路线</h2>
+
+    <div class="phase p1" style="padding:14px 18px;border-radius:12px;margin-bottom:14px;background:#ecfdf5;">
+      <h3>✅ P1 · 写作体验与内容模型（今日已交付，前端即时生效）</h3>
+      <div class="sub">纯前端 + DB 迁移，Vite HMR 已生效，无需编译 Rust</div>
+      <ul>
+        <li><b>Markdown 双模式编辑器</b>：<code>web/src/components/cms/markdown.ts</code>（零依赖 md⇄HTML 转换）+ <code>RichTextEditor.tsx</code> 加「MD 源码 / 可视化」切换</li>
+        <li><b>内容模型增强</b>：articles 新增 <code>featured_image</code>、<code>published_at</code> 列（DB 已迁移 + TableDef 已同步）；前端类型/表单/列表支持标签徽标、封面图、计划发布时间</li>
+        <li><b>阅读体验</b>：/m 文章卡片封面缩略图 + 标签徽标；详情封面大图 + OG/Twitter meta 注入（分享卡片）</li>
+      </ul>
+      <div class="files">web/src/components/cms/{markdown.ts, RichTextEditor.tsx} · web/src/api/cms/types.ts · web/src/routes/content/articles.tsx · web/src/routes/m.tsx · server/src/resources.rs · server/migrations/20260825_ghost_cms_articles.sql</div>
+    </div>
+
+    <div class="phase p2" style="padding:14px 18px;border-radius:12px;margin-bottom:14px;">
+      <h3>⏳ P2 · 后端编译部署（源码就绪，等你本地 cargo build）</h3>
+      <div class="sub">本沙箱无法编译 Rust（.cargo-build-lock 被系统级拦截），以下改动均已写入源码</div>
+      <ul>
+        <li><b>SEO 端点生效</b>：<code>server/src/seo.rs</code>（新）→ GET /sitemap.xml、/rss.xml、/robots.txt，输出已发布文章；站点地址用环境变量 <code>PUBLIC_BASE_URL</code> 配置</li>
+        <li><b>请求体 20MB</b>：main.rs 的 DefaultBodyLimit 已放宽，多图/原图文章不再 413</li>
+        <li><b>新列落库</b>：featured_image / published_at 随新二进制读写（当前旧二进制会忽略前端传来的这两字段）</li>
+        <li>部署：<code>cd server && cargo build --release</code> → 用新二进制重启（配套 cms_live.db）</li>
+      </ul>
+      <div class="files">server/src/seo.rs（新）· server/src/main.rs（路由+mod）</div>
+    </div>
+
+    <div class="phase p3" style="padding:14px 18px;border-radius:12px;margin-bottom:14px;">
+      <h3>🎨 P3 · 公开站点 + Handlebars 主题系统</h3>
+      <div class="sub">把内容"发布"出去：SEO 友好的公开阅读 + 可换肤主题</div>
+      <ul>
+        <li><b>公开路由</b>：GET /（首页列表）、/read/{id}（文章页）、/tag/{tag}（标签聚合）、/page/{slug}（静态页）；免认证</li>
+        <li><b>主题引擎</b>：引入 <code>handlebars-rust</code> crate；<code>themes/</code> 目录存放主题包（default 主题内置），按 <code>site.theme</code> 配置切换；模板：index.hbs / post.hbs / tag.hbs / page.hbs + partials</li>
+        <li><b>slug 支持</b>：articles 增加 slug 列（迁移脚本 + 自动从标题生成），URL 语义化</li>
+        <li><b>静态+动态混合</b>：文章级内存缓存（publish 时失效）；可选静态导出到 dist-site/</li>
+        <li><b>JSON-LD + OG 完善</b>：Article schema.org 结构化数据注入</li>
+      </ul>
+      <div class="files">server/src/{public_site.rs, theme.rs}（新）· Cargo.toml（+handlebars）· themes/default/** · server/migrations/*_slug.sql</div>
+    </div>
+
+    <div class="phase p4" style="padding:14px 18px;border-radius:12px;margin-bottom:14px;">
+      <h3>💳 P4 · 会员系统与订阅变现（Stripe）</h3>
+      <div class="sub">对标 Ghost 的 members + 付费订阅</div>
+      <ul>
+        <li><b>数据模型</b>：members（邮箱/密码/订阅状态）、subscriptions（计划/周期/stripe_customer_id）、plans（定价表）、newsletters（邮件订阅名单）</li>
+        <li><b>访问控制</b>：articles 增加 visibility 列（public / members / paid），阅读路由按会员级别放行</li>
+        <li><b>支付</b>：Stripe Checkout（创建会话 → 支付 → Webhook 回调确认订阅）；<code>stripe-rust</code> crate 或直接 REST</li>
+        <li><b>邮箱收集</b>：公开站点订阅表单 → members/newsletters</li>
+        <li>合规提示：真实收款需完成 Stripe 商户验证与隐私政策；沙箱用 test mode</li>
+      </ul>
+      <div class="files">server/src/{members.rs, stripe.rs}（新）· server/migrations/*_members.sql · web 会员设置页</div>
+    </div>
+
+    <div class="phase p5" style="padding:14px 18px;border-radius:12px;margin-bottom:14px;">
+      <h3>🧩 P5 · GraphQL API 与生态</h3>
+      <div class="sub">开放能力，接入 Jamstack / 移动端 / 第三方</div>
+      <ul>
+        <li><b>GraphQL</b>：async-graphql crate 提供 /graphql（posts、tags、members 查询 + 内容变更 mutation），与现有 REST 并存</li>
+        <li><b>管理 API 完善</b>：Content API key（读公开内容）+ Admin API key（写），对标 Ghost 的双密钥体系</li>
+        <li><b>扩展</b>：Webhook 事件（post.published 等）对接外部服务；i18n 内容多语言</li>
+      </ul>
+      <div class="files">server/src/graphql.rs（新）· Cargo.toml（+async-graphql）· docs/API_KEYS.md</div>
+    </div>
+  </div>
+
+  <!-- 关键决策与风险 -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--warn)"></span>④ 关键决策与风险</h2>
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px;">
+      <div class="infobox"><b>图片存储：</b>当前为内联 base64（零后端、已压缩 1280px/JPEG0.78）。多图/大图建议 P2 增加 <code>POST /api/upload</code>（multipart，权限 content.media.upload 已存在）+ 静态服务 /uploads/*，正文引用 URL。</div>
+      <div class="warnbox"><b>公开阅读 XSS：</b>/m 详情用 dangerouslySetInnerHTML 渲染 content。当前仅可信编辑者写入，风险低；公开站点（P3）上线前必须加 DOMPurify 清洗。</div>
+      <div class="infobox"><b>Turso 切换：</b>设 TURSO_URL + TURSO_AUTH_TOKEN 即自动切云库；本地迁移脚本对 cms.db/cms_live.db 已执行，云库需在 Turso CLI 执行同一迁移。</div>
+      <div class="warnbox"><b>编译限制：</b>本沙箱无法 cargo build（系统级拦截 .cargo-build-lock）。P2 后端改动需你本地编译；前端改动 HMR 即时生效，可先行验收。</div>
+    </div>
+  </div>
+
+  <div class="footer">cms-admin · Ghost 化改造路线图 · 生成于 2026-08-25 · 前端 5188 / 后端 8088（旧二进制运行中）</div>
+</div>
+</body>
+</html>

@@ -27,6 +27,9 @@ const FORM_FIELDS: FormFieldDef[] = [
   },
   { key: 'summary', label: '摘要', type: 'textarea', placeholder: '一两句话说明这篇文章讲什么' },
   { key: 'content', label: '正文', type: 'richtext', height: 340, placeholder: '在这里撰写正文，支持加粗、标题、列表，并可插入图片…' },
+  { key: 'tags', label: '标签', type: 'text', placeholder: '逗号分隔，如：新品, 活动, 公告' },
+  { key: 'featuredImage', label: '封面图 URL', type: 'text', placeholder: '图片链接或 data URL（可留空）' },
+  { key: 'publishedAt', label: '计划发布时间', type: 'text', placeholder: '如 2026-08-30 09:00（定时发布元数据）' },
   { key: 'status', label: '状态', type: 'select', options: CONTENT_STATUS_OPTIONS, defaultValue: 'draft' },
 ]
 
@@ -63,6 +66,9 @@ function ArticlesPage() {
       category: String(values.category),
       summary: String(values.summary),
       content: contentStr,
+      tags: String(values.tags ?? '').trim(),
+      featuredImage: String(values.featuredImage ?? '').trim(),
+      publishedAt: String(values.publishedAt ?? '').trim(),
       status: values.status as Article['status'],
     }
     if (editing) await t.update.mutateAsync({ id: editing.id, patch })
@@ -89,6 +95,26 @@ function ArticlesPage() {
       ),
     },
     { id: 'category', header: '分类', render: (r) => <span className="text-os-text-secondary">{r.category}</span> },
+    {
+      id: 'tags',
+      header: '标签',
+      render: (r) =>
+        r.tags ? (
+          <div className="flex flex-wrap gap-1 max-w-[220px]">
+            {String(r.tags)
+              .split(/[,，]/)
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .map((t) => (
+                <span key={t} className="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-xs">
+                  {t}
+                </span>
+              ))}
+          </div>
+        ) : (
+          <span className="text-os-text-muted text-xs">—</span>
+        ),
+    },
     { id: 'status', header: '状态', render: (r) => <ContentStatusBadge status={r.status} /> },
     { id: 'views', header: '浏览量', render: (r) => <span className="text-os-text-secondary tabular-nums">{r.views}</span> },
     { id: 'updatedAt', header: '更新时间', render: (r) => <time className="text-xs text-os-text-muted">{fmtDate(r.updatedAt)}</time> },

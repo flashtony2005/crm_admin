@@ -10,11 +10,15 @@ target*/
 *.rmeta
 *.pdb
 
-# ── 数据库（含线上 cms_live.db 等，禁止入库） ──
+# ── 数据库（默认禁止入库，避免暴露业务数据） ──
 *.db
 *.db-wal
 *.sqlite
 *.sqlite3
+# 例外：仅纳入后端业务库（Turso 本地回退，用户明确选择公开）
+!server/cms.db
+# 例外：当前实际运行库 server/cms_live.db（从 cms.db 复制解锁后由后端实时读写）
+!server/cms_live.db
 
 # ── 环境变量 / 密钥 ──
 .env

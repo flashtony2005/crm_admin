@@ -29,6 +29,12 @@ export interface Article extends BaseRecord {
   author: string
   /** 富文本正文（HTML 字符串，图片以内联 data URL 形式存储） */
   content: string
+  /** 标签：后端以逗号分隔字符串存储；前端提交时用英文逗号分隔 */
+  tags?: string
+  /** 封面图（URL 或内联 data URL） */
+  featuredImage?: string
+  /** 计划发布时间（定时发布元数据；ISO 字符串或 'YYYY-MM-DD HH:mm'） */
+  publishedAt?: string
 }
 
 export interface Page extends BaseRecord {

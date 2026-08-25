@@ -17,9 +17,11 @@ mod error;
 mod notify;
 mod oauth;
 mod perm;
+mod public_api;
 mod public_forms;
 mod resources;
 mod scheduler;
+mod seo;
 mod state;
 mod team;
 
@@ -58,6 +60,14 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/integrations/{id}/oauth/start", get(oauth::start))
         .route("/api/integrations/{id}/oauth/status", get(oauth::status))
         .route("/api/integrations/oauth/callback", get(oauth::callback))
+        // 公开内容 API（免认证只读）：已发布文章列表与详情，
+        // 供公开站点前端 / Jamstack / 第三方消费（headless 用法）
+        .route("/api/public/articles", get(public_api::articles))
+        .route("/api/public/articles/{id}", get(public_api::article_detail))
+        // SEO 公开端点（免认证）：sitemap / RSS / robots
+        .route("/sitemap.xml", get(seo::sitemap))
+        .route("/rss.xml", get(seo::rss))
+        .route("/robots.txt", get(seo::robots))
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，
         // 放宽到 20MB（仍可被 Nginx/反代层再做最终限制）。
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024))

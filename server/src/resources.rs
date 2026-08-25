@@ -65,7 +65,13 @@ pub static TABLES: &[TableDef] = &[
     TableDef {
         key: "articles", table: "articles", perm_prefix: "content.articles",
         create_perm: None, update_perm: None, delete_perm: None,
-        columns: texts!("title", "summary", "content", "status", "author", "tags"),
+        columns: cols![
+            ("title","title",Col::Text),("summary","summary",Col::Text),
+            ("content","content",Col::Text),("status","status",Col::Text),
+            ("author","author",Col::Text),("tags","tags",Col::Text),
+            ("featured_image","featuredImage",Col::TextNull),
+            ("published_at","publishedAt",Col::TextNull),
+        ],
     },
     TableDef {
         key: "pages", table: "pages", perm_prefix: "content.pages",

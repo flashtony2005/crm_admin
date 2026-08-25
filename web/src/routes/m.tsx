@@ -627,6 +627,31 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
   }, [key])
   useEffect(() => { void load() }, [load])
 
+  // SEO：文章详情动态注入 document.title + OG/Twitter meta（分享卡片用）
+  useEffect(() => {
+    const ensureMeta = (attr: string, name: string, content: string) => {
+      let el = document.head.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null
+      if (!el) {
+        el = document.createElement('meta')
+        el.setAttribute(attr, name)
+        document.head.appendChild(el)
+      }
+      el.setAttribute('content', content)
+    }
+    if (detail && key === 'articles') {
+      const t = String(detail.title ?? '文章')
+      document.title = `${t} · CMS 阅读`
+      ensureMeta('property', 'og:title', t)
+      ensureMeta('property', 'og:description', String(detail.summary ?? detail.title ?? '').slice(0, 200))
+      if (detail.featuredImage) ensureMeta('property', 'og:image', String(detail.featuredImage))
+      ensureMeta('property', 'og:type', 'article')
+      ensureMeta('name', 'twitter:card', 'summary_large_image')
+      ensureMeta('name', 'twitter:title', t)
+    } else if (!detail) {
+      document.title = '移动工作台'
+    }
+  }, [detail, key])
+
   const remove = async (rec: Rec) => {
     if (!confirm(`确认删除「${meta.title(rec)}」？`)) return
     const r: any = await mreq(`/api/${key}/${rec.id}`, { method: 'DELETE' })
@@ -675,13 +700,24 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
             className={`${CARD} p-3.5 text-left active:scale-[0.99] transition-transform`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <span className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${tone} text-white flex items-center justify-center shrink-0 shadow-sm`}>
-                <Icon size={17} strokeWidth={2.2} />
+              <span className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${tone} text-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden`}>
+                {key === 'articles' && typeof rec.featuredImage === 'string' && rec.featuredImage ? (
+                  <img src={rec.featuredImage} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Icon size={17} strokeWidth={2.2} />
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold text-gray-900 truncate">{meta.title(rec)}</p>
                 {meta.subtitle && meta.subtitle(rec) && (
                   <p className="text-xs text-gray-400 truncate mt-0.5">{meta.subtitle(rec)}</p>
+                )}
+                {key === 'articles' && typeof rec.tags === 'string' && rec.tags.trim() && (
+                  <div className="flex gap-1 mt-1.5">
+                    {rec.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
+                      <span key={t} className="px-1.5 py-0.5 rounded-md bg-[#7C5CFF]/10 text-[#6C4DF6] text-[10px] font-medium">{t}</span>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -715,7 +751,30 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
             </header>
             <div className="flex-1 overflow-auto px-5 py-5 flex flex-col gap-4">
               <div className={`${CARD} p-4 flex flex-col divide-y divide-black/[0.04]`}>
+                {key === 'articles' && typeof detail.featuredImage === 'string' && detail.featuredImage && (
+                  <img
+                    src={detail.featuredImage}
+                    alt={String(detail.title ?? '')}
+                    className="w-full max-h-60 object-cover rounded-2xl"
+                  />
+                )}
                 {meta.fields.map((fd) => {
+                  if (fd.key === 'content') {
+                    const html = typeof detail[fd.key] === 'string' ? (detail[fd.key] as string) : ''
+                    return (
+                      <div key={fd.key} className="py-3 first:pt-0">
+                        <p className="text-xs text-gray-400 mb-2">{fd.label}</p>
+                        {html ? (
+                          <div
+                            className="text-[14px] text-gray-800 leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-2 [&_a]:text-[#6C4DF6] [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-2 [&_p]:my-1.5"
+                            dangerouslySetInnerHTML={{ __html: html }}
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-400">（空）</p>
+                        )}
+                      </div>
+                    )
+                  }
                   let v: any = detail[fd.key]
                   if (fd.type === 'tags') v = Array.isArray(v) ? v.join(', ') : (v ?? '')
                   if (fd.type === 'select') v = STATUS_LABEL[v] ?? v
