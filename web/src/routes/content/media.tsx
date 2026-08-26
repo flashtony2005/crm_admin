@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 
-import { mediaApi, type MediaItem } from '../../api/cms'
+import { mediaApi, uploadFile, type MediaItem } from '../../api/cms'
 import { CmsPageHeader } from '../../components/cms/CmsPageHeader'
 import { CmsToolbar } from '../../components/cms/CmsToolbar'
 import { useCmsCollection } from '../../components/cms/useCmsCollection'
@@ -21,24 +21,22 @@ function MediaPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 
-  /** Mock 上传：选择文件后登记为媒体记录（真实上传在 Phase 1 后端实现） */
+  /** 真实上传：选择文件 → POST /api/upload → 记录返回的真实 URL */
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setBusy(true)
     try {
       for (const f of Array.from(files)) {
-        const type: MediaItem['type'] = f.type.startsWith('image/')
-          ? 'image'
-          : f.type.startsWith('video/')
-            ? 'video'
-            : 'file'
+        const uploaded = await uploadFile(f)
         await t.create.mutateAsync({
-          name: f.name,
-          type,
-          sizeKb: Math.max(1, Math.round(f.size / 1024)),
-          url: '#',
+          name: uploaded.name || f.name,
+          type: uploaded.type as MediaItem['type'],
+          sizeKb: uploaded.sizeKb,
+          url: uploaded.url,
         })
       }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '上传失败，请重试')
     } finally {
       setBusy(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -79,10 +77,14 @@ function MediaPage() {
               key={m.id}
               className="group relative rounded-xl border border-os-border bg-white overflow-hidden shadow-sm hover:shadow-md transition-all"
             >
-              {/* 缩略区：图片显示渐变占位（真实缩略图待后端存储） */}
-              <div className="h-28 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-4xl">
-                {TYPE_ICON[m.type] ?? '📎'}
-              </div>
+              {/* 缩略区：图片渲染真实上传图，其它类型用图标占位 */}
+              {m.type === 'image' && m.url && m.url !== '#' ? (
+                <img src={m.url} alt={m.name} className="h-28 w-full object-cover" loading="lazy" />
+              ) : (
+                <div className="h-28 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-4xl">
+                  {TYPE_ICON[m.type] ?? '📎'}
+                </div>
+              )}
               <figcaption className="px-3 py-2.5">
                 <p className="text-sm font-medium text-os-text-primary truncate">{m.name}</p>
                 <p className="text-xs text-os-text-muted mt-0.5">

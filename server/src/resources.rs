@@ -66,17 +66,33 @@ pub static TABLES: &[TableDef] = &[
         key: "articles", table: "articles", perm_prefix: "content.articles",
         create_perm: None, update_perm: None, delete_perm: None,
         columns: cols![
-            ("title","title",Col::Text),("summary","summary",Col::Text),
+            ("title","title",Col::Text),("slug","slug",Col::Text),
+            ("summary","summary",Col::Text),
             ("content","content",Col::Text),("status","status",Col::Text),
             ("author","author",Col::Text),("tags","tags",Col::Text),
             ("featured_image","featuredImage",Col::TextNull),
             ("published_at","publishedAt",Col::TextNull),
+            ("meta_title","metaTitle",Col::TextNull),
+            ("meta_description","metaDescription",Col::TextNull),
         ],
     },
     TableDef {
         key: "pages", table: "pages", perm_prefix: "content.pages",
         create_perm: None, update_perm: None, delete_perm: None,
         columns: texts!("title", "slug", "content", "status"),
+    },
+    // 独立 Tag 管理：描述/封面/SEO 字段，供内容组织专业化（P3 中优先级）
+    TableDef {
+        key: "tags", table: "tags", perm_prefix: "content.tags",
+        create_perm: None, update_perm: None, delete_perm: None,
+        columns: cols![
+            ("name","name",Col::Text),
+            ("slug","slug",Col::Text),
+            ("description","description",Col::Text),
+            ("cover_image","coverImage",Col::TextNull),
+            ("meta_title","metaTitle",Col::TextNull),
+            ("meta_description","metaDescription",Col::TextNull),
+        ],
     },
     TableDef {
         key: "products", table: "products", perm_prefix: "content.products",

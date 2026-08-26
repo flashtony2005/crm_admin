@@ -17,6 +17,7 @@ import { Route as MRouteImport } from './routes/m'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SiteRouteImport } from './routes/site'
 import { Route as AiApprovalsRouteImport } from './routes/ai/approvals'
 import { Route as AiAssistantRouteImport } from './routes/ai/assistant'
 import { Route as AiTasksRouteImport } from './routes/ai/tasks'
@@ -29,6 +30,7 @@ import { Route as ContentArticlesRouteImport } from './routes/content/articles'
 import { Route as ContentMediaRouteImport } from './routes/content/media'
 import { Route as ContentPagesRouteImport } from './routes/content/pages'
 import { Route as ContentProductsRouteImport } from './routes/content/products'
+import { Route as ContentTagsRouteImport } from './routes/content/tags'
 import { Route as FFormIdRouteImport } from './routes/f.$formId'
 import { Route as TeamRolesRouteImport } from './routes/team/roles'
 import { Route as TeamUsersRouteImport } from './routes/team/users'
@@ -71,6 +73,11 @@ const RegisterRoute = RegisterRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SiteRoute = SiteRouteImport.update({
+  id: '/site',
+  path: '/site',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AiApprovalsRoute = AiApprovalsRouteImport.update({
@@ -133,6 +140,11 @@ const ContentProductsRoute = ContentProductsRouteImport.update({
   path: '/content/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentTagsRoute = ContentTagsRouteImport.update({
+  id: '/content/tags',
+  path: '/content/tags',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FFormIdRoute = FFormIdRouteImport.update({
   id: '/f/$formId',
   path: '/f/$formId',
@@ -158,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/site': typeof SiteRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
@@ -170,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/content/media': typeof ContentMediaRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/tags': typeof ContentTagsRoute
   '/f/$formId': typeof FFormIdRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
@@ -183,6 +197,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/site': typeof SiteRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
@@ -195,6 +210,7 @@ export interface FileRoutesByTo {
   '/content/media': typeof ContentMediaRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/tags': typeof ContentTagsRoute
   '/f/$formId': typeof FFormIdRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
@@ -209,6 +225,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/site': typeof SiteRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
@@ -221,6 +238,7 @@ export interface FileRoutesById {
   '/content/media': typeof ContentMediaRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/tags': typeof ContentTagsRoute
   '/f/$formId': typeof FFormIdRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
@@ -236,6 +254,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/register'
     | '/settings'
+    | '/site'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
@@ -248,6 +267,7 @@ export interface FileRouteTypes {
     | '/content/media'
     | '/content/pages'
     | '/content/products'
+    | '/content/tags'
     | '/f/$formId'
     | '/team/roles'
     | '/team/users'
@@ -261,6 +281,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/register'
     | '/settings'
+    | '/site'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
@@ -273,6 +294,7 @@ export interface FileRouteTypes {
     | '/content/media'
     | '/content/pages'
     | '/content/products'
+    | '/content/tags'
     | '/f/$formId'
     | '/team/roles'
     | '/team/users'
@@ -286,6 +308,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/register'
     | '/settings'
+    | '/site'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
@@ -298,6 +321,7 @@ export interface FileRouteTypes {
     | '/content/media'
     | '/content/pages'
     | '/content/products'
+    | '/content/tags'
     | '/f/$formId'
     | '/team/roles'
     | '/team/users'
@@ -312,6 +336,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
+  SiteRoute: typeof SiteRoute
   AiApprovalsRoute: typeof AiApprovalsRoute
   AiAssistantRoute: typeof AiAssistantRoute
   AiTasksRoute: typeof AiTasksRoute
@@ -324,6 +349,7 @@ export interface RootRouteChildren {
   ContentMediaRoute: typeof ContentMediaRoute
   ContentPagesRoute: typeof ContentPagesRoute
   ContentProductsRoute: typeof ContentProductsRoute
+  ContentTagsRoute: typeof ContentTagsRoute
   FFormIdRoute: typeof FFormIdRoute
   TeamRolesRoute: typeof TeamRolesRoute
   TeamUsersRoute: typeof TeamUsersRoute
@@ -385,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/site': {
+      id: '/site'
+      path: '/site'
+      fullPath: '/site'
+      preLoaderRoute: typeof SiteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ai/approvals': {
@@ -471,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/tags': {
+      id: '/content/tags'
+      path: '/content/tags'
+      fullPath: '/content/tags'
+      preLoaderRoute: typeof ContentTagsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/f/$formId': {
       id: '/f/$formId'
       path: '/f/$formId'
@@ -504,6 +544,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
+  SiteRoute: SiteRoute,
   AiApprovalsRoute: AiApprovalsRoute,
   AiAssistantRoute: AiAssistantRoute,
   AiTasksRoute: AiTasksRoute,
@@ -516,6 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContentMediaRoute: ContentMediaRoute,
   ContentPagesRoute: ContentPagesRoute,
   ContentProductsRoute: ContentProductsRoute,
+  ContentTagsRoute: ContentTagsRoute,
   FFormIdRoute: FFormIdRoute,
   TeamRolesRoute: TeamRolesRoute,
   TeamUsersRoute: TeamUsersRoute,

@@ -7,6 +7,7 @@ use axum::{
 };
 use serde_json::json;
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 
 mod ai;
 mod cmsdb;
@@ -24,6 +25,7 @@ mod scheduler;
 mod seo;
 mod state;
 mod team;
+mod upload;
 
 #[cfg(test)]
 mod tests_api;
@@ -64,10 +66,15 @@ pub fn build_router(st: AppState) -> Router {
         // 供公开站点前端 / Jamstack / 第三方消费（headless 用法）
         .route("/api/public/articles", get(public_api::articles))
         .route("/api/public/articles/{id}", get(public_api::article_detail))
+        .route("/api/public/tags", get(public_api::tags))
         // SEO 公开端点（免认证）：sitemap / RSS / robots
         .route("/sitemap.xml", get(seo::sitemap))
         .route("/rss.xml", get(seo::rss))
         .route("/robots.txt", get(seo::robots))
+        // 文件上传（需 content.media.upload 权限）：multipart → uploads/ 目录
+        .route("/api/upload", post(upload::upload))
+        // 静态资源：上传的文件公开可读（/uploads/*）
+        .nest_service("/uploads", ServeDir::new(upload::uploads_dir()))
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，
         // 放宽到 20MB（仍可被 Nginx/反代层再做最终限制）。
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024))
@@ -84,6 +91,8 @@ async fn main() {
     let st = AppState { db, tenant: "t_demo".into() };
     // B3 定时触发器：后台每分钟扫描 schedule.* 工作流
     scheduler::spawn(st.clone());
+    // 确保上传目录存在（幂等）
+    upload::ensure_uploads_dir();
 
     let app = build_router(st.clone());
     let addr = format!(

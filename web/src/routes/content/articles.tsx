@@ -18,6 +18,7 @@ import { P } from '../../config/permissions'
 
 const FORM_FIELDS: FormFieldDef[] = [
   { key: 'title', label: '标题', type: 'text', required: true, placeholder: '例如：秋季限定新品上市' },
+  { key: 'slug', label: 'Slug（URL 别名）', type: 'text', placeholder: '如 autumn-new-arrivals（留空自动回退文章 ID）' },
   {
     key: 'category',
     label: '分类',
@@ -29,6 +30,8 @@ const FORM_FIELDS: FormFieldDef[] = [
   { key: 'content', label: '正文', type: 'richtext', height: 340, placeholder: '在这里撰写正文，支持加粗、标题、列表，并可插入图片…' },
   { key: 'tags', label: '标签', type: 'text', placeholder: '逗号分隔，如：新品, 活动, 公告' },
   { key: 'featuredImage', label: '封面图 URL', type: 'text', placeholder: '图片链接或 data URL（可留空）' },
+  { key: 'metaTitle', label: 'SEO 标题', type: 'text', placeholder: '搜索引擎显示的标题（留空则用文章标题）' },
+  { key: 'metaDescription', label: 'SEO 描述', type: 'textarea', placeholder: '搜索引擎显示的描述（留空则用摘要）' },
   { key: 'publishedAt', label: '计划发布时间', type: 'text', placeholder: '如 2026-08-30 09:00（定时发布元数据）' },
   { key: 'status', label: '状态', type: 'select', options: CONTENT_STATUS_OPTIONS, defaultValue: 'draft' },
 ]
@@ -63,11 +66,14 @@ function ArticlesPage() {
     }
     const patch = {
       title: String(values.title),
+      slug: String(values.slug ?? '').trim(),
       category: String(values.category),
       summary: String(values.summary),
       content: contentStr,
       tags: String(values.tags ?? '').trim(),
       featuredImage: String(values.featuredImage ?? '').trim(),
+      metaTitle: String(values.metaTitle ?? '').trim(),
+      metaDescription: String(values.metaDescription ?? '').trim(),
       publishedAt: String(values.publishedAt ?? '').trim(),
       status: values.status as Article['status'],
     }

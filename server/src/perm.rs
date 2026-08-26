@@ -40,6 +40,7 @@ impl Role {
                 // 只读面
                 "content.pages.view",
                 "content.articles.view",
+                "content.tags.view",
                 "content.products.view",
                 "content.media.view",
                 "ai.assistant.use",
@@ -59,6 +60,9 @@ impl Role {
                 "content.articles.create",
                 "content.articles.update",
                 "content.articles.delete",
+                "content.tags.create",
+                "content.tags.update",
+                "content.tags.delete",
                 "content.products.create",
                 "content.products.update",
                 "content.products.delete",

@@ -5,9 +5,9 @@ edition = "2021"
 description = "AI-Native Small Business CMS — Phase 1 backend (Axum + SeaORM/SQLite, Turso-ready)"
 
 [dependencies]
-axum = "0.8"
+axum = { version = "0.8", features = ["multipart"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sea-orm = { version = "2.0", features = ["sqlx-sqlite", "runtime-tokio-native-tls", "macros"] }

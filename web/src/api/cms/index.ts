@@ -4,7 +4,7 @@
  */
 import { collection } from './store'
 import { fetchAndApplyPermissions, httpCollection } from './http'
-import { request } from '../client'
+import { request, getToken, redirectToLogin, showPermissionToast, ApiError } from '../client'
 
 /**
  * 数据源模式：
@@ -19,7 +19,7 @@ import {
 } from './seed'
 import type {
   AiTask, Approval, Article, Customer, FormDef,
-  Integration, Lead, MediaItem, Page, Product, WorkflowDef,
+  Integration, Lead, MediaItem, Page, Product, Tag, WorkflowDef,
 } from './types'
 
 export * from './types'
@@ -32,6 +32,9 @@ export const articlesApi = CMS_MODE === 'real'
 export const pagesApi = CMS_MODE === 'real'
   ? httpCollection<Page>('pages')
   : collection<Page>('pages', seedPages)
+export const tagsApi = CMS_MODE === 'real'
+  ? httpCollection<Tag>('tags')
+  : collection<Tag>('tags', [])
 export const productsApi = CMS_MODE === 'real'
   ? httpCollection<Product>('products')
   : collection<Product>('products', seedProducts)
@@ -112,4 +115,40 @@ export async function getHomeStats(): Promise<HomeStats> {
       (t) => t.status === 'running' || t.status === 'waiting_approval',
     ),
   }
+}
+
+/**
+ * 上传文件到 /api/upload（multipart），返回首个文件的元信息 { url, name, type, sizeKb }。
+ * 注意：不走 request()（其强制 Content-Type: application/json 会破坏 multipart 边界），
+ * 这里用原生 fetch 且不设 Content-Type，由浏览器自动生成 multipart boundary。
+ */
+export interface UploadedFile {
+  url: string
+  name: string
+  type: string
+  sizeKb: number
+}
+
+export async function uploadFile(file: File): Promise<UploadedFile> {
+  const token = getToken()
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: fd,
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean
+    error?: string
+    data?: { items?: UploadedFile[] }
+  }
+  if (!res.ok || body.ok === false) {
+    if (res.status === 401) redirectToLogin()
+    if (res.status === 403) showPermissionToast(body.error || '权限不足')
+    throw new ApiError(res.status, body.error || '上传失败')
+  }
+  const item = body.data?.items?.[0]
+  if (!item) throw new ApiError(res.status, '上传未返回文件地址')
+  return item
 }

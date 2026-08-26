@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'framer-motion'
+import { sanitizeHtml } from '../utils/sanitize'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle, CheckCircle2, Check, ChevronRight, ClipboardCheck, ClipboardList,
@@ -639,14 +640,18 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
       el.setAttribute('content', content)
     }
     if (detail && key === 'articles') {
-      const t = String(detail.title ?? '文章')
+      // 文章级独立 SEO 字段优先，缺失时回退标题/摘要
+      const t = String(detail.metaTitle ?? detail.title ?? '文章')
+      const desc = String(detail.metaDescription ?? detail.summary ?? '').slice(0, 200)
       document.title = `${t} · CMS 阅读`
       ensureMeta('property', 'og:title', t)
-      ensureMeta('property', 'og:description', String(detail.summary ?? detail.title ?? '').slice(0, 200))
+      ensureMeta('name', 'description', desc)
+      ensureMeta('property', 'og:description', desc)
       if (detail.featuredImage) ensureMeta('property', 'og:image', String(detail.featuredImage))
       ensureMeta('property', 'og:type', 'article')
       ensureMeta('name', 'twitter:card', 'summary_large_image')
       ensureMeta('name', 'twitter:title', t)
+      ensureMeta('name', 'twitter:description', desc)
     } else if (!detail) {
       document.title = '移动工作台'
     }
@@ -767,7 +772,7 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
                         {html ? (
                           <div
                             className="text-[14px] text-gray-800 leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-2 [&_a]:text-[#6C4DF6] [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-2 [&_p]:my-1.5"
-                            dangerouslySetInnerHTML={{ __html: html }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
                           />
                         ) : (
                           <p className="text-sm text-gray-400">（空）</p>

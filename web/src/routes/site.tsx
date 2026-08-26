@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { sanitizeHtml } from '../utils/sanitize'
 import { ArrowLeft, Rss } from 'lucide-react'
 import { SITE_THEMES, loadSiteTheme, saveSiteTheme, themeCssVars } from '../themes/siteThemes'
 
@@ -20,6 +21,7 @@ const SITE_TAGLINE = '专注内容的现代发布平台'
 interface SiteArticle {
   id: string
   title?: string
+  slug?: string
   summary?: string
   content?: string
   tags?: string | null
@@ -28,6 +30,9 @@ interface SiteArticle {
   updated_at?: string
   author?: string
   status?: string
+  /** 文章级独立 SEO 字段（公开 API 返回，snake_case） */
+  meta_title?: string | null
+  meta_description?: string | null
 }
 
 /** 带登录态的 GET（与 /m 的 mreq 同策略：自管 token，避免 401 全局跳转） */
@@ -123,17 +128,19 @@ function SitePage() {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errMsg, setErrMsg] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setPhase('loading')
-    const r = await req<{ data?: SiteArticle[] }>('/api/articles')
+    // 免认证公开 API：仅已发布文章，含 slug/meta_title/meta_description
+    const r = await req<{ data?: SiteArticle[] }>('/api/public/articles')
     if (r.error !== undefined) {
       setErrMsg(r.error)
       setPhase('error')
       return
     }
     const all = Array.isArray(r.data) ? r.data : []
-    setList(all.filter((a) => a.status === 'published'))
+    setList(all)
     setPhase('ready')
   }, [])
 
@@ -141,19 +148,65 @@ function SitePage() {
     void load()
   }, [load])
 
-  const current = openId ? list.find((a) => a.id === openId) : undefined
+  /** 文章公开 key：slug 优先，空则回退 id（与后端 /read/{key} 解析一致） */
+  const keyOf = (a: SiteArticle) => (a.slug && a.slug.trim() ? a.slug! : a.id)
 
-  // 详情页 SEO meta 注入
+  const current = openId ? list.find((a) => keyOf(a) === openId) : undefined
+
+  /** 标签筛选后的列表（tagFilter 为空则全部） */
+  const filtered = tagFilter
+    ? list.filter((a) => parseTags(a.tags).includes(tagFilter))
+    : list
+
+  /** 点击标签：进入该标签的筛选视图 */
+  const pickTag = (tg: string) => {
+    setOpenId(null)
+    setTagFilter(tg)
+  }
+
+  // 详情页 SEO meta 注入 + JSON-LD（Article schema）
   const prevTitle = useRef(document.title)
   useEffect(() => {
-    if (!current) return
+    const ld = document.getElementById('lp-jsonld')
+    if (!current) {
+      ld?.remove()
+      return
+    }
     const cover = current.featured_image || firstImg(current.content)
-    document.title = `${current.title || '无题'} · ${SITE_NAME}`
-    setMeta('property', 'og:title', `${current.title || '无题'} · ${SITE_NAME}`)
-    setMeta('property', 'og:description', excerpt(current, 160))
-    setMeta('name', 'description', excerpt(current, 160))
+    // 文章级 SEO 字段优先，缺失回退标题/摘要
+    const seoTitle = (current.meta_title || current.title || '无题').trim()
+    const seoDesc = (current.meta_description || excerpt(current, 160)).slice(0, 200)
+    document.title = `${seoTitle} · ${SITE_NAME}`
+    setMeta('property', 'og:title', `${seoTitle} · ${SITE_NAME}`)
+    setMeta('property', 'og:description', seoDesc)
+    setMeta('name', 'description', seoDesc)
     if (cover && !cover.startsWith('data:')) setMeta('property', 'og:image', cover)
     setMeta('name', 'twitter:card', cover ? 'summary_large_image' : 'summary')
+    // JSON-LD Article（Google 富结果）
+    let el = document.getElementById('lp-jsonld') as HTMLScriptElement | null
+    if (!el) {
+      el = document.createElement('script')
+      el.id = 'lp-jsonld'
+      el.setAttribute('type', 'application/ld+json')
+      document.head.appendChild(el)
+    }
+    const articleLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: seoTitle,
+      description: seoDesc,
+      datePublished: current.published_at || current.updated_at || undefined,
+      dateModified: current.updated_at || undefined,
+      author: { '@type': 'Person', name: current.author || '佚名' },
+      ...(cover && !cover.startsWith('data:')
+        ? { image: cover }
+        : {}),
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': `${window.location.origin}/read/${keyOf(current)}`,
+      },
+    }
+    el.textContent = JSON.stringify(articleLd)
     return () => {
       document.title = prevTitle.current
     }
@@ -261,26 +314,62 @@ function SitePage() {
         </div>
       )}
 
-      {phase === 'ready' && !current && list.length === 0 && (
+      {phase === 'ready' && !current && filtered.length === 0 && (
         <div className="mx-auto max-w-md px-5 py-28 text-center space-y-3">
           <p className="text-4xl">🕊️</p>
           <p className="text-sm" style={{ color: theme.vars.muted }}>
-            还没有已发布的文章。去「内容 → 文章」写一篇并发布吧。
+            {tagFilter
+              ? `标签「${tagFilter}」下还没有已发布的文章。`
+              : '还没有已发布的文章。去「内容 → 文章」写一篇并发布吧。'}
           </p>
-          <a
-            href="/content/articles"
-            className="inline-block px-4 py-2 rounded-full text-sm font-medium"
-            style={{ background: theme.vars.accent, color: theme.vars.accentText }}
-          >
-            打开后台
-          </a>
+          {tagFilter ? (
+            <button
+              onClick={() => setTagFilter(null)}
+              className="inline-block px-4 py-2 rounded-full text-sm font-medium"
+              style={{ background: theme.vars.accent, color: theme.vars.accentText }}
+            >
+              查看全部文章
+            </button>
+          ) : (
+            <a
+              href="/content/articles"
+              className="inline-block px-4 py-2 rounded-full text-sm font-medium"
+              style={{ background: theme.vars.accent, color: theme.vars.accentText }}
+            >
+              打开后台
+            </a>
+          )}
         </div>
       )}
 
       {/* 首页 */}
-      {phase === 'ready' && !current && list.length > 0 && (
+      {phase === 'ready' && !current && filtered.length > 0 && (
         <>
-          {/* Hero：最新一篇 */}
+          {/* 标签筛选横幅 */}
+          {tagFilter && (
+            <div className="mx-auto max-w-5xl px-5 sm:px-8 pt-10">
+              <div
+                className="flex items-center gap-3 px-5 py-3.5 rounded-2xl border"
+                style={{ background: theme.vars.surface, borderColor: theme.vars.border }}
+              >
+                <span className="text-sm font-semibold">
+                  标签：<span style={{ color: theme.vars.accent }}># {tagFilter}</span>
+                </span>
+                <span className="text-xs" style={{ color: theme.vars.muted }}>
+                  {filtered.length} 篇
+                </span>
+                <button
+                  onClick={() => setTagFilter(null)}
+                  className="ml-auto px-3 py-1 rounded-full text-xs font-medium hover:opacity-85"
+                  style={{ background: theme.vars.surfaceAlt, color: theme.vars.accent }}
+                >
+                  ✕ 清除筛选
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Hero：当前视图最新一篇 */}
           <section
             className="px-5 sm:px-8 pt-12 pb-16"
             style={{
@@ -295,21 +384,21 @@ function SitePage() {
                 FEATURED
               </p>
               <h1 className="text-3xl sm:text-[2.6rem] leading-tight font-bold tracking-tight max-w-3xl">
-                {list[0].title}
+                {filtered[0].title}
               </h1>
               <p
                 className="text-sm sm:text-base line-clamp-2 max-w-2xl"
                 style={{ color: theme.vars.muted }}
               >
-                {excerpt(list[0], 150)}
+                {excerpt(filtered[0], 150)}
               </p>
               <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: theme.vars.muted }}>
-                <span>{list[0].author || '佚名'}</span>
+                <span>{filtered[0].author || '佚名'}</span>
                 <span>·</span>
-                <span>{fmtDate(list[0].published_at || list[0].updated_at)}</span>
+                <span>{fmtDate(filtered[0].published_at || filtered[0].updated_at)}</span>
               </div>
               <button
-                onClick={() => setOpenId(list[0].id)}
+                onClick={() => setOpenId(keyOf(filtered[0]))}
                 className="mt-3 px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
                 style={{ background: theme.vars.accent, color: theme.vars.accentText }}
               >
@@ -321,13 +410,13 @@ function SitePage() {
           {/* 卡片网格 */}
           <main className="mx-auto max-w-5xl px-5 sm:px-8 pb-20 -mt-8 relative z-10">
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {list.map((a) => {
+              {filtered.map((a) => {
                 const cover = coverOf(a)
                 const tags = parseTags(a.tags)
                 return (
                   <article
                     key={a.id}
-                    onClick={() => setOpenId(a.id)}
+                    onClick={() => setOpenId(keyOf(a))}
                     className="group rounded-2xl overflow-hidden border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col"
                     style={{ background: theme.vars.surface, borderColor: theme.vars.border }}
                   >
@@ -366,13 +455,17 @@ function SitePage() {
                         </span>
                         <span className="flex gap-1 overflow-hidden">
                           {tags.slice(0, 2).map((tg) => (
-                            <span
+                            <button
                               key={tg}
-                              className="px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                pickTag(tg)
+                              }}
+                              className="px-1.5 py-0.5 rounded-full whitespace-nowrap hover:opacity-80"
                               style={{ background: theme.vars.surfaceAlt, color: theme.vars.accent }}
                             >
                               {tg}
-                            </span>
+                            </button>
                           ))}
                         </span>
                       </div>
@@ -415,13 +508,14 @@ function SitePage() {
             <span>·</span>
             <span>{fmtDate(current.published_at || current.updated_at)}</span>
             {parseTags(current.tags).map((tg) => (
-              <span
+              <button
                 key={tg}
-                className="px-2 py-0.5 rounded-full"
+                onClick={() => pickTag(tg)}
+                className="px-2 py-0.5 rounded-full hover:opacity-80"
                 style={{ background: theme.vars.surfaceAlt, color: theme.vars.accent }}
               >
                 # {tg}
-              </span>
+              </button>
             ))}
           </div>
 
@@ -436,7 +530,7 @@ function SitePage() {
           {current.content ? (
             <div
               className="lp-prose mt-8 text-[15.5px]"
-              dangerouslySetInnerHTML={{ __html: current.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.content) }}
             />
           ) : (
             <p className="mt-8 leading-relaxed" style={{ color: theme.vars.muted }}>

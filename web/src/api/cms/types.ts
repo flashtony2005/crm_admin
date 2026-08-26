@@ -35,6 +35,10 @@ export interface Article extends BaseRecord {
   featuredImage?: string
   /** 计划发布时间（定时发布元数据；ISO 字符串或 'YYYY-MM-DD HH:mm'） */
   publishedAt?: string
+  /** 独立 SEO 标题（留空则回退用 title） */
+  metaTitle?: string
+  /** 独立 SEO 描述（留空则回退用 summary） */
+  metaDescription?: string
 }
 
 export interface Page extends BaseRecord {
@@ -42,6 +46,16 @@ export interface Page extends BaseRecord {
   path: string
   status: ContentStatus
   views: number
+}
+
+/** 独立 Tag（P3 内容组织专业化）：描述/封面/SEO 字段 */
+export interface Tag extends BaseRecord {
+  name: string
+  slug: string
+  description: string
+  coverImage?: string
+  metaTitle?: string
+  metaDescription?: string
 }
 
 export interface Product extends BaseRecord {

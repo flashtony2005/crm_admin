@@ -51,6 +51,7 @@ export const PRODUCT_NAV: NavNode[] = [
     children: [
       { key: 'pages', label: '页面', path: '/content/pages', icon: 'page', desc: '网站页面', perm: 'content.pages.view' },
       { key: 'articles', label: '文章', path: '/content/articles', icon: 'article', desc: '文章与动态', perm: 'content.articles.view' },
+      { key: 'tags', label: '标签', path: '/content/tags', icon: 'tag', desc: '标签库（描述/封面/SEO）', perm: 'content.tags.view' },
       { key: 'products', label: '产品', path: '/content/products', icon: 'box', desc: '产品与服务', perm: 'content.products.view' },
       { key: 'media', label: '素材', path: '/content/media', icon: 'image', desc: '图片与素材', perm: 'content.media.view' },
     ],

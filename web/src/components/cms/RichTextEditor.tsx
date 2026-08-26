@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { htmlToMarkdown, markdownToHtml } from './markdown'
+import { uploadFile } from '../../api/cms'
 
 interface Props {
   value: string
@@ -128,26 +129,26 @@ export function RichTextEditor({ value, onChange, placeholder, height = 320 }: P
     onChange(markdownToHtml(e.target.value))
   }
 
-  const onPickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
       window.alert('请选择图片文件')
-      e.target.value = ''
       return
     }
-    fileToCompressedDataUrl(file)
-      .then((dataUrl) => {
-        ref.current?.focus()
-        document.execCommand(
-          'insertHTML',
-          false,
-          `<img src="${dataUrl}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;display:block;" />`,
-        )
-        emit()
-      })
-      .catch(() => window.alert('图片处理失败，请换一张或重试'))
-    e.target.value = ''
+    try {
+      const uploaded = await uploadFile(file)
+      ref.current?.focus()
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<img src="${uploaded.url}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;display:block;" />`,
+      )
+      emit()
+    } catch {
+      window.alert('图片上传失败，请重试')
+    }
   }
 
   const btn =

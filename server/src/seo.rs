@@ -14,6 +14,7 @@ use axum::response::IntoResponse;
 use sea_orm::Value as SqlValue;
 
 use crate::state::AppState;
+use chrono::DateTime;
 
 /// 站点根地址：环境变量 PUBLIC_BASE_URL（如 https://blog.example.com），缺省本地
 fn base_url() -> String {
@@ -29,11 +30,11 @@ fn esc_xml(s: &str) -> String {
         .replace('\'', "&apos;")
 }
 
-/// 已发布文章：(id, title, summary, updated_at, featured_image)
+/// 已发布文章：(id, title, summary, updated_at, featured_image, slug)
 async fn published_articles(
     st: &AppState,
-) -> Result<Vec<(String, String, String, String, String)>, String> {
-    let sql = "SELECT id, title, summary, updated_at, featured_image \
+) -> Result<Vec<(String, String, String, String, String, String)>, String> {
+    let sql = "SELECT id, title, summary, updated_at, featured_image, slug \
                FROM articles WHERE tenant_id = ? AND status = 'published' \
                ORDER BY updated_at DESC LIMIT 200";
     let rows = st
@@ -56,9 +57,19 @@ async fn published_articles(
             .ok()
             .flatten()
             .unwrap_or_default();
-        out.push((id, title, summary, updated, img));
+        let slug = r.try_get::<String>("", "slug").unwrap_or_default();
+        out.push((id, title, summary, updated, img, slug));
     }
     Ok(out)
+}
+
+/// 语义化 URL key：slug 非空用 slug，否则回退 id
+fn url_key(id: &str, slug: &str) -> String {
+    if slug.trim().is_empty() {
+        id.to_string()
+    } else {
+        slug.to_string()
+    }
 }
 
 /// GET /sitemap.xml
@@ -81,11 +92,12 @@ pub async fn sitemap(State(st): State<AppState>) -> impl IntoResponse {
         "  <url><loc>{}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n",
         esc_xml(&base)
     ));
-    for (id, _title, _summary, updated, _img) in urls {
+    for (id, _title, _summary, updated, _img, slug) in urls {
+        let key = url_key(&id, &slug);
         body.push_str(&format!(
             "  <url><loc>{}/read/{}</loc><lastmod>{}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n",
             esc_xml(&base),
-            esc_xml(&id),
+            esc_xml(&key),
             esc_xml(&updated)
         ));
     }
@@ -120,13 +132,14 @@ pub async fn rss(State(st): State<AppState>) -> impl IntoResponse {
         esc_xml("基于 Rust 的开源 CMS 内容发布"),
         esc_xml(&base)
     ));
-    for (id, title, summary, updated, _img) in items {
+    for (id, title, summary, updated, _img, slug) in items {
+        let key = url_key(&id, &slug);
         let pub_date = DateTime::parse_from_rfc3339(&updated)
             .map(|d| d.to_rfc2822())
             .unwrap_or_else(|_| updated.clone());
         body.push_str("  <item>\n");
         body.push_str(&format!("    <title>{}</title>\n", esc_xml(&title)));
-        body.push_str(&format!("    <link>{}/read/{}</link>\n", esc_xml(&base), esc_xml(&id)));
+        body.push_str(&format!("    <link>{}/read/{}</link>\n", esc_xml(&base), esc_xml(&key)));
         body.push_str(&format!("    <guid isPermaLink=\"false\">{}</guid>\n", esc_xml(&id)));
         body.push_str(&format!("    <pubDate>{}</pubDate>\n", esc_xml(&pub_date)));
         if !summary.is_empty() {
