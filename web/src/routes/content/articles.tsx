@@ -32,8 +32,31 @@ const FORM_FIELDS: FormFieldDef[] = [
   { key: 'featuredImage', label: '封面图 URL', type: 'text', placeholder: '图片链接或 data URL（可留空）' },
   { key: 'metaTitle', label: 'SEO 标题', type: 'text', placeholder: '搜索引擎显示的标题（留空则用文章标题）' },
   { key: 'metaDescription', label: 'SEO 描述', type: 'textarea', placeholder: '搜索引擎显示的描述（留空则用摘要）' },
-  { key: 'publishedAt', label: '计划发布时间', type: 'text', placeholder: '如 2026-08-30 09:00（定时发布元数据）' },
+  { key: 'publishedAt', label: '计划发布时间', type: 'text', placeholder: '如 2026-08-30 09:00（发布时间元数据）' },
+  {
+    key: 'featured',
+    label: '设为精选（Featured）',
+    type: 'select',
+    options: [
+      { value: '0', label: '否（默认）' },
+      { value: '1', label: '是 · 首页精选位' },
+    ],
+    defaultValue: '0',
+  },
+  { key: 'scheduledAt', label: '定时发布时间', type: 'text', placeholder: '状态选「定时发布」时填写：YYYY-MM-DD HH:mm' },
+  { key: 'canonicalUrl', label: 'Canonical URL（可选）', type: 'text', placeholder: '规范链接；留空则用默认文章 URL' },
   { key: 'status', label: '状态', type: 'select', options: CONTENT_STATUS_OPTIONS, defaultValue: 'draft' },
+  {
+    key: 'visibility',
+    label: '可见性（付费墙）',
+    type: 'select',
+    options: [
+      { value: 'public', label: '公开（所有人可见）' },
+      { value: 'members', label: '会员专享（需登录会员）' },
+      { value: 'paid', label: '付费会员（需订阅套餐）' },
+    ],
+    defaultValue: 'public',
+  },
 ]
 
 function ArticlesPage() {
@@ -75,7 +98,11 @@ function ArticlesPage() {
       metaTitle: String(values.metaTitle ?? '').trim(),
       metaDescription: String(values.metaDescription ?? '').trim(),
       publishedAt: String(values.publishedAt ?? '').trim(),
+      featured: values.featured === '1' || values.featured === 1,
+      scheduledAt: String(values.scheduledAt ?? '').trim(),
+      canonicalUrl: String(values.canonicalUrl ?? '').trim(),
       status: values.status as Article['status'],
+      visibility: String(values.visibility ?? 'public').trim(),
     }
     if (editing) await t.update.mutateAsync({ id: editing.id, patch })
     else await t.create.mutateAsync({ ...patch, slug: '', views: 0, author: '我' })
@@ -122,6 +149,30 @@ function ArticlesPage() {
         ),
     },
     { id: 'status', header: '状态', render: (r) => <ContentStatusBadge status={r.status} /> },
+    {
+      id: 'featured',
+      header: '精选',
+      render: (r) =>
+        r.featured ? (
+          <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-600">★ Featured</span>
+        ) : (
+          <span className="text-os-text-muted text-xs">—</span>
+        ),
+    },
+    {
+      id: 'visibility',
+      header: '可见性',
+      render: (r) => {
+        const v = r.visibility || 'public'
+        const map: Record<string, { label: string; cls: string }> = {
+          public: { label: '公开', cls: 'bg-slate-100 text-slate-600' },
+          members: { label: '会员', cls: 'bg-indigo-50 text-indigo-600' },
+          paid: { label: '付费', cls: 'bg-amber-50 text-amber-600' },
+        }
+        const m = map[v] || map.public
+        return <span className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${m.cls}`}>{m.label}</span>
+      },
+    },
     { id: 'views', header: '浏览量', render: (r) => <span className="text-os-text-secondary tabular-nums">{r.views}</span> },
     { id: 'updatedAt', header: '更新时间', render: (r) => <time className="text-xs text-os-text-muted">{fmtDate(r.updatedAt)}</time> },
   ]

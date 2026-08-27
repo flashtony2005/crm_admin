@@ -10,9 +10,9 @@
 //! 重启不重复、同一窗口不重发。主循环每 60s tick 一次。
 
 use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Timelike, Utc};
-use sea_orm::Statement;
+use sea_orm::{Statement, Value as SqlValue};
 
-use crate::{automation, state::AppState};
+use crate::{automation, db, state::AppState};
 
 const TICK_SECS: u64 = 60;
 
@@ -24,6 +24,60 @@ pub fn spawn(st: AppState) {
             tokio::time::sleep(std::time::Duration::from_secs(TICK_SECS)).await;
         }
     });
+}
+
+/// 定时发布：将到点的 `scheduled` 文章提升为 `published`。
+///
+/// 触发条件：`status='scheduled'` 且 `scheduled_at` 非空且 `<= 当前 UTC 时间`。
+/// 提升时若 `published_at` 为空则补当前时间，保证公开列表/详情的日期正确。
+pub async fn publish_scheduled(st: &AppState) -> usize {
+    let now = db::now_iso();
+    let rows = st
+        .db
+        .query_all(
+            "SELECT id, published_at FROM articles \
+             WHERE tenant_id = ? AND status = 'scheduled' \
+               AND scheduled_at IS NOT NULL AND scheduled_at <> '' AND scheduled_at <= ?",
+            vec![
+                SqlValue::String(Some(st.tenant.clone())),
+                SqlValue::String(Some(now.clone())),
+            ],
+        )
+        .await
+        .unwrap_or_default();
+    let mut n = 0usize;
+    for r in rows {
+        let id = r.try_get::<String>("", "id").unwrap_or_default();
+        if id.is_empty() {
+            continue;
+        }
+        let published_at = r
+            .try_get::<Option<String>>("", "published_at")
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let pa = if published_at.is_empty() {
+            now.clone()
+        } else {
+            published_at
+        };
+        let _ = st
+            .db
+            .execute(
+                &format!(
+                    "UPDATE articles SET status='published', published_at='{}', updated_at='{}' \
+                     WHERE id='{}' AND tenant_id='{}'",
+                    pa.replace('\'', "''"),
+                    now.replace('\'', "''"),
+                    id.replace('\'', "''"),
+                    st.tenant.replace('\'', "''"),
+                ),
+                vec![],
+            )
+            .await;
+        n += 1;
+    }
+    n
 }
 
 /// 计算事件在「now」所属的当前窗口起点（UTC）。None = 非定时事件。
@@ -76,6 +130,9 @@ pub fn window_start(event: &str, now: DateTime<Local>) -> Option<DateTime<Utc>> 
 
 /// 扫描一轮：返回本次触发的流程数
 pub async fn tick_once(st: &AppState) -> usize {
+    // 先处理定时发布（与 schedule.* 工作流解耦，独立每分钟扫描）
+    let _ = publish_scheduled(st).await;
+
     let rows = st
         .db
         .query_all_statement(Statement::from_string(

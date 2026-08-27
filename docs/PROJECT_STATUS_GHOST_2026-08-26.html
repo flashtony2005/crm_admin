@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>项目功能完成度 · Ghost 化实现对照分析（2026-08-26 刷新版）</title>
+<style>
+  :root{
+    --bg:#f5f6fa; --card:#ffffff; --ink:#1c2333; --muted:#64748b;
+    --line:#e4e7ef; --brand:#4f46e5; --brand2:#6366f1;
+    --ok:#16a34a; --okbg:#ecfdf3; --warn:#d97706; --warnbg:#fffbeb; --no:#dc2626; --nobg:#fef2f2;
+    --cyan:#0891b2; --shadow:0 1px 3px rgba(28,35,51,.06),0 8px 24px rgba(28,35,51,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65;padding-bottom:64px}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px}
+  header.hero{background:linear-gradient(135deg,#3730a3,#6366f1 55%,#22d3ee);border-radius:22px;padding:36px 34px;color:#fff;box-shadow:0 20px 46px rgba(79,70,229,.25);margin-bottom:24px}
+  header.hero h1{font-size:26px;font-weight:800;letter-spacing:.4px}
+  header.hero p{margin-top:10px;font-size:14px;opacity:.94;max-width:900px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .badges span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:4px 12px;border-radius:999px;font-size:12px;backdrop-filter:blur(4px)}
+  .badges b{font-weight:700}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:var(--shadow)}
+  .card h2{font-size:17px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .card h2 .dot{width:10px;height:10px;border-radius:50%;background:var(--brand);display:inline-block}
+  .card h2 .sub{font-size:12px;color:var(--muted);font-weight:500}
+  .muted{color:var(--muted);font-size:13px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:18px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;box-shadow:var(--shadow)}
+  .kpi .n{font-size:30px;font-weight:800;color:var(--brand)}
+  .kpi .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .grid2{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;margin-bottom:18px}
+  @media(max-width:960px){.grid2{grid-template-columns:1fr}}
+  .phase{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  @media(max-width:860px){.phase{grid-template-columns:1fr}}
+  .ph{border-radius:14px;padding:16px 18px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow)}
+  .ph .tag{font-size:12px;font-weight:700;letter-spacing:1px}
+  .ph .tt{font-size:15px;font-weight:700;margin:4px 0 6px}
+  .ph .sc{font-size:26px;font-weight:800}
+  .ph.p3 .sc{color:var(--ok)} .ph.p4 .sc{color:var(--warn)} .ph.p5 .sc{color:var(--brand)}
+  .ph ul{list-style:none;margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .ph ul li{padding:2px 0}
+  .barRow{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .barRow .lab{width:120px;font-size:13px;font-weight:600;flex-shrink:0}
+  .barRow .track{flex:1;height:14px;background:#eef0f6;border-radius:999px;overflow:hidden}
+  .barRow .fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#6366f1,#22d3ee);width:0;transition:width 1s ease}
+  .barRow .val{width:44px;font-size:13px;font-weight:700;color:var(--brand);text-align:right}
+  .radarWrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+  .legend{font-size:12.5px;color:var(--muted);line-height:2;min-width:200px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#f0f2f9;color:#374151;text-align:left;padding:9px 10px;font-size:12.5px;border-bottom:2px solid var(--line);position:sticky;top:0}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr.cat td{background:#eef0f9;font-weight:700;font-size:13px;color:#3730a3}
+  tr:hover td{background:#fafbff}
+  code{background:#eef0f6;border-radius:5px;padding:1px 6px;font-size:11.5px;font-family:Consolas,Menlo,monospace;color:#4338ca;white-space:nowrap}
+  .st{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:12px;padding:2px 9px;border-radius:999px}
+  .st.done{background:var(--okbg);color:var(--ok)}
+  .st.part{background:var(--warnbg);color:var(--warn)}
+  .st.no{background:var(--nobg);color:var(--no)}
+  .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .filters button{border:1px solid var(--line);background:#fff;color:var(--muted);padding:5px 14px;border-radius:999px;font-size:12.5px;cursor:pointer;transition:.15s}
+  .filters button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .legend-note{font-size:12px;color:var(--muted);margin-top:10px}
+  .arch{margin-top:6px}
+  .arch text{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .gap{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+  @media(max-width:900px){.gap{grid-template-columns:1fr}}
+  .gap .list{list-style:none;margin-top:6px}
+  .gap .list li{padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;display:flex;gap:8px}
+  .gap .list li b{color:var(--brand);flex-shrink:0}
+  .pri{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;margin-right:6px;flex-shrink:0}
+  .pri.p0{background:#fef2f2;color:#dc2626}.pri.p1{background:#fffbeb;color:#d97706}.pri.p2{background:#eef2ff;color:#4f46e5}
+  .foot{margin-top:22px;font-size:12px;color:var(--muted);text-align:center}
+  .table-scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>项目功能完成度 · Ghost 化实现对照分析</h1>
+  <p>对照对象：Ghost（全球领先的开源无头 CMS）。本项目为自研 Rust/Axum + React 的 AI-Native Small Business CMS（后端 24 模块 / 前端 35 路由）。
+     本报告基于对 <code style="background:rgba(255,255,255,.18);color:#fff">server/src</code> 全部模块与 <code style="background:rgba(255,255,255,.18);color:#fff">web/src</code> 路由的逐文件核查，输出 Ghost 能力对照矩阵、分类完成度、P3/P4/P5 逐项状态与差距路线图。</p>
+  <div class="badges">
+    <span>📅 2026-08-26 刷新版</span>
+    <span>后端模块 <b>24</b></span>
+    <span>前端路由 <b>35</b></span>
+    <span>对照条目 <b id="bTotal">57</b></span>
+    <span>总体完成度 <b id="bOverall">—</b></span>
+    <span>构建状态 <b>✅ 前后端双绿</b></span>
+  </div>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="phase" id="phase"></div>
+
+<div class="grid2">
+  <div class="card">
+    <h2><span class="dot"></span>各能力域完成度 <span class="sub">（done=1 · part=0.5 加权）</span></h2>
+    <div id="bars"></div>
+  </div>
+  <div class="card">
+    <h2><span class="dot"></span>能力雷达图</h2>
+    <div class="radarWrap">
+      <div id="radar" style="flex:1;min-width:280px"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <h2><span class="dot"></span>Ghost 功能对照矩阵 <span class="sub" id="matCount"></span></h2>
+  <div class="filters" id="filters">
+    <button data-f="all" class="on">全部</button>
+    <button data-f="done">✅ 已完成</button>
+    <button data-f="part">🟡 部分</button>
+    <button data-f="no">❌ 缺失</button>
+  </div>
+  <div class="table-scroll"><table id="matrix"></table></div>
+  <p class="legend-note">状态口径：✅ = 后端 + 前端链路完整可跑；🟡 = 已实现核心链路但依赖环境密钥/仅字段就绪/覆盖面窄；❌ = 无实现或仅有空壳。「证据」为关键实现文件，便于回溯核查。</p>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <h2><span class="dot"></span>系统架构与 Ghost 化能力布局</h2>
+  <div class="arch" id="arch"></div>
+  <p class="legend-note" style="margin-top:12px">说明：公开站点层 = Ghost 的「主题渲染 + 会员门户」替代（React SPA + 客户端 SEO 注入）；商业层 = Ghost 的 Members/Tiers/Newsletter/Webhook 对应实现；GraphQL 只读面 = Ghost 内容 API 的超集方向。红虚线为「环境密钥驱动」的对外集成（未配置密钥时自动进入测试模式）。</p>
+</div>
+
+<div class="gap">
+  <div class="card">
+    <h2><span class="dot"></span>差距分析 · 待补齐项</h2>
+    <ul class="list">
+      <li><span class="pri p0">P0</span><span><b>阅读统计/分析看板（P5 唯一未完成项）</b>：articles.views 字段与 AreaChart/DonutChart 组件均已就绪，缺 pageview 采集端点与看板页。参考：POST /api/public/views 打点 + 按日聚合 + /content/analytics。</span></li>
+      <li><span class="pri p0">P0</span><span><b>付费墙真实生效</b>：articles.visibility 列已存在，但公开 API 未按会员 plan 截断正文/返回 402。参考：visibility=paid 时非订阅会员只返回摘要。</span></li>
+      <li><span class="pri p1">P1</span><span><b>Stripe / SMTP 落地配置</b>：代码链路完整（Checkout 会话、Webhook 签名校验、lettre 真实群发），需配 STRIPE_SECRET_KEY / SMTP_HOST 等环境变量后方可生产使用。</span></li>
+      <li><span class="pri p1">P1</span><span><b>Webhook 事件扩充</b>：当前 4 类事件（member.registered / newsletter.subscribed / subscription.*），Ghost 有 20+ 事件。建议补 article.published / comment.created / member.updated。</span></li>
+      <li><span class="pri p2">P2</span><span><b>商业化增强</b>：Offers 优惠码、Magic Link 无密码登录、会员细分（Segments）——对标 Ghost 变现深度。</span></li>
+      <li><span class="pri p2">P2</span><span><b>内容增强</b>：Featured 置顶、定时发布（scheduler 基建已有，接 published_at 即可）、作者独立页、canonical 显式输出、响应式图片 srcset/WebP。</span></li>
+      <li><span class="pri p2">P2</span><span><b>平台化</b>：多租户由固定 t_demo 改为按域解析；主题/模板引擎（对标 Ghost Handlebars）属重大方向决策，短期不建议。</span></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2><span class="dot"></span>建议路线图（按优先级）</h2>
+    <ul class="list">
+      <li><span class="pri p0">P0</span><span><b>第 1 步 · 统计看板收尾</b>：后端加 <code>pageview</code> 采集 + 日聚合视图；前端用现成图表组件建 <code>/content/analytics</code> 页（阅读量 Top、按日趋势、订阅转化）。</span></li>
+      <li><span class="pri p0">P0</span><span><b>第 2 步 · 付费墙落地</b>：public_api 按 visibility + 会员 plan 分级返回；前端 read 页按 402 响应渲染「解锁」区块。</span></li>
+      <li><span class="pri p1">P1</span><span><b>第 3 步 · 生产配置</b>：补全 .env 样例（STRIPE/SMTP/PUBLIC_BASE_URL/JWT_SECRET），写一键部署脚本与配置检查工具。</span></li>
+      <li><span class="pri p1">P1</span><span><b>第 4 步 · 事件生态</b>：扩充 webhook 事件到 12+，补投递重试退避与失败面板。</span></li>
+      <li><span class="pri p2">P2</span><span><b>第 5 步 · 变现增强</b>：Offers 优惠码（复用 tiers 表 + webhook）、Magic Link（复用 members + JWT）。</span></li>
+      <li><span class="pri p2">P2</span><span><b>第 6 步 · 内容打磨</b>：Featured/定时发布/作者页/canonical/srcset 一次性补齐，同步更新 COMPLETION.md 完成度表。</span></li>
+    </ul>
+  </div>
+</div>
+
+<p class="foot">数据来源：F:\project\admin\server\src（24 模块）与 web\src（35 路由）逐文件核查 · 生成于 2026-08-26 · 构建状态：前端 vite+tsc 双绿；后端 cargo check 通过（本轮修复 15 处 API 漂移编译错误：image 0.25 / lettre 0.11 / async-graphql 7 / axum routing）</p>
+</div>
+
+<script>
+/* ---------- 数据定义 ---------- */
+const CATS = [
+  ["内容与发布", "Content & Publishing"],
+  ["SEO 与社交分享", "SEO & Social"],
+  ["媒体管理", "Media"],
+  ["会员与变现（P4）", "Members & Monetization"],
+  ["互动与自动化（P5）", "Engagement & Automation"],
+  ["分析与统计（P5）", "Analytics"],
+  ["平台与工程", "Platform"],
+];
+const M = [
+ // A 内容与发布
+ [0,"文章 Posts","articles 表 + 通用 CRUD + 公开 API","done","resources.rs / public_api.rs / content/articles.tsx"],
+ [0,"独立页面 Pages","pages 表 + 管理页","done","content/pages.tsx"],
+ [0,"标签 Tags","tags 表 + 管理页 + 语义路由","done","tag.$slug.tsx / content/tags.tsx"],
+ [0,"作者 Authors","users/team 可管理，文章含 author 字段，无作者独立页","part","team.rs"],
+ [0,"摘要 Excerpts","summary 字段全链路","done","db.rs / public_api.rs"],
+ [0,"SEO 自定义标题/描述","meta_title / meta_description 列","done","db.rs / public_api.rs"],
+ [0,"置顶 Featured","无 featured/置顶字段","no","—"],
+ [0,"定时发布 Scheduled","scheduler.rs 基建在，未接文章 published_at","part","scheduler.rs"],
+ [0,"Markdown / 富文本","markdown.ts 渲染 + RichTextEditor 编辑","done","components/cms/markdown.ts"],
+ [0,"内容多语言","articles.locale 列 + ?locale= 过滤 + zh/en 文案","done","i18n.rs / public_api.rs"],
+ [0,"主题/模板系统","React SPA，无 Ghost Handlebars 主题引擎","no","—"],
+ // B SEO 与社交分享
+ [1,"OG 标签","og:title/description/type/url/image 客户端注入","done","components/Seo.tsx / useSeo"],
+ [1,"Twitter Card","twitter:card/title/description/image","done","components/Seo.tsx"],
+ [1,"JSON-LD 结构化数据","Article schema 注入","done","read.$key.tsx"],
+ [1,"sitemap.xml","自动生成（含 locale/visibility）","done","seo.rs"],
+ [1,"rss.xml","全文 RSS 输出","done","seo.rs"],
+ [1,"robots.txt","标准输出","done","seo.rs"],
+ [1,"canonical URL","注入 og:url，未显式输出 link canonical","part","Seo.tsx"],
+ [1,"语义化文章 URL","/read/{slug}（slug 优先，回退 id）","done","read.$key.tsx"],
+ [1,"独立标签路由","/tag/{slug} 替代 ?tag= 过滤","done","tag.$slug.tsx"],
+ // C 媒体管理
+ [2,"图片上传","multipart，20MB 上限，权限控制","done","upload.rs"],
+ [2,"删除媒体","DELETE /api/media/:id","done","resources.rs / content/media.tsx"],
+ [2,"重命名媒体","PUT name + 前端重命名按钮","done","content/media.tsx"],
+ [2,"缩略图/大图","自动生成 _thumb 320px + _lg 1280px","done","upload.rs"],
+ [2,"CDN 就绪","asset_url 支持 PUBLIC_BASE_URL 前缀","done","upload.rs"],
+ [2,"响应式/WebP","仅 jpeg/png/gif，无 srcset","no","Cargo.toml"],
+ // D 会员与变现 P4
+ [3,"Members 模型","members 表 + 注册/登录/资料（独立 JWT）","done","members.rs"],
+ [3,"套餐 Tiers","tiers 表（月/年价、Stripe Price ID、功能清单）","done","subscriptions.rs / db.rs"],
+ [3,"Stripe Checkout","真实会话创建；未配密钥时测试模式","part","subscriptions.rs"],
+ [3,"Stripe Webhook","签名校验（HMAC）+ 落库 + 事件派发","part","subscriptions.rs"],
+ [3,"付费墙/内容门槛","visibility 列存在，公开 API 未做正文截断","part","public_api.rs"],
+ [3,"Newsletter 订阅","订阅/退订/订阅者管理","done","newsletter.rs"],
+ [3,"邮件群发","lettre 真实 SMTP；未配 SMTP_HOST 时测试模式","part","newsletter.rs"],
+ [3,"会员门户","登录/注册/套餐/下单 一体化页面","done","membership.tsx"],
+ [3,"Offers 优惠码","无","no","—"],
+ [3,"Magic Link 无密码登录","无（密码登录）","no","—"],
+ [3,"会员细分 Segments","无","no","—"],
+ // E 互动与自动化 P5
+ [4,"评论系统","评论表 + 公开发布 + Admin 审核 + 前端组件","done","comments.rs / CommentsSection.tsx"],
+ [4,"出站 Webhook","HMAC-SHA256 签名 + 投递记录表 + 测试端点","done","webhooks_out.rs"],
+ [4,"Webhook 事件覆盖","仅 4 类事件（Ghost 20+）","part","webhooks_out.rs"],
+ [4,"GraphQL 内容 API","async-graphql 7，/graphql + /graphiql","done","graphql_api.rs"],
+ [4,"GraphQL 查询面","只读 6 查询，无 mutation/订阅","part","graphql_api.rs"],
+ [4,"OAuth 集成","google/github 授权码流 + state 校验；前端 UI 待补","part","oauth.rs"],
+ [4,"通知","企微 Webhook 即发即忘","done","notify.rs"],
+ [4,"AI 助手/审批/自动化","超集能力：AI 执行器 + 审批流 + 工作流引擎 + 定时","done","ai.rs / automation.rs"],
+ // F 分析与统计 P5
+ [5,"阅读量字段","articles.views 列","done","db.rs"],
+ [5,"阅读统计采集接口","无 pageview 打点端点","no","—"],
+ [5,"分析看板","无 /content/analytics 页（图表组件已就绪）","no","components/charts/"],
+ [5,"会员/订阅统计","GraphQL members_count + 订阅者/订阅管理列表","part","graphql_api.rs"],
+ [5,"邮件送达/打开统计","无","no","—"],
+ // G 平台与工程
+ [6,"RBAC 角色权限","owner/editor/viewer + 通配 + 按钮级显隐","done","perm.rs"],
+ [6,"团队管理","邀请/启停/改角色/防自锁死","done","team.rs"],
+ [6,"多租户","tenant_id 列就绪，固定 t_demo 单租户","part","state.rs"],
+ [6,"Headless 内容 API","/api/public/* 免认证只读","done","public_api.rs"],
+ [6,"定时调度","minutely/hourly/daily/weekly 窗口去重","done","scheduler.rs"],
+ [6,"数据库抽象","SQLite 本地 + Turso HTTP pipeline","done","cmsdb.rs"],
+ [6,"测试","后端单元+集成测试；前端部分单测","done","tests_api.rs / __tests__"],
+];
+const OVERALL_FIELD = 74; // 手工复核后的总体判断（与加权计算基本一致）
+/* ---------- 渲染 ---------- */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function pct(d,p){return Math.round((d + p*0.5) / M.filter(m=>m[0]===CATS.indexOf(CATS.find(c=>c[0]===d))).length*100)}
+// KPI
+const counts = {done:0,part:0,no:0};
+M.forEach(m=>counts[m[3]]++);
+const overall = Math.round((counts.done + counts.part*0.5)/M.length*100);
+document.getElementById('bOverall').textContent = overall + '%';
+document.getElementById('bTotal').textContent = M.length;
+document.getElementById('kpis').innerHTML = [
+ [overall+'%','总体完成度（57 项加权）'], [counts.done,'✅ 已完成'], [counts.part,'🟡 部分实现'], [counts.no,'❌ 缺失'],
+ ['24','后端模块'], ['35','前端路由'], ['6','GraphQL 查询'], ['4','Webhook 事件'],
+].map(k=>`<div class="kpi"><div class="n">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+// Phase
+document.getElementById('phase').innerHTML = [
+ ['P3','tag 语义路由 + OG 注入 + 媒体增强','100%',['/tag/{slug} 独立路由（替代 ?tag=）','OG / Twitter Card 客户端注入（Seo.tsx）','媒体删除/重命名 + 缩略图 + CDN 前缀'],'p3'],
+ ['P4','会员 + Newsletter + 付费墙','62%',['Members 模型 + Tiers 套餐','Stripe Checkout / Webhook（密钥驱动）','Newsletter 订阅 + SMTP 群发 + 门户页','缺：Offers / Magic Link / 细分'],'p4'],
+ ['P5','Webhooks + GraphQL + i18n + 统计','70%',['出站 Webhook（HMAC 签名 + 投递表）','GraphQL 只读 API + GraphiQL','i18n zh/en + 内容 locale 过滤','❌ 阅读统计看板未做（唯一缺口）'],'p5'],
+].map(p=>`<div class="ph ${p[4]}"><div class="tag">${p[0]}</div><div class="tt">${p[1]}</div><div class="sc">${p[2]}</div><ul>${p[3].map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('');
+// 分类完成度条形图
+const cats = CATS.map((c,i)=>{let d=0,p=0;M.forEach(m=>{if(m[0]===i){if(m[3]==='done')d++;if(m[3]==='part')p++}});return [c[0], Math.round((d+p*0.5)/(d+p+(M.filter(m=>m[0]===i).length-d-p))*100), d, p]});
+document.getElementById('bars').innerHTML = cats.map(c=>`
+  <div class="barRow"><div class="lab">${c[0]}</div><div class="track"><div class="fill" data-w="${c[1]}"></div></div><div class="val">${c[1]}%</div></div>`).join('');
+requestAnimationFrame(()=>{document.querySelectorAll('.fill').forEach(f=>f.style.width=f.dataset.w+'%')});
+document.getElementById('legend').innerHTML = CATS.map((c,i)=>`<div><i style="background:${['#6366f1','#22d3ee','#16a34a','#d97706','#a855f7','#ef4444','#0d9488'][i]}"></i>${c[0]}</div>`).join('');
+// 雷达图
+(function(){
+  const svgNS='http://www.w3.org/2000/svg', W=340, H=320, cx=170, cy=160, R=108;
+  const s=document.createElementNS(svgNS,'svg'); s.setAttribute('viewBox',`0 0 ${W} ${H}`); s.style.width='100%'; s.style.maxWidth='340px';
+  const ring=[20,40,60,80,100];
+  ring.forEach(r=>{const pts=CATS.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/CATS.length;return [cx+Math.cos(a)*R*r/100, cy+Math.sin(a)*R*r/100]}).map(p=>p.join(',')).join(' ');
+    const el=document.createElementNS(svgNS,'polygon'); el.setAttribute('points',pts); el.setAttribute('fill','none'); el.setAttribute('stroke','#e4e7ef'); el.setAttribute('stroke-width','1'); s.appendChild(el)});
+  CATS.forEach((c,i)=>{const a=-Math.PI/2+i*2*Math.PI/CATS.length;const el=document.createElementNS(svgNS,'line');
+    el.setAttribute('x1',cx);el.setAttribute('y1',cy);el.setAttribute('x2',cx+Math.cos(a)*R);el.setAttribute('y2',cy+Math.sin(a)*R);el.setAttribute('stroke','#e4e7ef');s.appendChild(el);
+    const tx=cx+Math.cos(a)*(R+26), ty=cy+Math.sin(a)*(R+14);
+    const t=document.createElementNS(svgNS,'text'); t.setAttribute('x',tx);t.setAttribute('y',ty);t.setAttribute('font-size','11');t.setAttribute('fill','#64748b');t.setAttribute('text-anchor','middle');t.textContent=c[0];s.appendChild(t)});
+  const val=cats.map(c=>c[1]); const col='#4f46e5';
+  const poly=document.createElementNS(svgNS,'polygon'); poly.setAttribute('points',CATS.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/CATS.length;return [cx+Math.cos(a)*R*val[i]/100, cy+Math.sin(a)*R*val[i]/100]}).map(p=>p.join(',')).join(' '));
+  poly.setAttribute('fill','rgba(99,102,241,.22)'); poly.setAttribute('stroke','#4f46e5'); poly.setAttribute('stroke-width','2.2'); s.appendChild(poly);
+  CATS.forEach((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/CATS.length;const d=document.createElementNS(svgNS,'circle');
+    d.setAttribute('cx',cx+Math.cos(a)*R*val[i]/100);d.setAttribute('cy',cy+Math.sin(a)*R*val[i]/100);d.setAttribute('r','3.2');d.setAttribute('fill','#4f46e5');s.appendChild(d)});
+  document.getElementById('radar').appendChild(s);
+})();
+// 矩阵表
+(function(){
+  const tb=document.getElementById('matrix'); let html='';
+  CATS.forEach((c,ci)=>{
+    html+=`<tr class="cat"><td colspan="5">${c[0]} <span style="font-weight:500;color:#64748b">${c[1]}</span></td></tr>`;
+    M.filter(m=>m[0]===ci).forEach((m,idx)=>{
+      const st=m[3]==='done'?['done','✅ 已完成']:m[3]==='part'?['part','🟡 部分']:['no','❌ 缺失'];
+      html+=`<tr data-f="${m[3]}"><td style="width:28px;color:#94a3b8">${idx+1}</td><td style="width:190px"><b>${esc(m[1])}</b></td><td>${esc(m[2])}</td><td style="width:92px"><span class="st ${st[0]}">${st[1]}</span></td><td style="width:170px"><code>${esc(m[4])}</code></td></tr>`;
+    });
+  });
+  tb.innerHTML=html;
+  document.getElementById('matCount').textContent = `共 ${M.length} 项 · ✅${counts.done} · 🟡${counts.part} · ❌${counts.no}`;
+  document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    const f=b.dataset.f; tb.querySelectorAll('tr[data-f]').forEach(r=>r.style.display=(f==='all'||r.dataset.f===f)?'':'none');
+  });
+})();
+// 架构图
+document.getElementById('arch').innerHTML = `
+<svg viewBox="0 0 1140 470" style="width:100%;height:auto;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#94a3b8"/></marker></defs>
+  <style>.bx{fill:#fff;stroke:#cbd5e1;stroke-width:1.2;rx:10}.tt{font-size:12.5px;font-weight:700;fill:#1c2333}.sb{font-size:10.5px;fill:#64748b}.hl{font-size:11px;font-weight:700;fill:#4f46e5}.ln{stroke:#94a3b8;stroke-width:1.4;marker-end:url(#ar);fill:none}.lnr{stroke:#f43f5e;stroke-width:1.6;stroke-dasharray:5 4;marker-end:url(#ar);fill:none}</style>
+  <!-- 层1 公开站点 -->
+  <rect x="20" y="14" width="1100" height="118" class="bx" rx="12"/>
+  <text x="38" y="38" class="tt">① 公开访问层（React SPA，无服务端渲染）</text>
+  <g>
+    <rect x="40" y="52" width="170" height="56" class="bx"/><text x="52" y="76" class="hl">site.tsx 首页</text><text x="52" y="94" class="sb">OG/Twitter 注入 · 文章卡 · 标签</text>
+    <rect x="230" y="52" width="170" height="56" class="bx"/><text x="242" y="76" class="hl">read.$key 文章页</text><text x="242" y="94" class="sb">JSON-LD · 评论 · 付费提示</text>
+    <rect x="420" y="52" width="170" height="56" class="bx"/><text x="432" y="76" class="hl">tag.$slug 标签页</text><text x="432" y="94" class="sb">语义路由 · SEO 注入</text>
+    <rect x="610" y="52" width="170" height="56" class="bx"/><text x="622" y="76" class="hl">membership 会员门户</text><text x="622" y="94" class="sb">登录/注册/套餐/下单</text>
+    <rect x="800" y="52" width="300" height="56" class="bx"/><text x="812" y="76" class="hl">Admin 管理端（35 路由）</text><text x="812" y="94" class="sb">content/* · team/* · automation/* · ai/* · business/*</text>
+  </g>
+  <!-- 层2 后端 -->
+  <rect x="20" y="150" width="1100" height="150" class="bx" rx="12"/>
+  <text x="38" y="174" class="tt">② 后端网关 · Axum :8088（Rust 24 模块 · SQLite/Turso）</text>
+  <g>
+    <rect x="40" y="188" width="330" height="94" class="bx"/><text x="52" y="210" class="hl">公开内容 API（免认证）</text>
+    <text x="52" y="230" class="sb">/api/public/articles|tags|comments</text>
+    <text x="52" y="247" class="sb">/api/public/members|newsletter|tiers|checkout</text>
+    <text x="52" y="264" class="sb">/graphql + /graphiql（async-graphql 只读）</text>
+    <rect x="390" y="188" width="330" height="94" class="bx"/><text x="402" y="210" class="hl">管理 API（JWT + RBAC）</text>
+    <text x="402" y="230" class="sb">/api/{table} 通用资源网关（11 表白名单）</text>
+    <text x="402" y="247" class="sb">auth · team · upload(缩略图) · automation · ai</text>
+    <text x="402" y="264" class="sb">webhooks_out(HMAC 签名) · i18n · comments</text>
+    <rect x="740" y="188" width="360" height="94" class="bx"/><text x="752" y="210" class="hl">SEO / 分发端点</text>
+    <text x="752" y="230" class="sb">/sitemap.xml · /rss.xml · /robots.txt</text>
+    <text x="752" y="247" class="sb">scheduler（minutely 定时窗口去重）</text>
+    <text x="752" y="264" class="sb">notify（企微 Webhook 通知）</text>
+  </g>
+  <!-- 层3 外部 -->
+  <rect x="20" y="318" width="1100" height="118" class="bx" rx="12"/>
+  <text x="38" y="342" class="tt">③ 外部系统（虚线 = 环境密钥驱动，未配置自动测试模式）</text>
+  <g>
+    <rect x="40" y="356" width="230" height="60" class="bx"/><text x="52" y="380" class="hl">Stripe</text><text x="52" y="398" class="sb">Checkout 会话 · Webhook 签名校验</text>
+    <rect x="290" y="356" width="230" height="60" class="bx"/><text x="302" y="380" class="hl">SMTP（lettre）</text><text x="302" y="398" class="sb">Newsletter 真实群发</text>
+    <rect x="540" y="356" width="230" height="60" class="bx"/><text x="552" y="380" class="hl">出站 Webhook 目标</text><text x="552" y="398" class="sb">X-Webhook-Signature HMAC</text>
+    <rect x="790" y="356" width="310" height="60" class="bx"/><text x="802" y="380" class="hl">CDN / 反代（PUBLIC_BASE_URL）</text><text x="802" y="398" class="sb">媒体 URL 前缀 · 站点根 · DeepSeek AI</text>
+  </g>
+  <g class="ln">
+    <path d="M125,110 L125,148"/><path d="M315,110 L315,148"/><path d="M505,110 L505,148"/><path d="M695,110 L695,148"/><path d="M950,110 L950,148"/>
+    <path d="M205,282 L150,354"/><path d="M555,282 L555,354"/><path d="M705,282 L705,354"/><path d="M405,282 L405,354"/>
+    <path d="M125,148 L125,282 L915,282 L915,318"/>
+  </g>
+  <g class="lnr">
+    <path d="M760,282 L720,354"/>
+  </g>
+</svg>`;
+</script>
+</body>
+</html>

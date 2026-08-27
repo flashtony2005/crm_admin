@@ -54,6 +54,8 @@ export const PRODUCT_NAV: NavNode[] = [
       { key: 'tags', label: '标签', path: '/content/tags', icon: 'tag', desc: '标签库（描述/封面/SEO）', perm: 'content.tags.view' },
       { key: 'products', label: '产品', path: '/content/products', icon: 'box', desc: '产品与服务', perm: 'content.products.view' },
       { key: 'media', label: '素材', path: '/content/media', icon: 'image', desc: '图片与素材', perm: 'content.media.view' },
+      { key: 'stats', label: '统计看板', path: '/stats', icon: 'chart', desc: '阅读与内容分析', perm: 'content.articles.view' },
+      { key: 'i18n', label: '多语言', path: '/content/i18n', icon: 'globe', desc: '界面与内容翻译', perm: 'i18n.view' },
     ],
   },
   {
@@ -83,6 +85,18 @@ export const PRODUCT_NAV: NavNode[] = [
     children: [
       { key: 'workflows', label: '工作流', path: '/automation/workflows', icon: 'workflow', desc: '自动化流程', perm: 'automation.workflows.toggle' },
       { key: 'integrations', label: '集成', path: '/automation/integrations', icon: 'plug', desc: '应用集成', perm: 'automation.integrations.toggle' },
+      { key: 'webhooks', label: '出站 Webhook', path: '/content/webhooks', icon: 'webhook', desc: '把站内事件推送到外部', perm: 'webhooks.view' },
+    ],
+  },
+  {
+    key: 'commerce',
+    label: '商业',
+    icon: 'card',
+    children: [
+      { key: 'members', label: '会员', path: '/content/members', icon: 'users', desc: '注册会员管理', perm: 'content.members.view' },
+      { key: 'comments', label: '评论', path: '/content/comments', icon: 'comment', desc: '内容评论与审核', perm: 'content.comments.view' },
+      { key: 'newsletter', label: '邮件订阅', path: '/content/newsletter', icon: 'mail', desc: '订阅者与群发', perm: 'newsletter.subscribers.view' },
+      { key: 'subscriptions', label: '付费订阅', path: '/content/subscriptions', icon: 'card', desc: '套餐与变现', perm: 'subscriptions.tiers.view' },
     ],
   },
   {

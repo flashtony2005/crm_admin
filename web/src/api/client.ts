@@ -56,7 +56,7 @@ export function setToastFunction(fn: (message: string) => void) {
   toastFunction = fn
 }
 
-function showPermissionToast(message: string) {
+export function showPermissionToast(message: string) {
   if (toastFunction) {
     toastFunction(businessMessage(message))
   } else {

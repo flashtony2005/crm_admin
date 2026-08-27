@@ -74,6 +74,9 @@ pub static TABLES: &[TableDef] = &[
             ("published_at","publishedAt",Col::TextNull),
             ("meta_title","metaTitle",Col::TextNull),
             ("meta_description","metaDescription",Col::TextNull),
+            ("featured","featured",Col::Bool),
+            ("scheduled_at","scheduledAt",Col::TextNull),
+            ("canonical_url","canonicalUrl",Col::TextNull),
         ],
     },
     TableDef {
@@ -103,7 +106,17 @@ pub static TABLES: &[TableDef] = &[
         key: "media", table: "media_items", perm_prefix: "content.media",
         create_perm: Some("content.media.upload"), update_perm: None,
         delete_perm: Some("content.media.delete"),
-        columns: cols![("name","name",Col::Text),("url","url",Col::Text),("size","size",Col::Int),("kind","kind",Col::Text)],
+        columns: cols![
+            ("name","name",Col::Text),
+            ("url","url",Col::Text),
+            ("size","sizeKb",Col::Int),
+            ("kind","type",Col::Text),
+            ("thumbnail","thumbnail",Col::TextNull),
+            ("large","large",Col::TextNull),
+            ("width","width",Col::Int),
+            ("height","height",Col::Int),
+            ("srcset","srcset",Col::TextNull),
+        ],
     },
     // ── Business ──
     TableDef {
@@ -182,6 +195,54 @@ pub static TABLES: &[TableDef] = &[
             ("oauth_client_secret","oauthClientSecret",Col::Secret),
             ("oauth_token","oauthToken",Col::Secret),
             ("api_key","apiKey",Col::Secret),
+        ],
+    },
+    // ── P4 商业层资源（Admin CRUD 网关）──
+    TableDef {
+        key: "members", table: "members", perm_prefix: "content.members",
+        create_perm: Some("content.members.create"), update_perm: Some("content.members.update"),
+        delete_perm: Some("content.members.delete"),
+        columns: cols![
+            ("email","email",Col::Text),("name","name",Col::Text),
+            ("status","status",Col::Int),("plan","plan",Col::Text),
+            ("stripe_customer_id","stripeCustomerId",Col::Text),
+        ],
+    },
+    TableDef {
+        key: "comments", table: "comments", perm_prefix: "content.comments",
+        create_perm: None, update_perm: Some("content.comments.update"),
+        delete_perm: Some("content.comments.delete"),
+        columns: cols![
+            ("article_id","articleId",Col::Text),("parent_id","parentId",Col::Text),
+            ("author_name","authorName",Col::Text),("author_email","authorEmail",Col::Text),
+            ("member_id","memberId",Col::Text),("content","content",Col::Text),
+            ("status","status",Col::Text),
+        ],
+    },
+    TableDef {
+        key: "subscribers", table: "subscribers", perm_prefix: "newsletter.subscribers",
+        create_perm: Some("newsletter.subscribers.view"), update_perm: None,
+        delete_perm: Some("newsletter.subscribers.view"),
+        columns: cols![("email","email",Col::Text),("name","name",Col::Text),("status","status",Col::Text)],
+    },
+    TableDef {
+        key: "tiers", table: "tiers", perm_prefix: "subscriptions.tiers",
+        create_perm: Some("subscriptions.tiers.create"), update_perm: Some("subscriptions.tiers.update"),
+        delete_perm: Some("subscriptions.tiers.delete"),
+        columns: cols![
+            ("name","name",Col::Text),("slug","slug",Col::Text),("description","description",Col::Text),
+            ("price_monthly","priceMonthly",Col::Real),("price_yearly","priceYearly",Col::Real),
+            ("stripe_price_id","stripePriceId",Col::Text),("features","features",Col::Text),
+            ("active","active",Col::Bool),
+        ],
+    },
+    TableDef {
+        key: "webhooks", table: "webhook_subscriptions", perm_prefix: "webhooks",
+        create_perm: Some("webhooks.create"), update_perm: Some("webhooks.update"),
+        delete_perm: Some("webhooks.delete"),
+        columns: cols![
+            ("event","event",Col::Text),("url","url",Col::Text),("secret","secret",Col::Secret),
+            ("active","active",Col::Bool),
         ],
     },
 ];

@@ -9,6 +9,7 @@ export const CONTENT_STATUS_META: Record<
   pending_review: { label: '待审核', tone: 'purple' },
   published: { label: '已发布', tone: 'success' },
   offline: { label: '已下线', tone: 'warning' },
+  scheduled: { label: '定时发布', tone: 'purple' },
 }
 
 /** 表单下拉用的状态选项（值/标签对） */

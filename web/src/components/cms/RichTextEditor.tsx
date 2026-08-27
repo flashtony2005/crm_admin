@@ -10,59 +10,6 @@ interface Props {
 }
 
 /**
- * 把图片文件压缩为较小的 data URL，避免内联 base64 撑爆请求体（后端 Axum Json 默认 2MB 上限）。
- * - 长边超过 maxDim 时等比缩放到 maxDim 以内
- * - 照片/大图统一重编码为 JPEG(0.78)，体积通常降至原图的 1/5~1/10
- * - 仅当本身是 <300KB 的小 PNG 且无需缩放时，才保留 PNG（维持透明度）；其余一律 JPEG，确保体积小
- */
-async function fileToCompressedDataUrl(
-  file: File,
-  maxDim = 1280,
-  quality = 0.78,
-): Promise<string> {
-  const isPng = file.type === 'image/png'
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      let { width, height } = img
-      const naturalW = img.width
-      const naturalH = img.height
-      // 小图且为 PNG：原样返回，避免无谓重编码（保透明度，且体积本就小）
-      if (width <= maxDim && height <= maxDim && isPng && file.size < 300 * 1024) {
-        const r = new FileReader()
-        r.onload = () => resolve(r.result as string)
-        r.onerror = () => reject(r.error)
-        r.readAsDataURL(file)
-        return
-      }
-      if (width > maxDim || height > maxDim) {
-        const scale = Math.min(maxDim / width, maxDim / height)
-        width = Math.round(width * scale)
-        height = Math.round(height * scale)
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        reject(new Error('canvas unavailable'))
-        return
-      }
-      ctx.drawImage(img, 0, 0, width, height)
-      // 一律输出 JPEG（含 PNG）：文章图片无需透明通道，JPEG 体积远小于 PNG
-      resolve(canvas.toDataURL('image/jpeg', quality))
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error('图片读取失败'))
-    }
-    img.src = url
-  })
-}
-
-/**
  * 零依赖富文本编辑器（contentEditable + execCommand），支持双模式：
  * - 富文本（所见即所得）：工具栏 加粗 / 斜体 / 下划线 / 标题 / 正文 / 列表 / 链接 / 图片
  * - Markdown 源码：写作者偏好，实时转换为 HTML（后端 content 仍存 HTML）
@@ -143,7 +90,7 @@ export function RichTextEditor({ value, onChange, placeholder, height = 320 }: P
       document.execCommand(
         'insertHTML',
         false,
-        `<img src="${uploaded.url}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;display:block;" />`,
+        `<img src="${uploaded.large ?? uploaded.url}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;display:block;" />`,
       )
       emit()
     } catch {

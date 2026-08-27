@@ -2,10 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Button, Switch, Input, Avatar, Card, toast } from '@heroui/react'
+import { Button, Switch, Input, Avatar, Card, Label, toast } from '@heroui/react'
 import { PageContainer } from '../components/layout/PageContainer'
 import { getCurrentUser, updateProfile, changePassword } from '../api/auth'
 import { useAuthStore } from '../store/auth'
+import { request } from '../api/client'
+import { usePermission } from '../hooks/usePermission'
+import { SITE_THEMES } from '../themes/siteThemes'
+import { SITE_TEMPLATES } from '../themes/siteTemplates'
 
 import { useConfigStore, type ThemeMode, type LayoutTemplate, type FontSize } from '../store/config'
 import { useLanguageStore } from '../store/language'
@@ -24,6 +28,7 @@ const GlobeIcon = () => <Icon><circle cx="12" cy="12" r="10"/><path d="M12 2a14.
 const SunIcon2 = () => <Icon><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></Icon>
 const MoonIcon2 = () => <Icon><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></Icon>
 const CameraIcon = () => <Icon><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>
+const PaletteIcon = () => <Icon><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></Icon>
 
 // ── Validation helpers ────────────────────────────────────────
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -533,12 +538,165 @@ function SecuritySection() {
   )
 }
 
+// ── Site appearance (Owner only: site.settings.update) ─────────
+function SiteAppearanceSection() {
+  const { t } = useTranslation()
+  const [theme, setTheme] = useState<string>('paper')
+  const [template, setTemplate] = useState<string>('default')
+  const [title, setTitle] = useState<string>('LightPress')
+  const [tagline, setTagline] = useState<string>('')
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  const load = useCallback(() => {
+    let alive = true
+    fetch('/api/public/site')
+      .then((r) => r.json())
+      .then((b) => {
+        if (alive && b?.ok && b.data) {
+          setTheme(b.data.theme || 'paper')
+          setTemplate(b.data.template || 'default')
+          setTitle(b.data.siteTitle || 'LightPress')
+          setTagline(b.data.siteTagline || '')
+          setLoaded(true)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  useEffect(() => load(), [load])
+
+  const patch = (fn: () => void) => {
+    fn()
+    setDirty(true)
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await request('/api/admin/site', {
+        method: 'PUT',
+        body: JSON.stringify({
+          theme,
+          template,
+          site_title: title,
+          site_tagline: tagline,
+        }),
+      })
+      toast(t('settings.appearanceSaved'), { variant: 'success' })
+      setDirty(false)
+    } catch (err) {
+      toast((err as Error).message, { variant: 'danger' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const reset = () => {
+    load()
+    setDirty(false)
+  }
+
+  if (!loaded) {
+    return (
+      <div className="py-8 text-default-400 text-sm">{t('common.loading')}</div>
+    )
+  }
+
+  return (
+    <div className="max-w-xl space-y-8 py-2">
+      {/* Theme */}
+      <div>
+        <h3 className="text-base font-semibold mb-1">{t('settings.appearanceTheme')}</h3>
+        <p className="text-xs text-default-400 mb-4">{t('settings.appearanceThemeHint')}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {SITE_THEMES.map((tm) => (
+            <button
+              key={tm.key}
+              type="button"
+              onClick={() => patch(() => setTheme(tm.key))}
+              className={`rounded-xl border p-3 text-left transition ${
+                theme === tm.key ? 'border-primary ring-2 ring-primary/30' : 'border-default-200'
+              }`}
+              style={{ background: tm.vars.surface }}
+            >
+              <div className="flex gap-1 mb-2">
+                <span className="w-4 h-4 rounded-full border" style={{ background: tm.vars.bg }} />
+                <span className="w-4 h-4 rounded-full border" style={{ background: tm.vars.accent }} />
+                <span className="w-4 h-4 rounded-full border" style={{ background: tm.vars.text }} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: tm.vars.text }}>{tm.name}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Template */}
+      <div>
+        <h3 className="text-base font-semibold mb-1">{t('settings.appearanceTemplate')}</h3>
+        <p className="text-xs text-default-400 mb-4">{t('settings.appearanceTemplateDesc')}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {SITE_TEMPLATES.map((tp) => (
+            <button
+              key={tp.key}
+              type="button"
+              onClick={() => patch(() => setTemplate(tp.key))}
+              className={`rounded-xl border p-4 text-left transition ${
+                template === tp.key ? 'border-primary ring-2 ring-primary/30' : 'border-default-200'
+              }`}
+            >
+              <p className="text-sm font-medium">{tp.name}</p>
+              <p className="text-xs text-default-400 mt-1">{tp.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Branding */}
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label>{t('settings.appearanceSiteTitle')}</Label>
+          <Input
+            value={title}
+            onChange={(e: any) => patch(() => setTitle(e.target.value))}
+            placeholder={t('settings.appearanceSiteTitlePlaceholder')}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t('settings.appearanceSiteTagline')}</Label>
+          <Input
+            value={tagline}
+            onChange={(e: any) => patch(() => setTagline(e.target.value))}
+            placeholder={t('settings.appearanceSiteTaglinePlaceholder')}
+          />
+        </div>
+      </div>
+
+      {dirty && (
+        <div className="flex gap-3 pt-2">
+          <Button onPress={save} isDisabled={saving}>
+            {t('common.save')}
+          </Button>
+          <Button variant="outline" onPress={reset}>
+            {t('common.cancel')}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────
-type SettingsTab = 'profile' | 'preferences' | 'security'
+type SettingsTab = 'profile' | 'preferences' | 'security' | 'appearance'
 
 function SettingsPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+  const { has } = usePermission()
 
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     {
@@ -556,6 +714,15 @@ function SettingsPage() {
       label: t('settings.tabSecurity'),
       icon: <ShieldCheckIcon />,
     },
+    ...(has('site.settings.update')
+      ? [
+          {
+            id: 'appearance' as SettingsTab,
+            label: t('settings.tabAppearance'),
+            icon: <PaletteIcon />,
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -583,6 +750,7 @@ function SettingsPage() {
           {activeTab === 'profile' && <ProfileSection />}
           {activeTab === 'preferences' && <PreferencesSection />}
           {activeTab === 'security' && <SecuritySection />}
+          {activeTab === 'appearance' && <SiteAppearanceSection />}
         </div>
       </div>
     </PageContainer>

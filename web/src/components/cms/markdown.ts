@@ -48,8 +48,8 @@ export function markdownToHtml(md: string): string {
   const out: string[] = []
   let i = 0
 
-  const flushList = (tag: 'ul' | 'ol', items: string[]) => {
-    if (items.length === 0) return
+  const flushList = (tag: 'ul' | 'ol' | null, items: string[]) => {
+    if (!tag || items.length === 0) return
     out.push(`<${tag}>${items.map((it) => `<li>${inline(it)}</li>`).join('')}</${tag}>`)
   }
 

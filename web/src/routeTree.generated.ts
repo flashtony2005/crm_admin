@@ -14,24 +14,35 @@ import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MRouteImport } from './routes/m'
+import { Route as MembershipRouteImport } from './routes/membership'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SiteRouteImport } from './routes/site'
+import { Route as StatsRouteImport } from './routes/stats'
 import { Route as AiApprovalsRouteImport } from './routes/ai/approvals'
 import { Route as AiAssistantRouteImport } from './routes/ai/assistant'
 import { Route as AiTasksRouteImport } from './routes/ai/tasks'
+import { Route as AuthorNameRouteImport } from './routes/author.$name'
 import { Route as AutomationIntegrationsRouteImport } from './routes/automation/integrations'
 import { Route as AutomationWorkflowsRouteImport } from './routes/automation/workflows'
 import { Route as BusinessCustomersRouteImport } from './routes/business/customers'
 import { Route as BusinessFormsRouteImport } from './routes/business/forms'
 import { Route as BusinessLeadsRouteImport } from './routes/business/leads'
 import { Route as ContentArticlesRouteImport } from './routes/content/articles'
+import { Route as ContentCommentsRouteImport } from './routes/content/comments'
+import { Route as ContentI18nRouteImport } from './routes/content/i18n'
 import { Route as ContentMediaRouteImport } from './routes/content/media'
+import { Route as ContentMembersRouteImport } from './routes/content/members'
+import { Route as ContentNewsletterRouteImport } from './routes/content/newsletter'
 import { Route as ContentPagesRouteImport } from './routes/content/pages'
 import { Route as ContentProductsRouteImport } from './routes/content/products'
+import { Route as ContentSubscriptionsRouteImport } from './routes/content/subscriptions'
 import { Route as ContentTagsRouteImport } from './routes/content/tags'
+import { Route as ContentWebhooksRouteImport } from './routes/content/webhooks'
 import { Route as FFormIdRouteImport } from './routes/f.$formId'
+import { Route as ReadKeyRouteImport } from './routes/read.$key'
+import { Route as TagSlugRouteImport } from './routes/tag.$slug'
 import { Route as TeamRolesRouteImport } from './routes/team/roles'
 import { Route as TeamUsersRouteImport } from './routes/team/users'
 
@@ -60,6 +71,11 @@ const MRoute = MRouteImport.update({
   path: '/m',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MembershipRoute = MembershipRouteImport.update({
+  id: '/membership',
+  path: '/membership',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -80,6 +96,11 @@ const SiteRoute = SiteRouteImport.update({
   path: '/site',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatsRoute = StatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AiApprovalsRoute = AiApprovalsRouteImport.update({
   id: '/ai/approvals',
   path: '/ai/approvals',
@@ -93,6 +114,11 @@ const AiAssistantRoute = AiAssistantRouteImport.update({
 const AiTasksRoute = AiTasksRouteImport.update({
   id: '/ai/tasks',
   path: '/ai/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthorNameRoute = AuthorNameRouteImport.update({
+  id: '/author/$name',
+  path: '/author/$name',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutomationIntegrationsRoute = AutomationIntegrationsRouteImport.update({
@@ -125,9 +151,29 @@ const ContentArticlesRoute = ContentArticlesRouteImport.update({
   path: '/content/articles',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentCommentsRoute = ContentCommentsRouteImport.update({
+  id: '/content/comments',
+  path: '/content/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentI18nRoute = ContentI18nRouteImport.update({
+  id: '/content/i18n',
+  path: '/content/i18n',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContentMediaRoute = ContentMediaRouteImport.update({
   id: '/content/media',
   path: '/content/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentMembersRoute = ContentMembersRouteImport.update({
+  id: '/content/members',
+  path: '/content/members',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentNewsletterRoute = ContentNewsletterRouteImport.update({
+  id: '/content/newsletter',
+  path: '/content/newsletter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContentPagesRoute = ContentPagesRouteImport.update({
@@ -140,14 +186,34 @@ const ContentProductsRoute = ContentProductsRouteImport.update({
   path: '/content/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentSubscriptionsRoute = ContentSubscriptionsRouteImport.update({
+  id: '/content/subscriptions',
+  path: '/content/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContentTagsRoute = ContentTagsRouteImport.update({
   id: '/content/tags',
   path: '/content/tags',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentWebhooksRoute = ContentWebhooksRouteImport.update({
+  id: '/content/webhooks',
+  path: '/content/webhooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FFormIdRoute = FFormIdRouteImport.update({
   id: '/f/$formId',
   path: '/f/$formId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReadKeyRoute = ReadKeyRouteImport.update({
+  id: '/read/$key',
+  path: '/read/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TagSlugRoute = TagSlugRouteImport.update({
+  id: '/tag/$slug',
+  path: '/tag/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeamRolesRoute = TeamRolesRouteImport.update({
@@ -167,24 +233,35 @@ export interface FileRoutesByFullPath {
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/m': typeof MRoute
+  '/membership': typeof MembershipRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/site': typeof SiteRoute
+  '/stats': typeof StatsRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
+  '/author/$name': typeof AuthorNameRoute
   '/automation/integrations': typeof AutomationIntegrationsRoute
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/business/customers': typeof BusinessCustomersRoute
   '/business/forms': typeof BusinessFormsRoute
   '/business/leads': typeof BusinessLeadsRoute
   '/content/articles': typeof ContentArticlesRoute
+  '/content/comments': typeof ContentCommentsRoute
+  '/content/i18n': typeof ContentI18nRoute
   '/content/media': typeof ContentMediaRoute
+  '/content/members': typeof ContentMembersRoute
+  '/content/newsletter': typeof ContentNewsletterRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
+  '/content/webhooks': typeof ContentWebhooksRoute
   '/f/$formId': typeof FFormIdRoute
+  '/read/$key': typeof ReadKeyRoute
+  '/tag/$slug': typeof TagSlugRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
 }
@@ -194,24 +271,35 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/m': typeof MRoute
+  '/membership': typeof MembershipRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/site': typeof SiteRoute
+  '/stats': typeof StatsRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
+  '/author/$name': typeof AuthorNameRoute
   '/automation/integrations': typeof AutomationIntegrationsRoute
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/business/customers': typeof BusinessCustomersRoute
   '/business/forms': typeof BusinessFormsRoute
   '/business/leads': typeof BusinessLeadsRoute
   '/content/articles': typeof ContentArticlesRoute
+  '/content/comments': typeof ContentCommentsRoute
+  '/content/i18n': typeof ContentI18nRoute
   '/content/media': typeof ContentMediaRoute
+  '/content/members': typeof ContentMembersRoute
+  '/content/newsletter': typeof ContentNewsletterRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
+  '/content/webhooks': typeof ContentWebhooksRoute
   '/f/$formId': typeof FFormIdRoute
+  '/read/$key': typeof ReadKeyRoute
+  '/tag/$slug': typeof TagSlugRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
 }
@@ -222,24 +310,35 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/m': typeof MRoute
+  '/membership': typeof MembershipRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/site': typeof SiteRoute
+  '/stats': typeof StatsRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
+  '/author/$name': typeof AuthorNameRoute
   '/automation/integrations': typeof AutomationIntegrationsRoute
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/business/customers': typeof BusinessCustomersRoute
   '/business/forms': typeof BusinessFormsRoute
   '/business/leads': typeof BusinessLeadsRoute
   '/content/articles': typeof ContentArticlesRoute
+  '/content/comments': typeof ContentCommentsRoute
+  '/content/i18n': typeof ContentI18nRoute
   '/content/media': typeof ContentMediaRoute
+  '/content/members': typeof ContentMembersRoute
+  '/content/newsletter': typeof ContentNewsletterRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
+  '/content/webhooks': typeof ContentWebhooksRoute
   '/f/$formId': typeof FFormIdRoute
+  '/read/$key': typeof ReadKeyRoute
+  '/tag/$slug': typeof TagSlugRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
 }
@@ -251,24 +350,35 @@ export interface FileRouteTypes {
     | '/home'
     | '/login'
     | '/m'
+    | '/membership'
     | '/profile'
     | '/register'
     | '/settings'
     | '/site'
+    | '/stats'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
+    | '/author/$name'
     | '/automation/integrations'
     | '/automation/workflows'
     | '/business/customers'
     | '/business/forms'
     | '/business/leads'
     | '/content/articles'
+    | '/content/comments'
+    | '/content/i18n'
     | '/content/media'
+    | '/content/members'
+    | '/content/newsletter'
     | '/content/pages'
     | '/content/products'
+    | '/content/subscriptions'
     | '/content/tags'
+    | '/content/webhooks'
     | '/f/$formId'
+    | '/read/$key'
+    | '/tag/$slug'
     | '/team/roles'
     | '/team/users'
   fileRoutesByTo: FileRoutesByTo
@@ -278,24 +388,35 @@ export interface FileRouteTypes {
     | '/home'
     | '/login'
     | '/m'
+    | '/membership'
     | '/profile'
     | '/register'
     | '/settings'
     | '/site'
+    | '/stats'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
+    | '/author/$name'
     | '/automation/integrations'
     | '/automation/workflows'
     | '/business/customers'
     | '/business/forms'
     | '/business/leads'
     | '/content/articles'
+    | '/content/comments'
+    | '/content/i18n'
     | '/content/media'
+    | '/content/members'
+    | '/content/newsletter'
     | '/content/pages'
     | '/content/products'
+    | '/content/subscriptions'
     | '/content/tags'
+    | '/content/webhooks'
     | '/f/$formId'
+    | '/read/$key'
+    | '/tag/$slug'
     | '/team/roles'
     | '/team/users'
   id:
@@ -305,24 +426,35 @@ export interface FileRouteTypes {
     | '/home'
     | '/login'
     | '/m'
+    | '/membership'
     | '/profile'
     | '/register'
     | '/settings'
     | '/site'
+    | '/stats'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
+    | '/author/$name'
     | '/automation/integrations'
     | '/automation/workflows'
     | '/business/customers'
     | '/business/forms'
     | '/business/leads'
     | '/content/articles'
+    | '/content/comments'
+    | '/content/i18n'
     | '/content/media'
+    | '/content/members'
+    | '/content/newsletter'
     | '/content/pages'
     | '/content/products'
+    | '/content/subscriptions'
     | '/content/tags'
+    | '/content/webhooks'
     | '/f/$formId'
+    | '/read/$key'
+    | '/tag/$slug'
     | '/team/roles'
     | '/team/users'
   fileRoutesById: FileRoutesById
@@ -333,24 +465,35 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   MRoute: typeof MRoute
+  MembershipRoute: typeof MembershipRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
   SiteRoute: typeof SiteRoute
+  StatsRoute: typeof StatsRoute
   AiApprovalsRoute: typeof AiApprovalsRoute
   AiAssistantRoute: typeof AiAssistantRoute
   AiTasksRoute: typeof AiTasksRoute
+  AuthorNameRoute: typeof AuthorNameRoute
   AutomationIntegrationsRoute: typeof AutomationIntegrationsRoute
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRoute
   BusinessCustomersRoute: typeof BusinessCustomersRoute
   BusinessFormsRoute: typeof BusinessFormsRoute
   BusinessLeadsRoute: typeof BusinessLeadsRoute
   ContentArticlesRoute: typeof ContentArticlesRoute
+  ContentCommentsRoute: typeof ContentCommentsRoute
+  ContentI18nRoute: typeof ContentI18nRoute
   ContentMediaRoute: typeof ContentMediaRoute
+  ContentMembersRoute: typeof ContentMembersRoute
+  ContentNewsletterRoute: typeof ContentNewsletterRoute
   ContentPagesRoute: typeof ContentPagesRoute
   ContentProductsRoute: typeof ContentProductsRoute
+  ContentSubscriptionsRoute: typeof ContentSubscriptionsRoute
   ContentTagsRoute: typeof ContentTagsRoute
+  ContentWebhooksRoute: typeof ContentWebhooksRoute
   FFormIdRoute: typeof FFormIdRoute
+  ReadKeyRoute: typeof ReadKeyRoute
+  TagSlugRoute: typeof TagSlugRoute
   TeamRolesRoute: typeof TeamRolesRoute
   TeamUsersRoute: typeof TeamUsersRoute
 }
@@ -392,6 +535,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/membership': {
+      id: '/membership'
+      path: '/membership'
+      fullPath: '/membership'
+      preLoaderRoute: typeof MembershipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -420,6 +570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stats': {
+      id: '/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ai/approvals': {
       id: '/ai/approvals'
       path: '/ai/approvals'
@@ -439,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/ai/tasks'
       fullPath: '/ai/tasks'
       preLoaderRoute: typeof AiTasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/author/$name': {
+      id: '/author/$name'
+      path: '/author/$name'
+      fullPath: '/author/$name'
+      preLoaderRoute: typeof AuthorNameRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/automation/integrations': {
@@ -483,11 +647,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentArticlesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/comments': {
+      id: '/content/comments'
+      path: '/content/comments'
+      fullPath: '/content/comments'
+      preLoaderRoute: typeof ContentCommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content/i18n': {
+      id: '/content/i18n'
+      path: '/content/i18n'
+      fullPath: '/content/i18n'
+      preLoaderRoute: typeof ContentI18nRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/media': {
       id: '/content/media'
       path: '/content/media'
       fullPath: '/content/media'
       preLoaderRoute: typeof ContentMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content/members': {
+      id: '/content/members'
+      path: '/content/members'
+      fullPath: '/content/members'
+      preLoaderRoute: typeof ContentMembersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content/newsletter': {
+      id: '/content/newsletter'
+      path: '/content/newsletter'
+      fullPath: '/content/newsletter'
+      preLoaderRoute: typeof ContentNewsletterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/content/pages': {
@@ -504,6 +696,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/subscriptions': {
+      id: '/content/subscriptions'
+      path: '/content/subscriptions'
+      fullPath: '/content/subscriptions'
+      preLoaderRoute: typeof ContentSubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/tags': {
       id: '/content/tags'
       path: '/content/tags'
@@ -511,11 +710,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentTagsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/webhooks': {
+      id: '/content/webhooks'
+      path: '/content/webhooks'
+      fullPath: '/content/webhooks'
+      preLoaderRoute: typeof ContentWebhooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/f/$formId': {
       id: '/f/$formId'
       path: '/f/$formId'
       fullPath: '/f/$formId'
       preLoaderRoute: typeof FFormIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/read/$key': {
+      id: '/read/$key'
+      path: '/read/$key'
+      fullPath: '/read/$key'
+      preLoaderRoute: typeof ReadKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tag/$slug': {
+      id: '/tag/$slug'
+      path: '/tag/$slug'
+      fullPath: '/tag/$slug'
+      preLoaderRoute: typeof TagSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/team/roles': {
@@ -541,24 +761,35 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   MRoute: MRoute,
+  MembershipRoute: MembershipRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
   SiteRoute: SiteRoute,
+  StatsRoute: StatsRoute,
   AiApprovalsRoute: AiApprovalsRoute,
   AiAssistantRoute: AiAssistantRoute,
   AiTasksRoute: AiTasksRoute,
+  AuthorNameRoute: AuthorNameRoute,
   AutomationIntegrationsRoute: AutomationIntegrationsRoute,
   AutomationWorkflowsRoute: AutomationWorkflowsRoute,
   BusinessCustomersRoute: BusinessCustomersRoute,
   BusinessFormsRoute: BusinessFormsRoute,
   BusinessLeadsRoute: BusinessLeadsRoute,
   ContentArticlesRoute: ContentArticlesRoute,
+  ContentCommentsRoute: ContentCommentsRoute,
+  ContentI18nRoute: ContentI18nRoute,
   ContentMediaRoute: ContentMediaRoute,
+  ContentMembersRoute: ContentMembersRoute,
+  ContentNewsletterRoute: ContentNewsletterRoute,
   ContentPagesRoute: ContentPagesRoute,
   ContentProductsRoute: ContentProductsRoute,
+  ContentSubscriptionsRoute: ContentSubscriptionsRoute,
   ContentTagsRoute: ContentTagsRoute,
+  ContentWebhooksRoute: ContentWebhooksRoute,
   FFormIdRoute: FFormIdRoute,
+  ReadKeyRoute: ReadKeyRoute,
+  TagSlugRoute: TagSlugRoute,
   TeamRolesRoute: TeamRolesRoute,
   TeamUsersRoute: TeamUsersRoute,
 }

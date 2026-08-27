@@ -27,10 +27,10 @@ function withBase<T extends { id: string }>(rows: T[]): (T & { createdAt: string
 // ── Content ──────────────────────────────────────────
 
 const rawArticles: Omit<Article, 'createdAt' | 'updatedAt'>[] = [
-  { id: 'a1', title: '秋季限定：桂花栗子欧包上市', slug: 'autumn-chestnut-bread', summary: '当季板栗与头茬桂花，每日限量 30 个。', category: '新品动态', status: 'published', views: 1284, author: '林小茶' },
-  { id: 'a2', title: '为什么我们的面包要发酵 18 小时', slug: '18-hour-fermentation', summary: '慢发酵带来更好的风味与更友好的肠胃体验。', category: '品牌故事', status: 'published', views: 3521, author: '陈师傅' },
-  { id: 'a3', title: '周末亲子烘焙课报名开启', slug: 'family-baking-class', summary: '每周六上午，和孩子一起做一炉小饼干。', category: '活动公告', status: 'pending_review', views: 0, author: '林小茶' },
-  { id: 'a4', title: '社区咖啡节回顾：我们卖了 800 杯拿铁', slug: 'coffee-festival-recap', summary: '两天的咖啡节，认识了很多街坊邻居。', category: '门店动态', status: 'draft', views: 0, author: '周周' },
+  { id: 'a1', title: '秋季限定：桂花栗子欧包上市', slug: 'autumn-chestnut-bread', summary: '当季板栗与头茬桂花，每日限量 30 个。', content: '当季板栗与头茬桂花，每日限量 30 个。趁热撕开，桂花的清甜混着栗子的绵密，是秋天该有的味道。', category: '新品动态', status: 'published', views: 1284, author: '林小茶' },
+  { id: 'a2', title: '为什么我们的面包要发酵 18 小时', slug: '18-hour-fermentation', summary: '慢发酵带来更好的风味与更友好的肠胃体验。', content: '慢发酵带来更好的风味与更友好的肠胃体验。低温长时间发酵让面筋更舒展，麦香更突出，也更易消化。', category: '品牌故事', status: 'published', views: 3521, author: '陈师傅' },
+  { id: 'a3', title: '周末亲子烘焙课报名开启', slug: 'family-baking-class', summary: '每周六上午，和孩子一起做一炉小饼干。', content: '每周六上午，和孩子一起做一炉小饼干。揉面、造型、等待出炉，把周末过成甜的。', category: '活动公告', status: 'pending_review', views: 0, author: '林小茶' },
+  { id: 'a4', title: '社区咖啡节回顾：我们卖了 800 杯拿铁', slug: 'coffee-festival-recap', summary: '两天的咖啡节，认识了很多街坊邻居。', content: '两天的咖啡节，认识了很多街坊邻居。谢谢每一位来打卡的你，我们明年见。', category: '门店动态', status: 'draft', views: 0, author: '周周' },
 ]
 
 export const seedArticles: Article[] = withBase(rawArticles)

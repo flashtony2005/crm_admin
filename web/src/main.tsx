@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { Toast, toast } from '@heroui/react'
 import { setToastFunction } from './api/client'
-import { routeTree } from './routeTree.gen'
+import { routeTree } from './routeTree.generated'
 import './i18n'
 import './index.css'
 

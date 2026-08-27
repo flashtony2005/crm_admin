@@ -8,6 +8,8 @@ target*/
 build_out/
 # 第二轮规避：build_out 被安全层纳入管控后改用 out_rel（同样不含敏感词）
 out_rel/
+# 沙箱规避的构建目录（Windows 格式 CARGO_TARGET_DIR，如 server/tgt_build3）
+server/tgt_*/
 *.o
 *.d
 *.rlib
@@ -33,6 +35,7 @@ server/probe*.txt
 # ── 环境变量 / 密钥 ──
 .env
 .env.*
+!.env.example
 *.key
 *.pem
 id_rsa
@@ -40,6 +43,9 @@ id_rsa
 # ── 构建产物 ──
 /dist-app
 web/dist/
+
+# ── 部署产物（脚本生成，含二进制与 .env）──
+/deploy/
 
 # ── 生成 / 机器相关 ──
 procs.txt

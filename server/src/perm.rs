@@ -75,6 +75,26 @@ impl Role {
                 "business.leads.update",
                 "business.leads.delete",
                 "business.forms.create",
+                // P4 商业层
+                "content.members.view",
+                "content.members.create",
+                "content.members.update",
+                "content.members.delete",
+                "content.comments.view",
+                "content.comments.update",
+                "content.comments.delete",
+                "newsletter.subscribers.view",
+                "newsletter.campaign.send",
+                "subscriptions.tiers.view",
+                "subscriptions.tiers.create",
+                "subscriptions.tiers.update",
+                "subscriptions.tiers.delete",
+                "webhooks.view",
+                "webhooks.create",
+                "webhooks.update",
+                "webhooks.delete",
+                "i18n.view",
+                "i18n.update",
             ]
             .iter()
             .map(|s| s.to_string())

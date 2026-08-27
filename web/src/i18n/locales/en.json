@@ -210,6 +210,31 @@
     "rules": "Data Rules",
     "permissions": "Permissions"
   },
+  "settings": {
+    "tabAppearance": "Appearance",
+    "appearanceTheme": "Theme",
+    "appearanceThemeHint": "Choose the site default color scheme (visitors can override locally)",
+    "appearanceTemplate": "Layout Template",
+    "appearanceTemplateDesc": "Choose how the homepage article list is presented",
+    "appearanceSiteTitle": "Site Name",
+    "appearanceSiteTitlePlaceholder": "Site title, e.g. LightPress",
+    "appearanceSiteTagline": "Site Tagline",
+    "appearanceSiteTaglinePlaceholder": "One-line description of your site",
+    "appearanceSaved": "Site appearance saved"
+  },
+  "stats": {
+    "title": "Stats",
+    "subtitle": "Content reads & site operations overview",
+    "totalViews": "Total Views",
+    "totalArticles": "Published Articles",
+    "totalMembers": "Members",
+    "totalComments": "Comments",
+    "viewsTrend": "Views · Last 14 days",
+    "viewsTrendDesc": "Daily aggregation from the unified event log (article_view)",
+    "topArticles": "Top 5 Articles",
+    "noData": "No data yet",
+    "noPermission": "You don't have permission to view stats"
+  },
   "features": {
     "userRoleManagement": "Launch your business site in 5 minutes",
     "dataSecurity": "AI acts within bounds — approvals for what matters",
@@ -489,5 +514,19 @@
       "updated": "Updated {ago}"
     },
     "subtitle": "Scheduled Tasks · Job Logs · Operation Logs · Login Logs"
+  },
+  "membership": {
+    "title": "Membership",
+    "subtitle": "Sign in or register as a member to access premium content."
+  },
+  "comments": {
+    "title": "Comments",
+    "placeholder": "Write a comment…",
+    "post": "Post comment"
+  },
+  "newsletter": {
+    "title": "Newsletter",
+    "placeholder": "Enter your email",
+    "subscribe": "Subscribe"
   }
 }

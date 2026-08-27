@@ -18,8 +18,10 @@ import {
   seedIntegrations, seedLeads, seedMedia, seedPages, seedProducts, seedWorkflows,
 } from './seed'
 import type {
-  AiTask, Approval, Article, Customer, FormDef,
-  Integration, Lead, MediaItem, Page, Product, Tag, WorkflowDef,
+  AiTask, Approval, Article, Comment, Customer, FormDef,
+  Integration, Lead, LocaleMessages, MediaItem, Member,
+  MemberProfile, Page, Product, Subscriber, Tag, Tier,
+  WebhookSubscription, WorkflowDef,
 } from './types'
 
 export * from './types'
@@ -87,6 +89,169 @@ export const integrationsApi = CMS_MODE === 'real'
   ? httpCollection<Integration>('integrations')
   : collection<Integration>('integrations', seedIntegrations)
 
+// ── P4 商业层：Admin CRUD 集合 ──
+export const membersApi = CMS_MODE === 'real'
+  ? httpCollection<Member>('members')
+  : collection<Member>('members', [])
+export const commentsApi = CMS_MODE === 'real'
+  ? httpCollection<Comment>('comments')
+  : collection<Comment>('comments', [])
+export const subscribersApi = CMS_MODE === 'real'
+  ? httpCollection<Subscriber>('subscribers')
+  : collection<Subscriber>('subscribers', [])
+export const tiersApi = CMS_MODE === 'real'
+  ? httpCollection<Tier>('tiers')
+  : collection<Tier>('tiers', [])
+export const webhooksApi = CMS_MODE === 'real'
+  ? httpCollection<WebhookSubscription>('webhooks')
+  : collection<WebhookSubscription>('webhooks', [])
+
+/**
+ * 会员自助认证（公开端点，与管理员 members 集合无关）。
+ * token 存于 localStorage 'member_token'。
+ */
+const MEMBER_TOKEN_KEY = 'member_token'
+export function getMemberToken(): string | null {
+  return localStorage.getItem(MEMBER_TOKEN_KEY)
+}
+export function setMemberToken(t: string): void {
+  localStorage.setItem(MEMBER_TOKEN_KEY, t)
+}
+export function clearMemberToken(): void {
+  localStorage.removeItem(MEMBER_TOKEN_KEY)
+}
+
+export const memberAuth = {
+  async register(email: string, name: string, password: string): Promise<MemberProfile> {
+    const r = await request<{ data: { token: string; member: MemberProfile } }>(
+      '/api/public/members/register',
+      { method: 'POST', body: JSON.stringify({ email, name, password }) },
+    )
+    setMemberToken(r.data.token)
+    return r.data.member
+  },
+  async login(email: string, password: string): Promise<MemberProfile> {
+    const r = await request<{ data: { token: string; member: MemberProfile } }>(
+      '/api/public/members/login',
+      { method: 'POST', body: JSON.stringify({ email, password }) },
+    )
+    setMemberToken(r.data.token)
+    return r.data.member
+  },
+  async me(): Promise<MemberProfile | null> {
+    const t = getMemberToken()
+    if (!t) return null
+    try {
+      const r = await request<{ data: { member: MemberProfile } }>('/api/public/members/me', {
+        headers: { Authorization: `Bearer ${t}` },
+      })
+      return r.data.member
+    } catch {
+      return null
+    }
+  },
+  async logout(): Promise<void> {
+    clearMemberToken()
+  },
+}
+
+/** 公开评论：列表 + 发布（无需登录也可评论，后端可选审核） */
+export const publicComments = {
+  async list(articleId: string): Promise<Comment[]> {
+    const r = await request<{ data: Comment[] }>(
+      `/api/public/comments?article=${encodeURIComponent(articleId)}`,
+    )
+    return r.data
+  },
+  async create(input: {
+    articleId: string
+    parentId?: string
+    authorName: string
+    authorEmail?: string
+    content: string
+  }): Promise<{ id: string; status: string }> {
+    const r = await request<{ data: { id: string; status: string } }>('/api/public/comments', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    return r.data
+  },
+}
+
+/** 邮件订阅（公开订阅 + Admin 群发） */
+export const newsletterApi = {
+  async subscribe(email: string, name?: string): Promise<{ subscribed: boolean }> {
+    const r = await request<{ data: { subscribed: boolean } }>('/api/public/newsletter/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ email, name }),
+    })
+    return r.data
+  },
+  async unsubscribe(email: string): Promise<{ unsubscribed: boolean }> {
+    const r = await request<{ data: { unsubscribed: boolean } }>(
+      `/api/public/newsletter/unsubscribe?email=${encodeURIComponent(email)}`,
+    )
+    return r.data
+  },
+  async list(): Promise<Subscriber[]> {
+    const r = await request<{ data: Subscriber[]; total: number }>('/api/newsletter/subscribers')
+    return r.data
+  },
+  async send(subject: string, body: string): Promise<{ total: number; delivered: number; failed: number; testMode: boolean }> {
+    const r = await request<{
+      data: { total: number; delivered: number; failed: number; testMode: boolean }
+    }>('/api/newsletter/send', { method: 'POST', body: JSON.stringify({ subject, body }) })
+    return r.data
+  },
+}
+
+/** 付费订阅（Tiers 公开列表 + Checkout） */
+export const subscriptionsApi = {
+  async tiers(): Promise<Tier[]> {
+    const r = await request<{ data: Tier[] }>('/api/public/tiers')
+    return r.data
+  },
+  async checkout(tierId: string, interval = 'monthly'): Promise<{ url: string; testMode: boolean }> {
+    const t = getMemberToken()
+    const r = await request<{ data: { url: string; testMode: boolean } }>('/api/public/checkout', {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : undefined,
+      body: JSON.stringify({ tierId, interval }),
+    })
+    return r.data
+  },
+}
+
+/** 出站 Webhook 测试触发 */
+export async function triggerWebhookTest(event = 'ping'): Promise<void> {
+  await request<{ ok: boolean }>('/api/webhooks/test', {
+    method: 'POST',
+    body: JSON.stringify({ event }),
+  })
+}
+
+/** 多语言：翻译字典 + 语言列表 */
+export const i18nApi = {
+  async messages(locale: string): Promise<LocaleMessages> {
+    const r = await request<{ data: LocaleMessages }>(`/api/public/i18n/${locale}`)
+    return r.data
+  },
+  async locales(): Promise<string[]> {
+    const r = await request<{ data: string[] }>('/api/public/locales')
+    return r.data
+  },
+}
+
+/** GraphQL 查询助手（POST /graphql） */
+export async function graphqlQuery<T = unknown>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const r = await request<{ data: T; errors?: { message: string }[] }>('/graphql', {
+    method: 'POST',
+    body: JSON.stringify({ query, variables }),
+  })
+  if (r.errors?.length) throw new ApiError(400, r.errors[0].message)
+  return r.data
+}
+
 /** 首页统计：从各集合聚合（保持单次调用，页面无需自己拼装） */
 export interface HomeStats {
   articleCount: number
@@ -127,6 +292,14 @@ export interface UploadedFile {
   name: string
   type: string
   sizeKb: number
+  /** 缩略图 URL（栅格图自动生成） */
+  thumbnail?: string
+  /** 大图 URL（文章正文/灯箱用） */
+  large?: string
+  /** 原图像素宽 */
+  width?: number
+  /** 原图像素高 */
+  height?: number
 }
 
 export async function uploadFile(file: File): Promise<UploadedFile> {

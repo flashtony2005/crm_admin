@@ -60,7 +60,6 @@ function normalizeSteps(steps: unknown): WorkflowNode[] {
       y: typeof n.y === 'number' ? n.y : 60 + Math.floor(i / 3) * 90,
       next: Array.isArray(n.next) ? n.next : [],
       ...(n.message !== undefined ? { message: n.message } : {}),
-      ...(n.title !== undefined ? { title: n.title } : {}),
     }
   })
 }
@@ -70,7 +69,7 @@ function normalizeSteps(steps: unknown): WorkflowNode[] {
  * 后端 workflows.steps（JSON 数组，单元素即一个节点，兼容执行引擎）。
  */
 export function WorkflowEditor({ workflowId, onClose, onSaved }: WorkflowEditorProps) {
-  const [wf, setWf] = useState<WorkflowDef | null>(null)
+  const [, setWf] = useState<WorkflowDef | null>(null)
   const [name, setName] = useState('')
   const [trigger, setTrigger] = useState('manual')
   const [event, setEvent] = useState('manual')
@@ -277,10 +276,9 @@ export function WorkflowEditor({ workflowId, onClose, onSaved }: WorkflowEditorP
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold">可视化节点编辑器</span>
           <Input
-            size="sm"
             className="w-56"
             value={name}
-            onValueChange={setName}
+            onChange={(e) => setName(e.target.value)}
             placeholder="工作流名称"
           />
           <select
@@ -307,7 +305,7 @@ export function WorkflowEditor({ workflowId, onClose, onSaved }: WorkflowEditorP
           <Button size="sm" variant="ghost" onPress={onClose}>
             关闭
           </Button>
-          <Button size="sm" variant="primary" isLoading={saving} onPress={save}>
+          <Button size="sm" variant="primary" isDisabled={saving} onPress={save}>
             保存流程图
           </Button>
         </div>

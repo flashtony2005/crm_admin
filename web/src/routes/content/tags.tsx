@@ -131,17 +131,13 @@ function TagsPage() {
 
       <CmsPagination
         page={t.page}
-        pageSize={t.pageSize}
+        pageCount={t.pageCount}
         total={t.total}
         onPageChange={t.setPage}
-        onPageSizeChange={(s) => {
-          t.setPageSize(s)
-          t.setPage(1)
-        }}
       />
 
       <CmsFormModal
-        open={modalOpen}
+        isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? `编辑标签 · ${editing.name}` : '新建标签'}
         fields={FORM_FIELDS}

@@ -3,7 +3,8 @@
 //! 表结构是**编译期固定的 DDL**；Phase 2 引入复杂查询时再为各表补
 //! SeaORM entity 结构体，Phase 1 统一资源网关直接走参数化 SQL。
 
-use sea_orm::{ConnectOptions, Database};
+use sea_orm::{ConnectOptions, Database, Statement};
+use sea_orm::Value as SqlValue;
 use std::time::Duration;
 
 use crate::{auth::hash_password, cmsdb::CmsDb};
@@ -51,6 +52,7 @@ pub async fn bootstrap(db: &CmsDb) {
         "CREATE TABLE IF NOT EXISTS media_items (
             id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
             name TEXT DEFAULT '', url TEXT DEFAULT '', size INTEGER DEFAULT 0, kind TEXT DEFAULT 'image',
+            thumbnail TEXT, large TEXT, width INTEGER DEFAULT 0, height INTEGER DEFAULT 0,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE INDEX IF NOT EXISTS idx_articles_tenant ON articles(tenant_id, updated_at)",
         "CREATE TABLE IF NOT EXISTS customers (
@@ -104,8 +106,83 @@ pub async fn bootstrap(db: &CmsDb) {
             key TEXT DEFAULT '', name TEXT DEFAULT '', descr TEXT DEFAULT '',
             category TEXT DEFAULT 'seo', connected INTEGER DEFAULT 0,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        // ── P4 商业层：会员 / 评论 / 订阅 / 邮件 / 出站 Webhook ──
+        "CREATE TABLE IF NOT EXISTS members (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE, name TEXT DEFAULT '',
+            password_hash TEXT NOT NULL, status INTEGER DEFAULT 1,
+            plan TEXT DEFAULT 'free', stripe_customer_id TEXT DEFAULT '',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS comments (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            article_id TEXT DEFAULT '', parent_id TEXT DEFAULT '',
+            author_name TEXT DEFAULT '', author_email TEXT DEFAULT '',
+            member_id TEXT DEFAULT '', content TEXT DEFAULT '',
+            status TEXT DEFAULT 'approved', created_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS subscribers (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE, name TEXT DEFAULT '', status TEXT DEFAULT 'active',
+            created_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS tiers (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            name TEXT DEFAULT '', slug TEXT DEFAULT '', description TEXT DEFAULT '',
+            price_monthly REAL DEFAULT 0, price_yearly REAL DEFAULT 0,
+            stripe_price_id TEXT DEFAULT '', features TEXT DEFAULT '[]', active INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            event TEXT DEFAULT '', url TEXT DEFAULT '', secret TEXT DEFAULT '',
+            active INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS webhook_deliveries (
+            id TEXT PRIMARY KEY, sub_id TEXT DEFAULT '', tenant_id TEXT NOT NULL,
+            event TEXT DEFAULT '', payload TEXT DEFAULT '', status TEXT DEFAULT 'pending',
+            attempts INTEGER DEFAULT 0, last_error TEXT DEFAULT '', created_at TEXT NOT NULL)",
+        // ── 站点级设置（主题 / 模板 / 品牌）：KV 表，发布者在后台统一设定 ──
+        "CREATE TABLE IF NOT EXISTS site_settings (
+            key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '',
+            tenant_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        // ── 事件生态（统一事件日志：阅读/注册/评论/订阅等，统计看板的数据源）──
+        "CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            type TEXT NOT NULL, ref_id TEXT DEFAULT '', ref_key TEXT DEFAULT '',
+            payload TEXT DEFAULT '', created_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_events_tenant_type ON events(tenant_id, type, created_at)",
     ] {
         db.execute_statement(exec(ddl)).await.expect("建表失败");
+    }
+
+    // 站点级设置（主题 / 模板 / 品牌）：空库时写入单租户 t_demo 默认值
+    let site_n = db
+        .query_one_statement(exec(
+            "SELECT COUNT(*) AS n FROM site_settings WHERE tenant_id = 't_demo'",
+        ))
+        .await
+        .ok()
+        .flatten()
+        .map(|r| r.try_get::<i64>("", "n").unwrap_or(0))
+        .unwrap_or(0);
+    if site_n == 0 {
+        let now = now_iso();
+        for (k, v) in [
+            ("theme", "paper"),
+            ("template", "default"),
+            ("site_title", "LightPress"),
+            ("site_tagline", "专注内容的现代发布平台"),
+        ] {
+            let _ = db
+                .execute_statement(Statement::from_sql_and_values(
+                    sea_orm::DatabaseBackend::Sqlite,
+                    "INSERT INTO site_settings (key, value, tenant_id, created_at, updated_at) \
+                     VALUES (?, ?, 't_demo', ?, ?)",
+                    vec![
+                        SqlValue::String(Some(k.to_string())),
+                        SqlValue::String(Some(v.to_string())),
+                        SqlValue::String(Some(now.clone())),
+                        SqlValue::String(Some(now.clone())),
+                    ],
+                ))
+                .await;
+        }
     }
 
     // 种子：仅当 users 为空
@@ -303,23 +380,49 @@ pub async fn bootstrap(db: &CmsDb) {
     }
 
     // 内容种子（与前端 mock 同源的面包店场景）
-    for (title, summary, status, author) in [
-        ("秋季新品：桂花栗子欧包上市", "板栗与桂花蜜的秋日限定，本周五起门店供应。", "published", "老板"),
-        ("周末烘焙体验课报名开启", "周六下午 3 点，手作可颂体验课，限 8 人。", "published", "老板"),
-        ("会员日双倍积分预告", "每月 8 号会员日，消费双倍积分。", "draft", "店员"),
-    ] {
+    let article_seed: Vec<(&str, &str, &str, &str, &str)> = vec![
+        ("秋季新品：桂花栗子欧包上市", "板栗与桂花蜜的秋日限定，本周五起门店供应。", "published", "老板", "autumn-chestnut-bread"),
+        ("周末烘焙体验课报名开启", "周六下午 3 点，手作可颂体验课，限 8 人。", "published", "老板", "weekend-baking-class"),
+        ("会员日双倍积分预告", "每月 8 号会员日，消费双倍积分。", "draft", "店员", "member-day-double-points"),
+    ];
+    let daily_views: [u32; 14] = [4, 6, 3, 8, 5, 2, 7, 4, 6, 3, 5, 9, 4, 7];
+    for (title, summary, status, author, slug) in &article_seed {
+        let aid = uuid::Uuid::new_v4().to_string();
         db.execute_statement(exec(&format!(
-            "INSERT INTO articles (id, tenant_id, title, summary, content, status, author, tags, created_at, updated_at) \
-             VALUES ('{uuid}', 't_demo', '{t}', '{s}', '{c}', '{st}', '{a}', '[]', '{now}', '{now}')",
-            uuid = uuid::Uuid::new_v4(),
+            "INSERT INTO articles (id, tenant_id, title, summary, content, status, author, slug, tags, created_at, updated_at) \
+             VALUES ('{aid}', 't_demo', '{t}', '{s}', '{c}', '{st}', '{a}', '{slug}', '[]', '{now}', '{now}')",
+            aid = aid,
             t = title.replace('\'', "''"),
             s = summary.replace('\'', "''"),
             c = format!("{summary}（正文）").replace('\'', "''"),
             st = status,
             a = author,
+            slug = slug.replace('\'', "''"),
+            now = now,
         )))
         .await
         .expect("seed article");
+        // 已发布文章：补一批阅读事件（最近 14 天），让统计看板有演示数据
+        if *status == "published" {
+            for d in 0..14usize {
+                let day = (chrono::Utc::now() - chrono::Duration::days(d as i64))
+                    .format("%Y-%m-%d")
+                    .to_string();
+                let ts = format!("{day}T10:00:00.000Z");
+                for _ in 0..daily_views[d] {
+                    db.execute_statement(exec(&format!(
+                        "INSERT INTO events (id, tenant_id, type, ref_id, ref_key, created_at) \
+                         VALUES ('{eid}', 't_demo', 'article_view', '{aid}', '{slug}', '{ts}')",
+                        eid = uuid::Uuid::new_v4().to_string(),
+                        aid = aid,
+                        slug = slug.replace('\'', "''"),
+                        ts = ts,
+                    )))
+                    .await
+                    .expect("seed event");
+                }
+            }
+        }
     }
     // 兼容旧库：users 增加 must_change_password 列
     let _ = db
@@ -342,6 +445,19 @@ pub async fn bootstrap(db: &CmsDb) {
     let _ = db
         .execute_statement(exec("ALTER TABLE integrations ADD COLUMN oauth_token TEXT"))
         .await;
+    // 兼容旧库：media_items 增加缩略图/大图/尺寸字段（图片处理 P3）
+    let _ = db
+        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN thumbnail TEXT"))
+        .await;
+    let _ = db
+        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN large TEXT"))
+        .await;
+    let _ = db
+        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN width INTEGER DEFAULT 0"))
+        .await;
+    let _ = db
+        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN height INTEGER DEFAULT 0"))
+        .await;
     // 兼容旧库：workflows 增加 steps 列
     let _ = db
         .execute_statement(exec("ALTER TABLE workflows ADD COLUMN steps TEXT"))
@@ -361,6 +477,31 @@ pub async fn bootstrap(db: &CmsDb) {
     // 兼容旧库：approvals 增加 payload 列（幂等迁移）
     let _ = db
         .execute_statement(exec("ALTER TABLE approvals ADD COLUMN payload TEXT"))
+        .await;
+    // 兼容旧库：articles 增加可见性（会员/付费门槛）与 locale（多语言）
+    let _ = db
+        .execute_statement(exec("ALTER TABLE articles ADD COLUMN visibility TEXT DEFAULT 'public'"))
+        .await;
+    let _ = db
+        .execute_statement(exec("ALTER TABLE articles ADD COLUMN locale TEXT DEFAULT 'zh'"))
+        .await;
+    // 兼容旧库：articles 补齐内容列（slug/封面/发布时间/SEO）与新增功能列
+    // 早期版本已建这些列，新库此处补齐；ADD COLUMN 失败被忽略，幂等安全
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN slug TEXT DEFAULT ''")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN featured_image TEXT")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN published_at TEXT")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN meta_title TEXT")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN meta_description TEXT")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN featured INTEGER DEFAULT 0")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN scheduled_at TEXT DEFAULT ''")).await;
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN canonical_url TEXT DEFAULT ''")).await;
+    // 兼容旧库：articles 增加阅读量缓存计数（事件生态 / 统计看板）
+    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN views INTEGER DEFAULT 0")).await;
+    // 兼容旧库：media_items 增加响应式图 srcset
+    let _ = db.execute_statement(exec("ALTER TABLE media_items ADD COLUMN srcset TEXT")).await;
+    // 兼容旧库：members 增加 stripe 客户字段（幂等）
+    let _ = db
+        .execute_statement(exec("ALTER TABLE members ADD COLUMN stripe_customer_id TEXT DEFAULT ''"))
         .await;
 
     // 统一执行种子 SQL

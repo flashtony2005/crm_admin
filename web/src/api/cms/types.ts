@@ -5,7 +5,7 @@
  * 未来 ContentType 扩展优先用 JSON 字段 + 校验层，而非动态 Schema 内核。
  */
 
-export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'offline'
+export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'offline' | 'scheduled'
 
 export type LeadStatus = 'new' | 'following' | 'won' | 'lost'
 export type CustomerPriority = 'high' | 'mid' | 'low'
@@ -39,6 +39,14 @@ export interface Article extends BaseRecord {
   metaTitle?: string
   /** 独立 SEO 描述（留空则回退用 summary） */
   metaDescription?: string
+  /** 可见性（付费墙）：public 公开 / members 会员专享 / paid 付费会员 */
+  visibility?: string
+  /** 设为精选（首页 Featured 位） */
+  featured?: boolean
+  /** 定时发布时间（status='scheduled' 时生效；'YYYY-MM-DD HH:mm'） */
+  scheduledAt?: string
+  /** 规范链接（canonical URL）；留空则用默认文章 URL */
+  canonicalUrl?: string
 }
 
 export interface Page extends BaseRecord {
@@ -71,6 +79,16 @@ export interface MediaItem extends BaseRecord {
   type: 'image' | 'video' | 'file'
   sizeKb: number
   url: string
+  /** 缩略图 URL（栅格图自动生成；非图片回退为 url） */
+  thumbnail?: string
+  /** 大图 URL（文章正文/灯箱用；非图片回退为 url） */
+  large?: string
+  /** 原图像素宽 */
+  width?: number
+  /** 原图像素高 */
+  height?: number
+  /** 响应式图 srcset（上传接口返回；形如 "/uploads/x_480.jpg 480w, ..."） */
+  srcset?: string
 }
 
 export interface Customer extends BaseRecord {
@@ -172,3 +190,67 @@ export interface FormFieldDef {
   /** richtext 类型专用：编辑区最小高度（px） */
   height?: number
 }
+
+// ── P4 商业层类型 ──
+
+/** 会员（Members） */
+export interface Member extends BaseRecord {
+  email: string
+  name: string
+  status: number
+  /** 套餐：free / 各 tier slug */
+  plan: string
+  stripeCustomerId?: string
+}
+
+/** 当前登录会员（不含敏感字段） */
+export interface MemberProfile {
+  id: string
+  email: string
+  name: string
+  plan: string
+}
+
+/** 评论（Comments） */
+export interface Comment extends BaseRecord {
+  articleId: string
+  parentId?: string
+  authorName: string
+  authorEmail?: string
+  memberId?: string
+  content: string
+  status: 'approved' | 'pending' | 'rejected' | 'spam'
+  createdAt: string
+}
+
+/** 邮件订阅者（Newsletter） */
+export interface Subscriber extends BaseRecord {
+  email: string
+  name: string
+  status: 'active' | 'unsubscribed'
+}
+
+/** 付费套餐（Subscriptions / Tiers） */
+export interface Tier extends BaseRecord {
+  name: string
+  slug: string
+  description: string
+  priceMonthly: number
+  priceYearly: number
+  stripePriceId?: string
+  features: string
+  active: boolean
+}
+
+/** 出站 Webhook 订阅 */
+export interface WebhookSubscription extends BaseRecord {
+  event: string
+  url: string
+  secret: string
+  active: boolean
+  deliveries?: number
+}
+
+/** 多语言翻译字典 */
+export type LocaleMessages = Record<string, string>
+export type Locale = 'zh' | 'en'

@@ -33,6 +33,10 @@ function MediaPage() {
           type: uploaded.type as MediaItem['type'],
           sizeKb: uploaded.sizeKb,
           url: uploaded.url,
+          thumbnail: uploaded.thumbnail,
+          large: uploaded.large,
+          width: uploaded.width,
+          height: uploaded.height,
         })
       }
     } catch (e) {
@@ -79,7 +83,7 @@ function MediaPage() {
             >
               {/* 缩略区：图片渲染真实上传图，其它类型用图标占位 */}
               {m.type === 'image' && m.url && m.url !== '#' ? (
-                <img src={m.url} alt={m.name} className="h-28 w-full object-cover" loading="lazy" />
+                <img src={m.thumbnail ?? m.url} alt={m.name} className="h-28 w-full object-cover" loading="lazy" />
               ) : (
                 <div className="h-28 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-4xl">
                   {TYPE_ICON[m.type] ?? '📎'}
@@ -91,6 +95,23 @@ function MediaPage() {
                   {fmtSize(m.sizeKb)} · {fmtDate(m.updatedAt)}
                 </p>
               </figcaption>
+              <Auth perm={P.contentMediaUpload}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = window.prompt('重命名素材', m.name)
+                    if (n && n.trim() && n.trim() !== m.name) {
+                      t.update
+                        .mutateAsync({ id: m.id, patch: { name: n.trim() } })
+                        .catch(() => window.alert('重命名失败'))
+                    }
+                  }}
+                  aria-label={`重命名 ${m.name}`}
+                  className="absolute top-2 left-2 w-7 h-7 rounded-lg bg-white/90 border border-os-border-light text-[#6B6256] opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ✎
+                </button>
+              </Auth>
               <Auth perm={P.contentMediaDelete}>
                 <button
                   type="button"

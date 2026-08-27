@@ -31,6 +31,7 @@ const ICON_D: Record<string, string> = {
   target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   workflow: 'M3 3h6v6H3z M15 15h6v6h-6z M9 6h6a3 3 0 0 1 3 3v6 M12 15v3',
   plug: 'M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-6 6 6 6 0 0 1-6-6zM12 17v5',
+  chart: 'M3 3v18h18 M7 14l4-4 3 3 5-6',
 }
 const DEFAULT_D = 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z'
 

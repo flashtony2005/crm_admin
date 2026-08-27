@@ -204,6 +204,16 @@
     "tabProfile": "个人信息",
     "tabPreferences": "偏好设置",
     "tabSecurity": "安全",
+    "tabAppearance": "站点外观",
+    "appearanceTheme": "主题",
+    "appearanceThemeHint": "选择站点默认配色（访客可在前端用本地主题覆盖）",
+    "appearanceTemplate": "布局模板",
+    "appearanceTemplateDesc": "选择首页文章列表的呈现方式",
+    "appearanceSiteTitle": "站点名称",
+    "appearanceSiteTitlePlaceholder": "站点标题，如 LightPress",
+    "appearanceSiteTagline": "站点标语",
+    "appearanceSiteTaglinePlaceholder": "一句话描述你的站点",
+    "appearanceSaved": "站点外观已保存",
     "profileTitle": "个人信息",
     "profileDesc": "更新您的头像、昵称和联系邮箱",
     "changeAvatar": "更改头像",
@@ -275,6 +285,19 @@
     "twoFactorDisabled": "两步验证已关闭",
     "twoFactorEnableHint": "请在后续步骤中完成绑定",
     "twoFactorDisabledHint": "两步验证已禁用"
+  },
+  "stats": {
+    "title": "统计看板",
+    "subtitle": "内容阅读与站点运营概览",
+    "totalViews": "总阅读量",
+    "totalArticles": "已发布文章",
+    "totalMembers": "注册会员",
+    "totalComments": "评论数",
+    "viewsTrend": "近 14 天阅读趋势",
+    "viewsTrendDesc": "基于统一事件日志（article_view）按天聚合",
+    "topArticles": "热门文章 Top 5",
+    "noData": "暂无数据",
+    "noPermission": "无权限查看统计看板"
   },
   "menu": {
     "workbench": "工作台",
@@ -567,5 +590,19 @@
       "updated": "更新于 {ago}"
     },
     "subtitle": "定时任务 · 任务日志 · 操作日志 · 登录日志"
+  },
+  "membership": {
+    "title": "会员中心",
+    "subtitle": "登录或注册会员，订阅付费内容。"
+  },
+  "comments": {
+    "title": "评论",
+    "placeholder": "写下你的评论…",
+    "post": "发表评论"
+  },
+  "newsletter": {
+    "title": "邮件订阅",
+    "placeholder": "输入你的邮箱",
+    "subscribe": "订阅"
   }
 }
