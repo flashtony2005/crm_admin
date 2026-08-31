@@ -19,7 +19,9 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SiteRouteImport } from './routes/site'
+import { Route as SiteAppearanceRouteImport } from './routes/site-appearance'
 import { Route as StatsRouteImport } from './routes/stats'
+import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AiApprovalsRouteImport } from './routes/ai/approvals'
 import { Route as AiAssistantRouteImport } from './routes/ai/assistant'
 import { Route as AiTasksRouteImport } from './routes/ai/tasks'
@@ -96,9 +98,19 @@ const SiteRoute = SiteRouteImport.update({
   path: '/site',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SiteAppearanceRoute = SiteAppearanceRouteImport.update({
+  id: '/site-appearance',
+  path: '/site-appearance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StatsRoute = StatsRouteImport.update({
   id: '/stats',
   path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesRoute = TemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AiApprovalsRoute = AiApprovalsRouteImport.update({
@@ -238,7 +250,9 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/site': typeof SiteRoute
+  '/site-appearance': typeof SiteAppearanceRoute
   '/stats': typeof StatsRoute
+  '/templates': typeof TemplatesRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
@@ -276,7 +290,9 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/site': typeof SiteRoute
+  '/site-appearance': typeof SiteAppearanceRoute
   '/stats': typeof StatsRoute
+  '/templates': typeof TemplatesRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
@@ -315,7 +331,9 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/site': typeof SiteRoute
+  '/site-appearance': typeof SiteAppearanceRoute
   '/stats': typeof StatsRoute
+  '/templates': typeof TemplatesRoute
   '/ai/approvals': typeof AiApprovalsRoute
   '/ai/assistant': typeof AiAssistantRoute
   '/ai/tasks': typeof AiTasksRoute
@@ -355,7 +373,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/settings'
     | '/site'
+    | '/site-appearance'
     | '/stats'
+    | '/templates'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
@@ -393,7 +413,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/settings'
     | '/site'
+    | '/site-appearance'
     | '/stats'
+    | '/templates'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
@@ -431,7 +453,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/settings'
     | '/site'
+    | '/site-appearance'
     | '/stats'
+    | '/templates'
     | '/ai/approvals'
     | '/ai/assistant'
     | '/ai/tasks'
@@ -470,7 +494,9 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
   SiteRoute: typeof SiteRoute
+  SiteAppearanceRoute: typeof SiteAppearanceRoute
   StatsRoute: typeof StatsRoute
+  TemplatesRoute: typeof TemplatesRoute
   AiApprovalsRoute: typeof AiApprovalsRoute
   AiAssistantRoute: typeof AiAssistantRoute
   AiTasksRoute: typeof AiTasksRoute
@@ -570,11 +596,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/site-appearance': {
+      id: '/site-appearance'
+      path: '/site-appearance'
+      fullPath: '/site-appearance'
+      preLoaderRoute: typeof SiteAppearanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stats': {
       id: '/stats'
       path: '/stats'
       fullPath: '/stats'
       preLoaderRoute: typeof StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates': {
+      id: '/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ai/approvals': {
@@ -766,7 +806,9 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
   SiteRoute: SiteRoute,
+  SiteAppearanceRoute: SiteAppearanceRoute,
   StatsRoute: StatsRoute,
+  TemplatesRoute: TemplatesRoute,
   AiApprovalsRoute: AiApprovalsRoute,
   AiAssistantRoute: AiAssistantRoute,
   AiTasksRoute: AiTasksRoute,

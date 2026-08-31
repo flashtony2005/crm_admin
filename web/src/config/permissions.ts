@@ -34,6 +34,21 @@ export const P = {
   contentMediaView: 'content.media.view',
   contentMediaUpload: 'content.media.upload',
   contentMediaDelete: 'content.media.delete',
+  // 首页区块（独立 CMS 资源：关于 / 组织 / 实验 / Web3）
+  contentSectionsView: 'content.sections.view',
+  contentSectionsCreate: 'content.sections.create',
+  contentSectionsUpdate: 'content.sections.update',
+  contentSectionsDelete: 'content.sections.delete',
+  // 站点导航/页脚链接（site 域，nav_links 表）
+  siteNavView: 'site.nav.view',
+  siteNavCreate: 'site.nav.create',
+  siteNavUpdate: 'site.nav.update',
+  siteNavDelete: 'site.nav.delete',
+  // 主页置顶文章（home_pins 表）
+  siteHomePinsView: 'site.homePins.view',
+  siteHomePinsCreate: 'site.homePins.create',
+  siteHomePinsUpdate: 'site.homePins.update',
+  siteHomePinsDelete: 'site.homePins.delete',
   // P4 商业层
   contentMembersView: 'content.members.view',
   contentMembersCreate: 'content.members.create',
@@ -98,6 +113,7 @@ const VIEW_ALL: PermString[] = [
   'content.media.view', 'ai.assistant.use', 'ai.tasks.view', 'ai.approvals.view',
   'business.customers.view', 'business.leads.view', 'business.forms.view',
   'automation.workflows.view', 'automation.integrations.view',
+  'site.nav.view', 'site.homePins.view',
 ]
 
 /** 角色 → 权限集矩阵（Phase 3 由后端角色配置取代；语义保持一致） */
@@ -120,8 +136,13 @@ export const ROLE_PERMS: Record<RoleKey, PermString[]> = {
     'subscriptions.tiers.view', 'subscriptions.tiers.create', 'subscriptions.tiers.update', 'subscriptions.tiers.delete',
     'webhooks.view', 'webhooks.create', 'webhooks.update', 'webhooks.delete',
     'i18n.view', 'i18n.update',
+    // 首页区块（独立 CMS 资源，与后端 perm.rs Editor 矩阵镜像）
+    'content.sections.view', 'content.sections.create', 'content.sections.update', 'content.sections.delete',
+    // 站点导航/页脚链接 + 主页置顶（与后端 perm.rs Editor 矩阵镜像）
+    'site.nav.view', 'site.nav.create', 'site.nav.update', 'site.nav.delete',
+    'site.homePins.view', 'site.homePins.create', 'site.homePins.update', 'site.homePins.delete',
   ],
-  viewer: [...VIEW_ALL],
+  viewer: [...VIEW_ALL, 'content.sections.view'],
 }
 
 /** 编辑器角色额外授予的自动化管理权（与后端 perm.rs Editor 矩阵严格镜像） */

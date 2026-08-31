@@ -97,7 +97,7 @@ fn locked(visibility: &str, message: impl Into<String>, preview: Value) -> ApiRe
         .into_response())
 }
 
-/// GET /api/public/articles —— 已发布文章列表（不含正文；可选 ?tag= / ?locale= 过滤）
+/// GET /api/public/articles —— 已发布文章列表（不含正文；可选 ?tag= / ?locale= / ?featured=1 / ?limit= 过滤）
 pub async fn articles(
     State(st): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
@@ -106,6 +106,12 @@ pub async fn articles(
     let locale = params.get("locale").map(|s| s.trim()).filter(|s| !s.is_empty() && *s != "all");
     let author = params.get("author").map(|s| s.trim()).filter(|s| !s.is_empty());
     let featured_only = params.get("featured").map(|s| s == "1").unwrap_or(false);
+    // ?limit= 控制返回条数（默认 100，上限 200，供首页「显示条数」配置消费）
+    let limit = params
+        .get("limit")
+        .and_then(|s| s.trim().parse::<i64>().ok())
+        .map(|n| n.clamp(1, 200))
+        .unwrap_or(100);
     let mut sql = String::from(
         "SELECT id, title, slug, summary, author, tags, featured_image, \
          published_at, meta_title, meta_description, locale, visibility, featured, scheduled_at, \
@@ -128,7 +134,8 @@ pub async fn articles(
     if featured_only {
         sql.push_str(" AND featured = 1");
     }
-    sql.push_str(" ORDER BY featured DESC, COALESCE(published_at, updated_at) DESC LIMIT 100");
+    sql.push_str(" ORDER BY featured DESC, COALESCE(published_at, updated_at) DESC LIMIT ?");
+    args.push(SqlValue::BigInt(Some(limit)));
     let rows = st
         .db
         .query_all(&sql, args)
@@ -204,6 +211,40 @@ pub async fn article_detail(
     ok(row_json(r, true))
 }
 
+/// GET /api/public/sections —— 首页区块（免认证，供公开站点消费），按 sort 升序
+///
+/// 返回每个区块的 `{ id, slug, title, subtitle, icon, body, sort, updatedAt }`；
+/// `body` 是区块的结构化内容（JSON 对象，已从 TEXT 还原）。供 coucouya 等
+/// 公开站点按 slug（about / org / lab / web3）合并进首页内容。
+pub async fn sections(State(st): State<AppState>) -> ApiResult {
+    let sql = "SELECT id, slug, title, subtitle, body, icon, sort, updated_at \
+               FROM sections WHERE tenant_id = ? ORDER BY sort ASC, updated_at ASC";
+    let rows = st
+        .db
+        .query_all(sql, vec![SqlValue::String(Some(st.tenant.clone()))])
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let items: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            let body_raw = s(r, "body");
+            let body: Value = serde_json::from_str(&body_raw)
+                .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+            json!({
+                "id": s(r, "id"),
+                "slug": s(r, "slug"),
+                "title": s(r, "title"),
+                "subtitle": so(r, "subtitle"),
+                "icon": so(r, "icon"),
+                "body": body,
+                "sort": r.try_get::<i64>("", "sort").unwrap_or(0),
+                "updatedAt": s(r, "updated_at"),
+            })
+        })
+        .collect();
+    ok(json!(items))
+}
+
 /// GET /api/public/tags —— 标签列表（独立 Tag 管理表，含文章计数）
 pub async fn tags(State(st): State<AppState>) -> ApiResult {
     let sql = "SELECT t.id, t.name, t.slug, t.description, t.cover_image, \
@@ -225,6 +266,80 @@ pub async fn tags(State(st): State<AppState>) -> ApiResult {
                 "description": s(r, "description"),
                 "cover_image": so(r, "cover_image"),
                 "post_count": r.try_get::<i64>("", "post_count").unwrap_or(0),
+            })
+        })
+        .collect();
+    ok(json!(items))
+}
+
+/// GET /api/public/nav —— 导航与页脚链接（免认证）
+///
+/// 返回 `{ nav: [...], footer: [...] }`，仅 enabled=1、按 (grp, sort) 升序。
+/// 数据源 nav_links 表（后台「设置 → 站点外观 → 导航与页脚链接」维护）；
+/// 公开站点 SiteNav/SiteFooter 优先读此接口，读不到再回落内置默认。
+pub async fn nav(State(st): State<AppState>) -> ApiResult {
+    let sql = "SELECT id, grp, label, href, target, sort FROM nav_links \
+               WHERE tenant_id = ? AND enabled = 1 \
+               ORDER BY grp ASC, sort ASC, created_at ASC";
+    let rows = st
+        .db
+        .query_all(sql, vec![SqlValue::String(Some(st.tenant.clone()))])
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let mut nav: Vec<Value> = Vec::new();
+    let mut footer: Vec<Value> = Vec::new();
+    for r in &rows {
+        let item = json!({
+            "id": s(r, "id"),
+            "label": s(r, "label"),
+            "href": s(r, "href"),
+            "target": s(r, "target"),
+        });
+        if s(r, "grp") == "footer" {
+            footer.push(item);
+        } else {
+            nav.push(item);
+        }
+    }
+    ok(json!({ "nav": nav, "footer": footer }))
+}
+
+/// GET /api/public/home-pins?slot=writing —— 主页置顶文章（免认证，JOIN articles）
+///
+/// 仅返回 enabled=1 且文章已发布（status='published'）的固定项，按 sort 升序。
+/// 公开站点优先用 pins 精确编排；未配置时回落 featured 过滤。
+pub async fn home_pins(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>) -> ApiResult {
+    let slot = params.get("slot").map(|s| s.trim()).filter(|s| !s.is_empty()).unwrap_or("writing");
+    let sql = "SELECT p.sort AS pin_sort, a.id, a.title, a.slug, a.summary, a.featured_image, \
+               a.published_at, a.tags, a.updated_at \
+               FROM home_pins p JOIN articles a ON a.id = p.article_id \
+               WHERE p.tenant_id = ? AND p.slot = ? AND p.enabled = 1 \
+                 AND a.tenant_id = p.tenant_id AND a.status = 'published' \
+               ORDER BY p.sort ASC, a.updated_at DESC";
+    let rows = st
+        .db
+        .query_all(
+            sql,
+            vec![
+                SqlValue::String(Some(st.tenant.clone())),
+                SqlValue::String(Some(slot.to_string())),
+            ],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let items: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "pinSort": r.try_get::<i64>("", "pin_sort").unwrap_or(0),
+                "id": s(r, "id"),
+                "title": s(r, "title"),
+                "slug": s(r, "slug"),
+                "summary": s(r, "summary"),
+                "featured_image": so(r, "featured_image"),
+                "published_at": so(r, "published_at"),
+                "tags": s(r, "tags"),
+                "updated_at": s(r, "updated_at"),
             })
         })
         .collect();

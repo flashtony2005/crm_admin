@@ -29,6 +29,7 @@ mod seo;
 mod site;
 mod stats;
 mod state;
+mod templates;
 mod members;
 mod comments;
 mod newsletter;
@@ -135,6 +136,11 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/public/tags", get(public_api::tags))
         // 站点级设置（主题/模板/品牌）：免认证只读，供公开站点套用
         .route("/api/public/site", get(site::site))
+        // 首页区块（独立 CMS 资源表）：免认证只读，供公开站点（coucouya 等）消费
+        .route("/api/public/sections", get(public_api::sections))
+        // 导航/页脚链接 与 主页置顶文章（nav_links / home_pins 表）：免认证只读
+        .route("/api/public/nav", get(public_api::nav))
+        .route("/api/public/home-pins", get(public_api::home_pins))
         .route("/api/public/track", post(stats::track))
         // ── P4 商业层：会员 / 评论 / 邮件 / 订阅 / 出站 Webhook / i18n ──
         // 会员（公开）
@@ -176,6 +182,29 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/upload", post(upload::upload))
         // 静态资源：上传的文件公开可读（/uploads/*）
         .nest_service("/uploads", ServeDir::new(upload::uploads_dir()))
+        // ── 首页模板管理：磁盘目录托管 + 上传(zip)/激活/切换/静态服务 ──
+        // 公开：列出模板 + 当前激活 slug（供公开站点/角标读取）
+        .route("/api/public/templates", get(templates::public_list))
+        // 后台：列表 / 上传 zip 包（需 site.settings.update）
+        .route(
+            "/api/admin/templates",
+            get(templates::admin_list).post(templates::upload),
+        )
+        // 后台：更新元数据 / 删除（仅上传类）
+        .route(
+            "/api/admin/templates/:slug",
+            put(templates::update_meta).delete(templates::remove),
+        )
+        // 后台：激活为当前模板（同步 site_settings.home_template）
+        .route(
+            "/api/admin/templates/:slug/activate",
+            post(templates::activate),
+        )
+        // 静态服务：按 slug 或按当前激活模板提供模板文件（/t/<slug>/*、/t/active/*）
+        .route("/t/:slug", get(templates::serve_index))
+        .route("/t/:slug/*rest", get(templates::serve_one))
+        .route("/t/active", get(templates::serve_active_index))
+        .route("/t/active/*rest", get(templates::serve_active))
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，
         // 放宽到 20MB（仍可被 Nginx/反代层再做最终限制）。
         // 生产态内置静态服务：未匹配到 /api、/uploads、SEO 等路由时，
@@ -226,6 +255,8 @@ async fn main() {
     scheduler::spawn(st.clone());
     // 确保上传目录存在（幂等）
     upload::ensure_uploads_dir();
+    // 确保首页模板目录与内置清单存在（幂等）
+    templates::ensure_templates_dir();
 
     let app = build_router(st.clone());
     let addr = format!(

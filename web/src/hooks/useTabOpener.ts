@@ -8,6 +8,7 @@ const menuTitleMap: Record<string, string> = {
   '/roles': '角色管理',
   '/profile': '个人中心',
   '/settings': '系统设置',
+  '/site-appearance': '站点外观',
 }
 
 export function useTabOpener() {

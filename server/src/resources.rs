@@ -245,6 +245,50 @@ pub static TABLES: &[TableDef] = &[
             ("active","active",Col::Bool),
         ],
     },
+    // ── 首页区块：独立 CMS 资源（关于 / 组织 / 实验 / Web3）──
+    // 由后台「设置 → 站点外观 → 首页区块」维护；公开站点经 /api/public/sections 消费。
+    // body 为 JSON 文本列（数组/对象自动序列化还原）。
+    TableDef {
+        key: "sections", table: "sections", perm_prefix: "content.sections",
+        create_perm: Some("content.sections.create"),
+        update_perm: Some("content.sections.update"),
+        delete_perm: Some("content.sections.delete"),
+        columns: cols![
+            ("slug","slug",Col::Text),
+            ("title","title",Col::Text),
+            ("subtitle","subtitle",Col::TextNull),
+            ("body","body",Col::Text),
+            ("icon","icon",Col::TextNull),
+            ("sort","sort",Col::Int),
+        ],
+    },
+    // ── 导航与页脚链接（site 域）：后台列表/增删改/启停走通用网关。
+    //    公开站点经 /api/public/nav 消费（仅 enabled，按 sort，已分组）。
+    //    注意：通用 list 按 updated_at DESC 返回，管理页前端按 sort 重排。
+    TableDef {
+        key: "navlinks", table: "nav_links", perm_prefix: "site.nav",
+        create_perm: None, update_perm: None, delete_perm: None,
+        columns: cols![
+            ("grp","grp",Col::Text),
+            ("label","label",Col::Text),
+            ("href","href",Col::Text),
+            ("target","target",Col::Text),
+            ("sort","sort",Col::Int),
+            ("enabled","enabled",Col::Bool),
+        ],
+    },
+    // ── 主页置顶文章（site 域）：指定「哪几篇上主页、顺序、置顶」。
+    //    公开站点经 /api/public/home-pins?slot=writing 消费（JOIN articles）。
+    TableDef {
+        key: "home_pins", table: "home_pins", perm_prefix: "site.homePins",
+        create_perm: None, update_perm: None, delete_perm: None,
+        columns: cols![
+            ("slot","slot",Col::Text),
+            ("article_id","articleId",Col::Text),
+            ("sort","sort",Col::Int),
+            ("enabled","enabled",Col::Bool),
+        ],
+    },
 ];
 
 fn def(key: &str) -> Result<&'static TableDef, ApiError> {

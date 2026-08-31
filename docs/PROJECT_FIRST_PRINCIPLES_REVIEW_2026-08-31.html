@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>admin 项目第一性原理分析 · 2026-08-31</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --ink:#1a1d23; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#2563eb; --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+    --good-bg:#f0fdf4; --warn-bg:#fffbeb; --bad-bg:#fef2f2; --accent-bg:#eff6ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;padding:32px 16px}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:26px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:28px}
+  h2{font-size:19px;margin:36px 0 14px;padding-left:10px;border-left:4px solid var(--accent)}
+  h3{font-size:15px;margin:18px 0 8px}
+  p{margin:8px 0;font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#f3f4f6;font-weight:600}
+  .tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600}
+  .t-good{background:var(--good-bg);color:var(--good)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  .t-bad{background:var(--bad-bg);color:var(--bad)}
+  .t-acc{background:var(--accent-bg);color:var(--accent)}
+  .bar{height:10px;border-radius:6px;background:#eef0f3;overflow:hidden;min-width:120px}
+  .bar>i{display:block;height:100%;border-radius:6px}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;font-size:13px}
+  .flow .node{background:var(--accent-bg);border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:6px 12px;font-weight:600}
+  .flow .node.dim{background:#f3f4f6;border-color:var(--line);color:var(--muted)}
+  .flow .arr{color:var(--muted)}
+  .verdict{border-left:4px solid var(--bad);background:var(--bad-bg);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:14px}
+  .verdict b{color:var(--bad)}
+  ul{margin:6px 0 6px 20px;font-size:14px}
+  li{margin:4px 0}
+  .kbd{font-family:Consolas,monospace;background:#f3f4f6;border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12.5px}
+  footer{color:var(--muted);font-size:12px;margin-top:40px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>admin（AI-Native 小企业 CMS）· 第一性原理分析</h1>
+<div class="sub">生成于 2026-08-31 · 基于 git 最新提交 1696ded 与当前未提交工作区（templates.rs / nav_links / home_pins 等）</div>
+
+<!-- ============ 1 现状 ============ -->
+<h2>一、项目现状一句话盘点</h2>
+<div class="card">
+<p><b>已经建成一个"骨架完整、外围铺得宽"的轻量 CMS：</b>后端 Rust/Axum + SQLite 约 7000 行、27 个模块；前端 React 19 + HeroUI v3 + TanStack，PC 管理中心 + m.tsx 移动端双形态。Phase 1（内容地基）完成度高，Phase 2–4 的能力（AI 执行器、审批、Newsletter/会员、Webhook、Automation）已有代码骨架。</p>
+<table>
+<tr><th>能力域</th><th>已落地</th><th>成熟度</th></tr>
+<tr><td>内容与站点</td><td>文章/页面通用 CRUD 网关（resources.rs）、slug/tag/JSON-LD、站点主题/模板（templates.rs，未提交）、导航与主页置顶（nav_links/home_pins）、公开只读 API</td><td><span class="tag t-good">较完整</span></td></tr>
+<tr><td>权限与安全</td><td>perm.rs 权限矩阵 + 前端镜像、AI Capability→Policy→Approval→Audit 全链路、ai_audit_log</td><td><span class="tag t-good">较完整</span></td></tr>
+<tr><td>公开站消费端</td><td>SEO 端点、四套主题、作者页/标签页/表单公开路由</td><td><span class="tag t-good">可用</span></td></tr>
+<tr><td>获客侧</td><td>公开表单、会员（members）、Newsletter、订阅（subscriptions）、审批通知（notify）</td><td><span class="tag t-warn">有骨架、缺闭环</span></td></tr>
+<tr><td>AI</td><td>ai.rs 执行器（能力注册表 + 策略拦截 + 审批升级 + 审计）</td><td><span class="tag t-bad">只有"手"，没有"脑"</span></td></tr>
+<tr><td>自动化</td><td>automation.rs、scheduler.rs、webhooks_out.rs</td><td><span class="tag t-warn">骨架</span></td></tr>
+</table>
+</div>
+
+<!-- ============ 2 第一性原理 ============ -->
+<h2>二、第一性原理：这个产品到底要解决什么</h2>
+<div class="card">
+<p>回到 PRODUCT_VISION 的最终一句话：<b>"让小企业老板用自然语言管理网站、内容、客户和日常运营，AI 干活但权限可控。"</b>剥掉所有技术栈，小企业的实际需求本质上是一条价值链：</p>
+<div class="flow">
+  <span class="node">把内容发上网</span><span class="arr">→</span>
+  <span class="node">被人搜到</span><span class="arr">→</span>
+  <span class="node">访客变线索</span><span class="arr">→</span>
+  <span class="node">AI 替人干活</span><span class="arr">→</span>
+  <span class="node">老板可控可审计</span><span class="arr">→</span>
+  <span class="node">便宜好维护</span>
+</div>
+<table>
+<tr><th>本质需求</th><th>支持能力评估</th><th>评分</th></tr>
+<tr>
+  <td>① 老板/员工能把内容发到网上，访客能看到像样的站点</td>
+  <td>编辑器、主题、导航、置顶、公开 API、SEO 全都有，且刚迭代完 UX 细节。<b>这是目前做得最好的一环。</b></td>
+  <td><div class="bar"><i style="width:85%;background:var(--good)"></i></div> 85%</td>
+</tr>
+<tr>
+  <td>② 内容能被搜索引擎找到</td>
+  <td>slug、tag 聚合、JSON-LD、SEO 端点已落地；缺 sitemap.xml 自动生成与 robots 管理。</td>
+  <td><div class="bar"><i style="width:70%;background:var(--good)"></i></div> 70%</td>
+</tr>
+<tr>
+  <td>③ 访客变线索（表单→线索→跟进）</td>
+  <td>public_forms / members / subscriptions 各自存在，但<b>没有一条"提交→进线索池→通知→跟进状态"的完整闭环</b>，三个模块互相不通。</td>
+  <td><div class="bar"><i style="width:35%;background:var(--warn)"></i></div> 35%</td>
+</tr>
+<tr>
+  <td>④ 老板用自然语言让 AI 做事（产品核心竞争力）</td>
+  <td>ai.rs 是一个安全的<b>执行器</b>（capability 注册 + 策略 + 审批 + 审计），但<b>没有接任何真实 LLM 编排层</b>——前端 pi-agent 目录只有 types.ts。"自然语言 → 意图 → capability 调用"这条最关键的链路不存在。</td>
+  <td><div class="bar"><i style="width:20%;background:var(--bad)"></i></div> 20%</td>
+</tr>
+<tr>
+  <td>⑤ AI 不越权、事后可追责</td>
+  <td>权限矩阵 + Policy 拦截 + 审批升级 + ai_audit_log，链路设计到位且已实现。这是项目的<b>第二大亮点</b>。</td>
+  <td><div class="bar"><i style="width:80%;background:var(--good)"></i></div> 80%</td>
+</tr>
+<tr>
+  <td>⑥ 低成本自托管、好维护</td>
+  <td>单二进制 + SQLite 文件，成本面优秀。但<b>交付工程未定型</b>：cms_live.db 直接进 git、无版本化迁移、无备份策略、无一键部署，编译还强依赖本机环境。</td>
+  <td><div class="bar"><i style="width:45%;background:var(--warn)"></i></div> 45%</td>
+</tr>
+</table>
+</div>
+
+<!-- ============ 3 结论 ============ -->
+<h2>三、核心结论：最大的错配</h2>
+<div class="verdict">
+<b>产品定位的第一性原理是"AI 替人干活"，而过去几个月约 80% 的实际工作量花在了传统 CMS 功能上（主题、模板、导航、置顶、UX 细节）。AI 只有一个安全壳子（执行器），没有大脑（LLM 编排）。</b>
+<br>照这个路径继续走，三个月后得到的会是一个"不错的自托管 Ghost 平替"，而不是产品纲领里定义的差异化产品。当前必须做一次方向校正：要么把 AI 大脑补上，要么坦率把产品定位收缩为"轻量自托管 CMS"。
+</div>
+
+<!-- ============ 4 不足 ============ -->
+<h2>四、具体不足清单（按优先级）</h2>
+<div class="card">
+<h3><span class="tag t-bad">P0 · 动摇定位</span></h3>
+<ul>
+  <li><b>AI 主入口名不副实</b>：没有 LLM 接入层，没有"自然语言 → tool call → /api/ai/invoke"的编排。assistant.tsx 空有界面。<span class="kbd">web/src/pi-agent/</span> 仅 types.ts。</li>
+  <li><b>交付工程未定型</b>：<span class="kbd">cms_live.db</span>（运行时库）被纳入 git，二进制污染仓库且随时会冲突；无 sea-orm-migration/refinery 版本化迁移；无备份/恢复脚本；部署依赖"本机 cargo build + 手动跑 exe"。</li>
+  <li><b>工作区漂移风险</b>：templates.rs、perm.rs、site.rs 等 10+ 文件未提交，最新能力（站点模板）只存在于工作区，一旦误操作即丢失。</li>
+</ul>
+<h3><span class="tag t-warn">P1 · 需求链断裂点</span></h3>
+<ul>
+  <li><b>线索闭环缺失</b>：public_forms 提交后没有进入统一的 leads 池，不触发通知，无跟进状态机——价值链在第 3 环断掉。</li>
+  <li><b>G1"5 分钟行业初始化"未启动</b>：templates.rs 有站点模板底子，但没有任何行业模板，新用户仍是空白站点起步。</li>
+  <li><b>搜索能力</b>：SQLite LIKE 匹配，文章量上千后体验劣化；FTS5 是零基础设施成本的标准解。</li>
+  <li><b>移动端审批推送</b>：Phase 3 验收项"手机收到审批推送一键批准"目前靠轮询，无 PWA push。</li>
+</ul>
+<h3><span class="tag t-acc">P2 · 打磨项</span></h3>
+<ul>
+  <li>内容版本（Version）记录仍是验收清单未勾选项，误删/误改无法回滚。</li>
+  <li>审计有日志无界面深度（按 capability/actor 的聚合视图）。</li>
+  <li>文档存在 3 份不同日期的 status HTML，信息已开始漂移，缺单一 status 来源。</li>
+  <li>无 CI：tests_api.rs 存在但没有自动跑的环境，Rust 侧验证完全依赖本机。</li>
+</ul>
+</div>
+
+<!-- ============ 5 改进 ============ -->
+<h2>五、改进路线（建议顺序）</h2>
+<div class="card">
+<div class="flow">
+  <span class="node">① 提交工作区<br><small>消除漂移</small></span><span class="arr">→</span>
+  <span class="node">② 定型交付<br><small>迁移/备份/一键启动</small></span><span class="arr">→</span>
+  <span class="node">③ 补 AI 大脑<br><small>LLM→capability</small></span><span class="arr">→</span>
+  <span class="node">④ 线索闭环<br><small>form→lead→通知</small></span><span class="arr">→</span>
+  <span class="node">⑤ 1 个行业模板<br><small>验证 G1</small></span>
+</div>
+<table>
+<tr><th>#</th><th>动作</th><th>要点</th></tr>
+<tr><td>1</td><td><b>git 提交 + 仓库瘦身</b></td><td>先提交全部未提交工作；随后把 cms.db/cms_live.db 移出 git（.gitignore + 保留一份结构种子 db）。</td></tr>
+<tr><td>2</td><td><b>定型交付链</b></td><td>引入 sea-orm-migration 管理建表（替换 db.rs 内散落的 CREATE TABLE IF NOT EXISTS）；scripts/ 增加 <span class="kbd">backup.ps1</span>（sqlite .backup + 按日期留存）；提供一键 dev 启动脚本。</td></tr>
+<tr><td>3</td><td><b>补 AI 大脑（最高价值）</b></td><td>后端加一个 LLM provider 模块（可配置 OpenAI 兼容 API），实现：自然语言 → LLM function-call → 映射到已有 <span class="kbd">/api/ai/invoke</span> 的 capability 注册表 → 结果回填对话。安全链路（Policy/Approval/Audit）一行不用改——这正是现有设计的红利：大脑可以慢慢换，手脚已经合规。</td></tr>
+<tr><td>4</td><td><b>线索闭环</b></td><td>新增 leads 表（或复用 members 扩展 status 字段）：public_forms 提交 → 写入 lead → notify 通知 → 后台「Business/Leads」看板，状态：新/跟进中/已转化/已流失。</td></tr>
+<tr><td>5</td><td><b>第一个行业模板</b></td><td>选一个最熟的行业（如本地服务），用 templates.rs + site_settings 打包：页面结构 + 导航 + 表单 + 首页置顶预设，验证"5 分钟初始化"可行性。</td></tr>
+<tr><td>6</td><td><b>P2 顺带</b></td><td>FTS5 全文索引、sitemap.xml 自动生成、文章版本表、审计聚合视图、GitHub Actions 跑 cargo test（Rust 侧即使沙箱受限也可推到远端 CI 跑）。</td></tr>
+</table>
+</div>
+
+<!-- ============ 6 结语 ============ -->
+<h2>六、总结</h2>
+<div class="card">
+<p><b>做对了的：</b>技术选型克制（SQLite/单二进制，没提前上 Redis/K8s）；权限与 AI 安全链路是真材实料的设计资产；公开站点消费端完整度超预期。</p>
+<p><b>要警惕的：</b>项目正在"舒适区滑行"——不断打磨 CMS 外围细节（置顶、排序、加载态），而产品灵魂（AI 执行）停在 20%。外围功能再多，也只是 Ghost 的平替；AI 大脑接上，才是纲领里那个产品。</p>
+<p><b>下一步最小动作：</b>① 提交当前工作区 → ② 后端新增 llm.rs 接一个 OpenAI 兼容端点，打通"顶栏输入框 → 生成一篇文章草稿 → 走审批 → 发布"这一条完整演示链。这一条链跑通，产品定位才算成立。</p>
+</div>
+
+<footer>admin 项目第一性原理分析 · 2026-08-31 · 基于代码库实况（非文档自述）</footer>
+</div>
+</body>
+</html>

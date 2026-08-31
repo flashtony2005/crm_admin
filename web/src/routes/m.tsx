@@ -3,9 +3,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'framer-motion'
 import { sanitizeHtml } from '../utils/sanitize'
 import type { LucideIcon } from 'lucide-react'
+import { BottomSheet } from '../components/ui/bottom-sheet'
+import { SwipeableList } from '../components/ui/swipeable-list'
 import {
-  AlertTriangle, CheckCircle2, Check, ChevronRight, ClipboardCheck, ClipboardList,
-  FileText, File, FolderOpen, Image as ImageIcon, Inbox, KeyRound, LayoutDashboard,
+  AlertTriangle, Bell, CheckCircle2, Check, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList,
+  FileText, FolderOpen, Image as ImageIcon, Inbox, KeyRound, Layout, LayoutDashboard,
   LogOut, Package, Pencil, Plus, ShieldAlert, Sparkles, Trash2, TrendingUp,
   User, Users, X,
 } from 'lucide-react'
@@ -53,20 +55,36 @@ const INPUT =
 const CARD = 'rounded-3xl bg-white shadow-sm border border-black/[0.04]'
 const BTN_PRIMARY = `h-12 rounded-2xl bg-gradient-to-r ${BRAND} text-white font-semibold text-[15px] shadow-lg shadow-[#7C5CFF]/30 active:scale-[0.98] transition-all disabled:opacity-40`
 
-// ── 内容资源图标 / 色调（驱动列表与统计卡）─────────────
+// ── 内容资源图标 / 色调（驱动列表与统计卡，色彩与图标对齐参照图 ui-minimal-dashboard，提亮版）──
 const RES_ICON: Record<string, LucideIcon> = {
-  articles: FileText, pages: File, products: Package, media: ImageIcon,
+  articles: FileText, pages: Layout, products: Package, media: ImageIcon,
   customers: Users, leads: TrendingUp, forms: ClipboardList,
 }
+// 参照图：柔和粉彩渐变底 + 实色描边（mint/sky/violet/rose/amber/coral + slate 作第 7 张）——整体提亮一档
 const RES_ICON_TONE: Record<string, string> = {
-  articles: 'from-violet-500 to-purple-500',
-  pages: 'from-blue-500 to-indigo-500',
-  products: 'from-cyan-500 to-teal-500',
-  media: 'from-pink-500 to-rose-500',
-  customers: 'from-amber-500 to-orange-500',
-  leads: 'from-emerald-500 to-green-500',
-  forms: 'from-slate-500 to-gray-500',
+  articles: 'bg-[linear-gradient(135deg,#a7f3d0,#6ee7b7)] text-[#059669]',
+  pages: 'bg-[linear-gradient(135deg,#bfdbfe,#93c5fd)] text-[#2563eb]',
+  products: 'bg-[linear-gradient(135deg,#ddd6fe,#c4b5fd)] text-[#6d28d9]',
+  media: 'bg-[linear-gradient(135deg,#fbcfe8,#f9a8d4)] text-[#be185d]',
+  customers: 'bg-[linear-gradient(135deg,#fde68a,#fcd34d)] text-[#b45309]',
+  leads: 'bg-[linear-gradient(135deg,#fecaca,#fca5a5)] text-[#dc2626]',
+  forms: 'bg-[linear-gradient(135deg,#e2e8f0,#cbd5e1)] text-[#475569]',
 }
+// Sparkline 描边实色（与图标描边色一致，提亮版）
+const RES_SOLID: Record<string, string> = {
+  articles: '#10b981', pages: '#3b82f6', products: '#7c3aed', media: '#db2777',
+  customers: '#d97706', leads: '#ef4444', forms: '#64748b',
+}
+// 迷你折线预设（decorative，按卡下标取用）
+const SPARKS = [
+  'M0,15 Q10,8 20,12 T40,6 T50,10',
+  'M0,10 Q10,14 20,11 T40,15 T50,12',
+  'M0,12 Q10,6 20,10 T40,5 T50,8',
+  'M0,14 Q10,7 20,11 T40,5 T50,9',
+  'M0,11 Q10,5 20,9 T40,3 T50,6',
+  'M0,13 Q10,6 20,10 T40,4 T50,7',
+  'M0,15 Q10,9 20,12 T40,7 T50,11',
+]
 
 // ── 状态徽标配色 ───────────────────────────────────────────
 function statusTone(s: string): string {
@@ -433,13 +451,60 @@ function ApprovalsTab({ role }: { role: string }) {
     await load()
   }
 
+  // 已办分组：当前（7 天内）/ 七天前；每组默认折叠显示前 N 条，超出的点「更多」展开
+  const VISIBLE = 5
+  const [expanded, setExpanded] = useState<string[]>([])
+  // 七天前组默认不刷出，点组头后才展开显示
+  const [showOlder, setShowOlder] = useState(false)
+  const groups =
+    tab === 'done' && list
+      ? (() => {
+          const cut = Date.now() - 7 * 24 * 3600 * 1000
+          const ts = (a: Rec) => new Date(a.decidedAt || a.createdAt || '').getTime() || 0
+          const sorted = [...list].sort((x, y) => ts(y) - ts(x))
+          return {
+            current: sorted.filter((a) => ts(a) >= cut),
+            older: sorted.filter((a) => ts(a) < cut),
+          }
+        })()
+      : null
+  const visible = (key: string, arr: Rec[]) => (expanded.includes(key) ? arr : arr.slice(0, VISIBLE))
+  const toggle = (key: string) =>
+    setExpanded((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]))
+  // 卡片内容抽成独立函数：待审列表要套进可滑动行（SwipeableList 自带容器），
+  // 已办分组仍用原来的整块按钮卡片。
+  const renderItemContent = (a: Rec) => (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <RiskBadge risk={a.risk} />
+        <span className="text-[11px] px-2 py-0.5 rounded-lg bg-[#F1F2F7] text-gray-500 font-medium">
+          {a.action === 'publish' ? '发布' : a.action === 'update' ? '更新' : a.action === 'delete' ? '删除' : a.action}
+        </span>
+        {a.status !== 'pending' && <StatusBadge s={a.status} />}
+        <ChevronRight size={14} className="ml-auto text-gray-300" />
+      </div>
+      <p className="text-[15px] font-semibold text-gray-900 break-all">{a.target}</p>
+      <p className="text-xs text-gray-500 mt-1 leading-relaxed">{a.summary}</p>
+      <p className="text-[11px] text-gray-400 mt-2">发起：{a.requestedBy}</p>
+    </div>
+  )
+
+  const renderItem = (a: Rec) => (
+    <motion.button
+      key={a.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      onClick={() => setDetail(a)} className={`${CARD} p-4 text-left active:scale-[0.99] transition-transform`}
+    >
+      {renderItemContent(a)}
+    </motion.button>
+  )
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* 分段切换 */}
       <div className="px-4 pt-4">
         <div className="p-1 bg-[#EDEEF5] rounded-full flex">
           {(['pending', 'done'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
+            <button key={t} onClick={() => { if (tab !== t) { setList(null); setDetail(null) } setTab(t) }}
               className={`flex-1 h-9 rounded-full text-[13px] font-medium transition-all ${tab === t ? 'bg-white text-[#6C4DF6] shadow-sm' : 'text-gray-500'}`}>
               {t === 'pending' ? '待我审批' : '已办'}
             </button>
@@ -460,24 +525,71 @@ function ApprovalsTab({ role }: { role: string }) {
             </div>
             <p className="text-sm text-gray-400">{tab === 'pending' ? '没有待审批的操作' : '暂无已办记录'}</p>
           </div>
-        ) : list.map((a) => (
-          <motion.button
-            key={a.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            onClick={() => setDetail(a)} className={`${CARD} p-4 text-left active:scale-[0.99] transition-transform`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <RiskBadge risk={a.risk} />
-              <span className="text-[11px] px-2 py-0.5 rounded-lg bg-[#F1F2F7] text-gray-500 font-medium">
-                {a.action === 'publish' ? '发布' : a.action === 'update' ? '更新' : a.action === 'delete' ? '删除' : a.action}
-              </span>
-              {a.status !== 'pending' && <StatusBadge s={a.status} />}
-              <ChevronRight size={14} className="ml-auto text-gray-300" />
-            </div>
-            <p className="text-[15px] font-semibold text-gray-900 break-all">{a.target}</p>
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed">{a.summary}</p>
-            <p className="text-[11px] text-gray-400 mt-2">发起：{a.requestedBy}</p>
-          </motion.button>
-        ))}
+        ) : tab === 'pending' ? (
+          // 待审列表支持滑动裁决：右滑批准、左滑拒绝（仅 Owner 有裁决权）
+          <SwipeableList
+            items={list.map((a) => ({
+              id: a.id,
+              leftActions: role === 'owner'
+                ? [{
+                    id: 'approve', label: '批准', tone: 'success' as const,
+                    icon: <Check size={17} />, onClick: () => void decide(a.id, 'approved'),
+                  }]
+                : [],
+              rightActions: role === 'owner'
+                ? [{
+                    id: 'reject', label: '拒绝', tone: 'danger' as const,
+                    icon: <X size={17} />, onClick: () => void decide(a.id, 'rejected'),
+                  }]
+                : [],
+            }))}
+            onTap={(item) => {
+              const a = list.find((r) => r.id === item.id)
+              if (a) setDetail(a)
+            }}
+            renderItem={(item) => {
+              const a = list.find((r) => r.id === item.id)
+              return a ? renderItemContent(a) : null
+            }}
+          />
+        ) : (
+          <>
+            {groups!.current.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-semibold text-gray-700">当前（7 天内）</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#6C4DF6]/10 text-[#6C4DF6] font-medium">{groups!.current.length}</span>
+                </div>
+                {visible('cur', groups!.current).map((a) => renderItem(a))}
+                {groups!.current.length > VISIBLE && (
+                  <button onClick={() => toggle('cur')} className="h-10 rounded-2xl bg-white shadow-sm border border-black/[0.04] text-[13px] font-medium text-[#6C4DF6] active:scale-[0.98] transition-transform">
+                    {expanded.includes('cur') ? '收起' : `更多 ${groups!.current.length - VISIBLE} 条`}
+                  </button>
+                )}
+              </section>
+            )}
+            {groups!.older.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <button onClick={() => setShowOlder((v) => !v)} className="flex items-center gap-2 text-left">
+                  <span className="text-[12px] font-semibold text-gray-700">七天前</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-500 font-medium">{groups!.older.length}</span>
+                  <span className="text-[11px] text-gray-400 ml-1">{showOlder ? '点此收起' : '点开查看'}</span>
+                  <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${showOlder ? 'rotate-90' : ''}`} />
+                </button>
+                {showOlder && (
+                  <>
+                    {visible('old', groups!.older).map((a) => renderItem(a))}
+                    {groups!.older.length > VISIBLE && (
+                      <button onClick={() => toggle('old')} className="h-10 rounded-2xl bg-white shadow-sm border border-black/[0.04] text-[13px] font-medium text-gray-500 active:scale-[0.98] transition-transform">
+                        {expanded.includes('old') ? '收起' : `更多 ${groups!.older.length - VISIBLE} 条`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
+          </>
+        )}
       </main>
 
       <AnimatePresence>
@@ -536,7 +648,37 @@ function Row({ k, v }: { k: string; v: string }) {
   )
 }
 
-// ── 概览仪表盘 ────────────────────────────────────────────
+// ── 概览仪表盘（极简数据风：环形图卡 + 分类明细）────────────
+function MiniRing({ pct, num }: { pct: number; num: number }) {
+  const r = 48
+  const c = 2 * Math.PI * r
+  const off = c * (1 - Math.min(Math.max(pct, 0), 1))
+  return (
+    <div className="relative shrink-0" style={{ width: 118, height: 118 }}>
+      <svg width="118" height="118" viewBox="0 0 118 118" className="-rotate-90">
+        <defs>
+          <linearGradient id="ovRing" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6ee7b7" />
+            <stop offset="100%" stopColor="#22c55e" />
+          </linearGradient>
+        </defs>
+        <circle cx="59" cy="59" r="56" fill="none" stroke="#f3f4f6" strokeWidth="1" />
+        <circle cx="59" cy="59" r="48" fill="none" stroke="#ecfdf5" strokeWidth="10" />
+        <circle cx="59" cy="59" r="48" fill="none" stroke="url(#ovRing)" strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset .8s ease' }} />
+        <circle cx="59" cy="59" r="36" fill="none" stroke="#f9fafb" strokeWidth="6" />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="text-[30px] font-bold text-gray-900 leading-none tracking-tight">{num}</span>
+        <span className="text-[11px] text-gray-400 mt-1 font-medium">条</span>
+        <span className="mt-1.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#059669] bg-[#a7f3d0] px-2 py-0.5 rounded-full">
+          发布率 {Math.round(pct * 100)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function OverviewTab({ onGotoContent }: { onGotoContent: (key: string) => void }) {
   const [stats, setStats] = useState<Rec | null>(null)
   const CARDS: { key: string; label: string; field: string }[] = [
@@ -551,57 +693,139 @@ function OverviewTab({ onGotoContent }: { onGotoContent: (key: string) => void }
   useEffect(() => {
     void (async () => {
       const keys = ['articles', 'pages', 'products', 'media', 'customers', 'leads', 'forms']
-      const out: Rec = {}
+      const out: Rec = { totals: {}, today: {}, published: {} }
       await Promise.all(keys.map(async (k) => {
         const r: any = await mreq(`/api/${k}`)
-        out[k] = r.ok === false ? 0 : (r.total ?? (r.data?.length ?? 0))
+        const data = r.ok === false ? [] : (r.data ?? [])
+        const total = r.ok === false ? 0 : (r.total ?? data.length)
+        out.totals[k] = total
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        out.today[k] = data.filter((it: any) => {
+          const t = new Date(it.createdAt || it.created_at || ''); return !isNaN(t.getTime()) && t >= today
+        }).length
+        const sf = RES_BY_KEY[k]?.statusField
+        out.published[k] = sf ? data.filter((it: any) => it[sf] === 'published').length : 0
       }))
       const ap: any = await mreq('/api/approvals?status=pending')
       out.pending = ap.ok === false ? 0 : (ap.total ?? ap.data?.length ?? 0)
+      const denom = (out.totals.articles || 0) + (out.totals.pages || 0) + (out.totals.products || 0)
+      const num = (out.published.articles || 0) + (out.published.pages || 0) + (out.published.products || 0)
+      out.publishRate = denom ? num / denom : 0
+      out.total = keys.reduce((s, k) => s + (out.totals[k] || 0), 0)
       setStats(out)
     })()
   }, [])
+
+  if (stats === null) {
+    return (
+      <main className="flex-1 px-4 pt-4 pb-6 flex flex-col gap-4 overflow-auto">
+        <div className="flex flex-col items-center gap-3 py-20">
+          <div className="h-9 w-9 rounded-full border-2 border-[#22c55e]/20 border-t-[#22c55e] animate-spin" />
+          <p className="text-xs text-gray-400">加载中…</p>
+        </div>
+      </main>
+    )
+  }
+
+  const groups = [
+    { label: '内容类', color: '#22c55e', val: (stats.totals.articles || 0) + (stats.totals.pages || 0) + (stats.totals.media || 0) + (stats.totals.forms || 0) },
+    { label: '产品类', color: '#7c3aed', val: stats.totals.products || 0 },
+    { label: '客户类', color: '#f59e0b', val: (stats.totals.customers || 0) + (stats.totals.leads || 0) },
+  ]
+
   return (
-    <main className="flex-1 px-4 pt-4 pb-6 flex flex-col gap-4 overflow-auto">
-      {/* Hero 卡：待审批 */}
-      <motion.button
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        onClick={() => onGotoContent('approvals')}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#6C4DF6] via-[#7C5CFF] to-[#A06BFF] p-5 text-left text-white shadow-xl shadow-[#7C5CFF]/25 active:scale-[0.99] transition-transform"
-      >
-        <div className="absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/10" />
-        <div className="absolute -right-2 -bottom-16 h-32 w-32 rounded-full bg-white/[0.08]" />
-        <div className="relative flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium mb-1">
-              <ClipboardCheck size={14} /> 待我审批
-            </div>
-            <span className="text-5xl font-bold leading-none tracking-tight">{stats ? stats.pending : '·'}</span>
-            <span className="text-white/70 text-xs mt-2">点击查看待办详情</span>
-          </div>
-          <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur border border-white/10 flex items-center justify-center">
-            <ClipboardCheck size={26} className="text-white" />
+    <main className="flex-1 px-4 pt-3 pb-6 flex flex-col gap-4 overflow-auto">
+      {/* 页内标题（极简风） */}
+      <div className="flex items-center justify-between pt-1">
+        <div>
+          <h2 className="text-[27px] font-bold text-gray-900 tracking-tight leading-none">概览</h2>
+          <p className="text-[13px] text-gray-400 mt-1.5">今日数据总览</p>
+        </div>
+        <div className="flex gap-2">
+          <span className={`h-9 w-9 rounded-2xl bg-white shadow-sm border border-black/[0.04] flex items-center justify-center text-gray-500 active:scale-95 transition-transform ${stats.pending > 0 ? 'relative' : ''}`}>
+            <Bell size={17} strokeWidth={2} />
+            {stats.pending > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white">
+                {stats.pending > 99 ? '99+' : stats.pending}
+              </span>
+            )}
+          </span>
+          <span className="h-9 w-9 rounded-2xl bg-[linear-gradient(135deg,#a7f3d0,#6ee7b7)] text-[#047857] flex items-center justify-center shadow-sm">
+            <User size={17} strokeWidth={2} />
+          </span>
+        </div>
+      </div>
+
+      {/* 环形图卡片：数据总览 */}
+      <div className={`${CARD} p-5`}>
+        <div className="flex items-center justify-between mb-3.5">
+          <span className="text-[14px] font-semibold text-gray-700">数据总览</span>
+          <span className="text-[11px] text-[#059669] bg-[#a7f3d0] px-2.5 py-0.5 rounded-full font-medium">本周</span>
+        </div>
+        <div className="flex items-center gap-5">
+          <MiniRing pct={stats.publishRate || 0} num={stats.total || 0} />
+          <div className="flex-1 flex flex-col gap-3">
+            {groups.map((g) => (
+              <div key={g.label} className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[12px] text-gray-600">
+                  <span className="w-2 h-2 rounded-full" style={{ background: g.color }} />
+                  {g.label}
+                </span>
+                <span className="text-[15px] font-bold text-gray-900">{g.val}</span>
+              </div>
+            ))}
           </div>
         </div>
-      </motion.button>
+      </div>
 
-      {/* 统计卡 */}
+      {/* 待我审批（点击跳转） */}
+      <button onClick={() => onGotoContent('approvals')}
+        className={`${CARD} p-4 flex items-center justify-between text-left active:scale-[0.99] transition-transform`}>
+        <div className="flex items-center gap-3">
+          <span className="h-10 w-10 rounded-2xl bg-[#a7f3d0] text-[#047857] flex items-center justify-center">
+            <ClipboardCheck size={18} strokeWidth={2.2} />
+          </span>
+          <div>
+            <p className="text-[12px] text-gray-400">待我审批</p>
+            <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{stats.pending}</p>
+          </div>
+        </div>
+        <ChevronRight size={16} className="text-gray-300" />
+      </button>
+
+      {/* 分类明细 */}
+      <div className="flex items-center justify-between px-1 pt-1">
+        <span className="text-[13px] font-semibold text-gray-500">分类明细</span>
+        <button onClick={() => onGotoContent('articles')} className="text-[11px] text-[#22c55e] font-medium active:opacity-60">全部 →</button>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         {CARDS.map((c, i) => {
           const Icon = RES_ICON[c.key]
           const tone = RES_ICON_TONE[c.key]
+          const solid = RES_SOLID[c.key]
+          const v = stats.totals[c.field] ?? 0
+          const tn = stats.today[c.field] ?? 0
           return (
             <motion.button
               key={c.key} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.03 * i }}
               onClick={() => onGotoContent(c.key)}
-              className={`${CARD} p-4 text-left active:scale-[0.98] transition-transform`}
+              className={`${CARD} p-4 text-left relative overflow-hidden active:scale-[0.98] transition-transform`}
             >
-              <span className={`inline-flex h-9 w-9 rounded-xl bg-gradient-to-br ${tone} text-white items-center justify-center shadow-sm`}>
-                <Icon size={17} strokeWidth={2.2} />
-              </span>
-              <p className="mt-3 text-[11px] text-gray-400">{c.label}</p>
-              <p className="text-[22px] font-bold text-gray-900 leading-none mt-0.5 tracking-tight">{stats ? stats[c.field] : '·'}</p>
+              <div className="flex items-start justify-between mb-2">
+                <span className={`inline-flex h-9 w-9 rounded-xl bg-gradient-to-br ${tone} text-white items-center justify-center shadow-sm`}>
+                  <Icon size={17} strokeWidth={2.2} />
+                </span>
+                {tn > 0 && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-[#a7f3d0] text-[#059669]">+{tn}</span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">{c.label}</p>
+              <p className="text-[26px] font-bold text-gray-900 leading-none tracking-tight mt-0.5">{v}</p>
+              <svg className="absolute bottom-3 right-3 w-12 h-5 opacity-60" viewBox="0 0 50 20">
+                <path d={SPARKS[i % SPARKS.length]} fill="none" stroke={solid} strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </motion.button>
           )
         })}
@@ -619,7 +843,17 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
   const [detail, setDetail] = useState<Rec | null>(null)
   const [editing, setEditing] = useState<Rec | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [busyDel, setBusyDel] = useState(false)
+  // 待删除目标独立成状态：滑动行上的「删除」不必先打开详情页也能确认。
+  const [delTarget, setDelTarget] = useState<Rec | null>(null)
   const meta = RES_BY_KEY[key]
+
+  /** 打开删除确认弹层（详情页顶部按钮与列表滑动操作共用）。 */
+  const askDelete = (rec: Rec) => {
+    setDelTarget(rec)
+    setConfirmDel(true)
+  }
   const canWrite = role !== 'viewer'
 
   const load = useCallback(async () => {
@@ -658,8 +892,11 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
   }, [detail, key])
 
   const remove = async (rec: Rec) => {
-    if (!confirm(`确认删除「${meta.title(rec)}」？`)) return
+    setBusyDel(true)
+    setConfirmDel(false)
     const r: any = await mreq(`/api/${key}/${rec.id}`, { method: 'DELETE' })
+    setBusyDel(false)
+    setDelTarget(null)
     if (r.ok === false) return alert(r.error || '删除失败')
     setDetail(null)
     await load()
@@ -697,41 +934,69 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
             </div>
             <p className="text-sm text-gray-400">暂无{meta.label}数据</p>
           </div>
-        ) : list.map((rec, i) => (
-          <motion.button
-            key={rec.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.02 * i }}
-            onClick={() => setDetail(rec)}
-            className={`${CARD} p-3.5 text-left active:scale-[0.99] transition-transform`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${tone} text-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden`}>
-                {key === 'articles' && typeof rec.featuredImage === 'string' && rec.featuredImage ? (
-                  <img src={rec.featuredImage} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <Icon size={17} strokeWidth={2.2} />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold text-gray-900 truncate">{meta.title(rec)}</p>
-                {meta.subtitle && meta.subtitle(rec) && (
-                  <p className="text-xs text-gray-400 truncate mt-0.5">{meta.subtitle(rec)}</p>
-                )}
-                {key === 'articles' && typeof rec.tags === 'string' && rec.tags.trim() && (
-                  <div className="flex gap-1 mt-1.5">
-                    {rec.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
-                      <span key={t} className="px-1.5 py-0.5 rounded-md bg-[#7C5CFF]/10 text-[#6C4DF6] text-[10px] font-medium">{t}</span>
-                    ))}
+        ) : (
+          <SwipeableList
+            items={list.map((rec) => ({
+              id: rec.id,
+              // 右滑露出左侧 → 编辑；左滑露出右侧 → 删除（仅可写角色）
+              leftActions: canWrite
+                ? [{
+                    id: 'edit', label: '编辑', tone: 'primary' as const,
+                    icon: <Pencil size={17} />,
+                    onClick: () => { setEditing(rec); setShowForm(true) },
+                  }]
+                : [],
+              rightActions: canWrite
+                ? [{
+                    id: 'del', label: '删除', tone: 'danger' as const,
+                    icon: <Trash2 size={17} />,
+                    onClick: () => askDelete(rec),
+                  }]
+                : [],
+            }))}
+            onTap={(item) => {
+              const rec = list.find((r) => r.id === item.id)
+              if (rec) setDetail(rec)
+            }}
+            renderItem={(item) => {
+              const i = list.findIndex((r) => r.id === item.id)
+              const rec = list[i]
+              if (!rec) return null
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 8) * 0.02 }}
+                  className="flex items-center gap-3 min-w-0"
+                >
+                  <span className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${tone} text-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden`}>
+                    {key === 'articles' && typeof rec.featuredImage === 'string' && rec.featuredImage ? (
+                      <img src={rec.featuredImage} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Icon size={17} strokeWidth={2.2} />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-semibold text-gray-900 truncate">{meta.title(rec)}</p>
+                    {meta.subtitle && meta.subtitle(rec) && (
+                      <p className="text-xs text-gray-400 truncate mt-0.5">{meta.subtitle(rec)}</p>
+                    )}
+                    {key === 'articles' && typeof rec.tags === 'string' && rec.tags.trim() && (
+                      <div className="flex gap-1 mt-1.5">
+                        {rec.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
+                          <span key={t} className="px-1.5 py-0.5 rounded-md bg-[#7C5CFF]/10 text-[#6C4DF6] text-[10px] font-medium">{t}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {meta.statusField && <StatusBadge s={rec[meta.statusField]} />}
-                <ChevronRight size={15} className="text-gray-300" />
-              </div>
-            </div>
-          </motion.button>
-        ))}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {meta.statusField && <StatusBadge s={rec[meta.statusField]} />}
+                    <ChevronRight size={15} className="text-gray-300" />
+                  </div>
+                </motion.div>
+              )
+            }}
+          />
+        )}
       </main>
 
       {canWrite && (
@@ -750,9 +1015,18 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
           >
             <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-black/[0.04] px-5 py-4 flex items-center justify-between">
               <span className="text-[15px] font-semibold text-gray-900">{meta.label}详情</span>
-              <button onClick={() => setDetail(null)} className="h-8 w-8 rounded-full bg-[#F1F2F7] text-gray-500 flex items-center justify-center active:scale-90 transition-transform">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {canWrite && (
+                  <button onClick={() => askDelete(detail)} title="删除"
+                    className="h-8 px-2.5 rounded-full flex items-center gap-1 text-red-500 active:scale-90 transition-transform">
+                    <Trash2 size={15} />
+                    <span className="text-[13px] font-medium">删除</span>
+                  </button>
+                )}
+                <button onClick={() => setDetail(null)} className="h-8 w-8 rounded-full bg-[#F1F2F7] text-gray-500 flex items-center justify-center active:scale-90 transition-transform">
+                  <X size={16} />
+                </button>
+              </div>
             </header>
             <div className="flex-1 overflow-auto px-5 py-5 flex flex-col gap-4">
               <div className={`${CARD} p-4 flex flex-col divide-y divide-black/[0.04]`}>
@@ -790,19 +1064,48 @@ function ContentTab({ role, initialKey }: { role: string; initialKey?: string })
             </div>
             {canWrite && (
               <div className="px-5 py-4 border-t border-black/[0.04] bg-white/90 backdrop-blur-xl grid grid-cols-2 gap-2.5">
+                <button onClick={() => setDetail(null)}
+                  className="h-12 rounded-2xl bg-white border border-black/[0.08] text-gray-600 font-semibold text-[15px] active:scale-[0.98] transition-all">
+                  <ChevronLeft size={14} className="inline -mt-0.5 mr-1" />返回
+                </button>
                 <button onClick={() => { setEditing(detail); setShowForm(true); setDetail(null) }}
                   className={`h-12 rounded-2xl bg-gradient-to-r ${BRAND} text-white font-semibold text-[15px] shadow-lg shadow-[#7C5CFF]/25 active:scale-[0.98] transition-all`}>
                   <Pencil size={14} className="inline -mt-0.5 mr-1" />编辑
-                </button>
-                <button onClick={() => void remove(detail)}
-                  className="h-12 rounded-2xl bg-white border border-red-200 text-red-500 font-semibold text-[15px] active:scale-[0.98] transition-all">
-                  <Trash2 size={14} className="inline -mt-0.5 mr-1" />删除
                 </button>
               </div>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 删除确认：可拖拽的底部弹层（拖小横条下滑即关闭） */}
+      <BottomSheet
+        open={confirmDel && !!delTarget}
+        onOpenChange={(o) => { if (!busyDel) setConfirmDel(o) }}
+        snapPoints={['auto', 0.92]}
+        title="确认删除？"
+        description={delTarget ? `将删除「${meta.title(delTarget)}」，此操作不可撤销。` : undefined}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-center">
+            <span className="h-12 w-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center">
+              <Trash2 size={22} />
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <button onClick={() => !busyDel && setConfirmDel(false)}
+              className="h-12 rounded-2xl bg-[#F1F2F7] text-gray-600 font-semibold text-[15px] active:scale-[0.98] transition-all">
+              取消
+            </button>
+            <button onClick={() => delTarget && void remove(delTarget)}
+              disabled={busyDel}
+              className="h-12 rounded-2xl bg-red-500 text-white font-semibold text-[15px] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
+              {busyDel && <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
+              {busyDel ? '删除中' : '删除'}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
 
       <AnimatePresence>
         {showForm && (

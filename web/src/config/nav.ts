@@ -109,6 +109,25 @@ export const PRODUCT_NAV: NavNode[] = [
     ],
   },
   {
+    key: 'site-appearance',
+    label: '站点外观',
+    path: '/site-appearance',
+    icon: 'palette',
+    desc: '主题 / 首页区块 / 导航链接 / 主页置顶 / 主端口模板预览',
+    // 准入放宽到 site.nav.view：Editor 虽不能改主题，但可维护导航与置顶；
+    // 页面内部再按各区块权限（site.settings.update 等）独立显隐。
+    perm: 'site.nav.view',
+  },
+  {
+    key: 'templates',
+    label: '模板管理',
+    path: '/templates',
+    icon: 'layers',
+    desc: '首页模板切换 / 上传(zip) / 主端口分配',
+    // 模板管理属 Owner 职责：切换与上传均需 site.settings.update。
+    perm: 'site.settings.update',
+  },
+  {
     key: 'settings',
     label: '设置',
     path: '/settings',

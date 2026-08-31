@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>示例上传模板</title>
+  <style>
+    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      background:#0c0f14;color:#e9eaee;min-height:100vh;display:flex;align-items:center;
+      justify-content:center;flex-direction:column;gap:8px}
+    .brand{font-size:30px;font-weight:700}
+    .hero{font-size:18px;color:#a9adba;max-width:640px;text-align:center;line-height:1.7}
+    .tag{font-size:12px;color:#6b7080;margin-top:18px}
+    .badge{position:fixed;right:12px;bottom:12px;font-size:11px;color:#9aa;opacity:.7}
+  </style>
+</head>
+<body>
+  <div class="brand" id="brand">…</div>
+  <div class="hero" id="hero">加载中…</div>
+  <div class="tag" id="tag"></div>
+  <div class="badge">sample 上传模板 · 同源拉取 /api/public/site</div>
+  <script>
+    fetch('/api/public/site').then(r=>r.json()).then(d=>{
+      var h=(d.data&&d.data.home)||{};
+      document.getElementById('brand').textContent=h.brand||'(无 brand)';
+      document.getElementById('hero').textContent=(h.hero&&h.hero.title)||'';
+      document.getElementById('tag').textContent=(d.data&&d.data.homeTemplate)||'';
+    }).catch(e=>{document.getElementById('hero').textContent='接口失败: '+e;});
+  </script>
+</body>
+</html>

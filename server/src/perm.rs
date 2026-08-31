@@ -11,6 +11,14 @@ pub const P: &[(&str, &str)] = &[
     ("contentArticlesUpdate", "content.articles.update"),
     ("contentArticlesDelete", "content.articles.delete"),
     ("contentArticlesPublish", "content.articles.publish"),
+    ("siteNavView", "site.nav.view"),
+    ("siteNavCreate", "site.nav.create"),
+    ("siteNavUpdate", "site.nav.update"),
+    ("siteNavDelete", "site.nav.delete"),
+    ("siteHomePinsView", "site.homePins.view"),
+    ("siteHomePinsCreate", "site.homePins.create"),
+    ("siteHomePinsUpdate", "site.homePins.update"),
+    ("siteHomePinsDelete", "site.homePins.delete"),
 ];
 
 /// 角色键
@@ -95,6 +103,21 @@ impl Role {
                 "webhooks.delete",
                 "i18n.view",
                 "i18n.update",
+                // 首页区块（独立 CMS 资源：关于 / 组织 / 实验 / Web3）
+                "content.sections.view",
+                "content.sections.create",
+                "content.sections.update",
+                "content.sections.delete",
+                // 站点导航/页脚链接（site 域）
+                "site.nav.view",
+                "site.nav.create",
+                "site.nav.update",
+                "site.nav.delete",
+                // 主页置顶文章
+                "site.homePins.view",
+                "site.homePins.create",
+                "site.homePins.update",
+                "site.homePins.delete",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -112,6 +135,12 @@ impl Role {
                 "business.forms.view",
                 "automation.workflows.view",
                 "automation.integrations.view",
+                // 首页区块：只读
+                "content.sections.view",
+                // 站点导航/页脚链接：只读
+                "site.nav.view",
+                // 主页置顶文章：只读
+                "site.homePins.view",
             ]
             .iter()
             .map(|s| s.to_string())

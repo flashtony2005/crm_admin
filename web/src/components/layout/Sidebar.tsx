@@ -32,6 +32,10 @@ const ICON_D: Record<string, string> = {
   workflow: 'M3 3h6v6H3z M15 15h6v6h-6z M9 6h6a3 3 0 0 1 3 3v6 M12 15v3',
   plug: 'M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-6 6 6 6 0 0 1-6-6zM12 17v5',
   chart: 'M3 3v18h18 M7 14l4-4 3 3 5-6',
+  // 站点外观（/site-appearance）
+  palette: 'M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z M7.5 10.5h.01 M12 7.5h.01 M16.5 10.5h.01',
+  // 模板管理（/templates）
+  layers: 'M12 2 2 7l10 5 10-5z M2 17l10 5 10-5 M2 12l10 5 10-5',
 }
 const DEFAULT_D = 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z'
 
