@@ -21,10 +21,9 @@ server/tgt_*/
 *.db-wal
 *.sqlite
 *.sqlite3
-# 例外：仅纳入后端业务库（Turso 本地回退，用户明确选择公开）
-!server/cms.db
-# 例外：当前实际运行库 server/cms_live.db（从 cms.db 复制解锁后由后端实时读写）
-!server/cms_live.db
+# 注：cms.db / cms_live.db 已移出版本控制（2026-08-31）。运行时由 server/src/db.rs 的
+# CREATE TABLE IF NOT EXISTS 在首次启动时自动建表；本地运行库不入库，避免业务数据泄漏与二进制冲突。
+# 如需在空仓库复现结构：启动后端即自动生成，或 `cp server/cms_live.db server/cms.db`。
 
 # ── 上传文件（运行时产物，不入库） ──
 server/uploads/
