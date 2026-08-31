@@ -31,6 +31,9 @@ server/uploads/
 # ── 本地备份（backup.ps1 产物，含业务数据，不入库） ──
 server/backups/
 
+# ── 模板运行时清单（首次启动自动生成，含 active 状态） ──
+server/templates/manifest.json
+
 # ── 诊断残留 ──
 server/probe*.txt
 
