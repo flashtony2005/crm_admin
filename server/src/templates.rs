@@ -171,13 +171,17 @@ pub async fn activate(
     Path(slug): Path<String>,
 ) -> ApiResult {
     ensure(&auth, "site.settings.update")?;
-    let _g = WRITE_LOCK.lock().unwrap();
-    let mut m = read_manifest();
-    if !m.items.iter().any(|x| x.slug == slug) {
-        return Err(ApiError::not_found("模板不存在"));
+    // 注意：std::sync::MutexGuard 非 Send，不能跨 await 持有（否则 axum
+    // Handler<_, _> 不成立）。先在同步块内完成 manifest 读写，再异步同步站点设置。
+    {
+        let _g = WRITE_LOCK.lock().unwrap();
+        let mut m = read_manifest();
+        if !m.items.iter().any(|x| x.slug == slug) {
+            return Err(ApiError::not_found("模板不存在"));
+        }
+        m.active = slug.clone();
+        write_manifest(&m)?;
     }
-    m.active = slug.clone();
-    write_manifest(&m)?;
     // 同步单一真相源：页面角标/部署读取
     set_site_kv(&st, "home_template", &slug).await?;
     ok(json!({ "active": slug }))
@@ -317,7 +321,7 @@ pub async fn upload(
     let display_name = if name.trim().is_empty() { slug.clone() } else { name };
     m.items.push(TplMeta {
         slug: slug.clone(),
-        name: display_name,
+        name: display_name.clone(),
         kind: "upload".into(),
         port,
         note,

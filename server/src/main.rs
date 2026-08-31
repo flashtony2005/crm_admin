@@ -192,19 +192,19 @@ pub fn build_router(st: AppState) -> Router {
         )
         // 后台：更新元数据 / 删除（仅上传类）
         .route(
-            "/api/admin/templates/:slug",
+            "/api/admin/templates/{slug}",
             put(templates::update_meta).delete(templates::remove),
         )
         // 后台：激活为当前模板（同步 site_settings.home_template）
         .route(
-            "/api/admin/templates/:slug/activate",
+            "/api/admin/templates/{slug}/activate",
             post(templates::activate),
         )
         // 静态服务：按 slug 或按当前激活模板提供模板文件（/t/<slug>/*、/t/active/*）
-        .route("/t/:slug", get(templates::serve_index))
-        .route("/t/:slug/*rest", get(templates::serve_one))
+        .route("/t/{slug}", get(templates::serve_index))
+        .route("/t/{slug}/{*rest}", get(templates::serve_one))
         .route("/t/active", get(templates::serve_active_index))
-        .route("/t/active/*rest", get(templates::serve_active))
+        .route("/t/active/{*rest}", get(templates::serve_active))
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，
         // 放宽到 20MB（仍可被 Nginx/反代层再做最终限制）。
         // 生产态内置静态服务：未匹配到 /api、/uploads、SEO 等路由时，
