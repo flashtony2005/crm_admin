@@ -3,7 +3,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { AiPromptCard } from '../../components/cms/AiPromptCard'
 import { StatusBadge } from '../../components/common/StatusBadge'
-import { articlesApi, CMS_MODE } from '../../api/cms'
+import { CMS_MODE } from '../../api/cms'
 import { request } from '../../api/client'
 import { extractError } from '../../lib/error'
 
@@ -16,12 +16,14 @@ export const Route = createFileRoute('/ai/assistant')({
   component: AssistantPage,
 })
 
+type Step = { label: string; status: 'done' | 'running' | 'pending' }
+
 interface ChatMessage {
   id: number
   role: 'user' | 'ai'
   text?: string
   /** AI 消息可附带执行步骤（理解 → 操作 → 审批 → 完成） */
-  steps?: { label: string; status: 'done' | 'running' | 'pending' }[]
+  steps?: Step[]
 }
 
 let nextId = 1
@@ -45,29 +47,44 @@ function aiText(text: string): ChatMessage {
   return { id: nextId++, role: 'ai', text }
 }
 
-/** 真实模式：调用后端 AI 执行器（Capability → Policy → Action → Audit） */
-async function realInvoke(prompt: string): Promise<ChatMessage> {
-  const trimmed = prompt.trim()
+/** capability → 展示标签 */
+function stepLabel(cap: string): string {
+  const map: Record<string, string> = {
+    'content.articles.draft': '生成文章草稿',
+    'content.articles.publish': '发布文章',
+    'content.seo.optimize': 'SEO 关键词优化',
+    'content.translate': '英文翻译',
+  }
+  return map[cap] ?? cap
+}
+
+interface ChatStep {
+  capability: string
+  decision: string
+  targetId?: string | null
+}
+
+/** 真实模式：AI 大脑（LLM function calling → Capability → Policy → Approval → Audit） */
+async function realChat(
+  prompt: string,
+  history: { role: 'user' | 'ai'; text: string }[],
+): Promise<ChatMessage> {
   try {
-    // 「发布…」→ 发布最新草稿（缺发布权时后端转审批，这正是 G4 验收点）
-    if (/^发布/.test(trimmed)) {
-      const arts = await articlesApi.list()
-      const draft = arts.find((a) => a.status === 'draft')
-      if (!draft) return aiText('当前没有草稿文章可发布。先让我写一篇，或在 内容 → Articles 新建。')
-      const body = await request<{ ok: boolean; data: { decision: string; message?: string } }>('/api/ai/invoke', {
+    const body = await request<{ ok: boolean; data: { reply: string; steps: ChatStep[] } }>(
+      '/api/ai/chat',
+      {
         method: 'POST',
-        body: JSON.stringify({ capability: 'content.articles.publish', input: { article_id: draft.id } }),
-      })
-      const d = body.data
-      if (d.decision === 'executed') return aiText(`「${draft.title}」已直接发布 ✅`)
-      return aiText(d.message ?? '发布请求已提交，等待 Owner 批准。可在 AI → Approvals 中查看。')
-    }
-    // 其余指令 → 写草稿
-    const body = await request<{ ok: boolean; data: { result: { title: string } } }>('/api/ai/invoke', {
-      method: 'POST',
-      body: JSON.stringify({ capability: 'content.articles.draft', input: { topic: trimmed } }),
-    })
-    return aiText(`已生成草稿《${body.data.result.title}》，在 内容 → Articles 中查看（草稿状态，发布需审批）。`)
+        body: JSON.stringify({
+          messages: [...history.map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text })), { role: 'user', content: prompt }],
+        }),
+      },
+    )
+    const d = body.data
+    const steps = (d.steps ?? []).map<Step>((s) => ({
+      label: stepLabel(s.capability),
+      status: s.decision === 'executed' ? 'done' : s.decision === 'needs_approval' ? 'running' : 'pending',
+    }))
+    return { id: nextId++, role: 'ai', text: d.reply || '（AI 未返回内容）', steps: steps.length ? steps : undefined }
   } catch (e) {
     return aiText(`执行失败：${extractError(e, '请稍后再试')}`)
   }
@@ -92,7 +109,11 @@ function AssistantPage() {
     setMessages((prev) => [...prev, { id: nextId++, role: 'user', text: q }])
     setThinking(true)
     if (CMS_MODE === 'real') {
-      realInvoke(q)
+      // 携带对话历史（排除欢迎语），供 LLM 理解上下文
+      const history = messages
+        .filter((m) => m.id !== 0 && m.text)
+        .map((m) => ({ role: m.role, text: m.text as string }))
+      realChat(q, history)
         .then((msg) => {
           setMessages((prev) => [...prev, msg])
           setThinking(false)

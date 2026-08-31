@@ -18,6 +18,7 @@ mod auth;
 mod automation;
 mod db;
 mod error;
+mod llm;
 mod notify;
 mod oauth;
 mod perm;
@@ -121,6 +122,7 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/team/users", get(team::list).post(team::invite))
         .route("/api/team/users/{id}", put(team::update_member))
         .route("/api/ai/invoke", post(ai::invoke))
+        .route("/api/ai/chat", post(llm::chat))
         .route("/api/ai/audit", get(ai::audit_list))
         .route("/api/automation/trigger", post(automation::trigger))
         .route("/api/plugins", get(automation::plugins))

@@ -79,27 +79,41 @@ pub struct InvokeReq {
 
 /// POST /api/ai/invoke
 pub async fn invoke(State(st): State<AppState>, auth: Auth, Json(req): Json<InvokeReq>) -> ApiResult {
-    let Some(cap) = find_cap(&req.capability) else {
-        return Err(ApiError::bad(format!("未知能力：{}", req.capability)));
+    let v = run_capability(&st, &auth, &req.capability, &req.input).await?;
+    ok(v)
+}
+
+/// 能力执行核心（Policy → Approval → Action → Audit），供两个入口复用：
+/// - 直接 HTTP：`POST /api/ai/invoke`（前端按钮/脚本）；
+/// - AI 大脑编排：llm.rs 的 `/api/ai/chat`（LLM function calling 选中能力后走这里）。
+/// 返回信封数据：`{"decision":"executed"|"needs_approval", ...}`；权限拒绝时返回 Err。
+pub(crate) async fn run_capability(
+    st: &AppState,
+    auth: &Auth,
+    capability: &str,
+    input: &Value,
+) -> Result<Value, ApiError> {
+    let Some(cap) = find_cap(capability) else {
+        return Err(ApiError::bad(format!("未知能力：{capability}")));
     };
     let role = auth.0.role.clone();
     let actor = auth.0.username.clone();
 
     // ── Policy ──
-    let perm_result = ensure(&auth, cap.required_perm);
+    let perm_result = ensure(auth, cap.required_perm);
     match perm_result {
         Err(denied) => {
             let editor_may_escalate = cap.escalatable && role == "editor";
             if !editor_may_escalate {
-                audit(&st, &actor, &role, cap.name, "denied", "-".into(), "权限不足且不可升级".into());
+                audit(st, &actor, &role, cap.name, "denied", "-".into(), "权限不足且不可升级".into());
                 return Err(denied);
             }
             // ── 升级为审批（发布场景）──
-            let article_id = req.input.get("article_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let article_id = input.get("article_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
             if article_id.is_empty() {
                 return Err(ApiError::bad("input.article_id 必填"));
             }
-            let title = article_title(&st, &article_id).await?.unwrap_or_else(|| article_id.clone());
+            let title = article_title(st, &article_id).await?.unwrap_or_else(|| article_id.clone());
             let approval_id = Uuid::new_v4().to_string();
             let now = now_iso();
             let payload = json!({
@@ -125,30 +139,30 @@ pub async fn invoke(State(st): State<AppState>, auth: Auth, Json(req): Json<Invo
                 ))
                 .await
                 .map_err(|e| ApiError::bad(format!("创建审批失败：{e}")))?;
-            audit(&st, &actor, &role, cap.name, "escalated", approval_id.clone(), "缺发布权 → 转人工审批".into());
+            audit(st, &actor, &role, cap.name, "escalated", approval_id.clone(), "缺发布权 → 转人工审批".into());
             // B1 推送：通知 Owner 有待裁决请求
-            crate::notify::approval_created(&st, &title);
-            return ok(json!({
+            crate::notify::approval_created(st, &title);
+            Ok(json!({
                 "decision": "needs_approval",
                 "approvalId": approval_id,
                 "message": format!("「{title}」的发布请求已提交，等待 Owner 批准。"),
-            }));
+            }))
         }
-        Ok(()) => {}
+        Ok(()) => {
+            // ── Action（直接执行）──
+            let result = execute(st, cap.name, input).await?;
+            audit(
+                st,
+                &actor,
+                &role,
+                cap.name,
+                "executed",
+                result.get("targetId").and_then(|v| v.as_str()).unwrap_or("-").to_string(),
+                "直接执行".into(),
+            );
+            Ok(json!({ "decision": "executed", "result": result }))
+        }
     }
-
-    // ── Action（直接执行）──
-    let result = execute(&st, cap.name, &req.input).await?;
-    audit(
-        &st,
-        &actor,
-        &role,
-        cap.name,
-        "executed",
-        result.get("targetId").and_then(|v| v.as_str()).unwrap_or("-").to_string(),
-        "直接执行".into(),
-    );
-    ok(json!({ "decision": "executed", "result": result }))
 }
 
 async fn execute(st: &AppState, cap: &str, input: &Value) -> Result<Value, ApiError> {
