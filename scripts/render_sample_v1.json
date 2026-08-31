@@ -1,0 +1,239 @@
+{
+  "navigation": {
+    "nav": []
+  },
+  "schema": "admin.render.v1",
+  "sections": [
+    {
+      "binding": {
+        "source": "site.profile"
+      },
+      "component": "hero",
+      "data": {
+        "description": "个人品牌站",
+        "id": "eff45485-6146-4b95-8319-9c1213497b71",
+        "locale": "zh-CN",
+        "name": "CouCouYa",
+        "settings": {},
+        "slug": "coucouya"
+      },
+      "id": "hero",
+      "props": {}
+    },
+    {
+      "binding": {
+        "source": "content",
+        "type": "profile"
+      },
+      "component": "profile",
+      "data": [
+        {
+          "data": {
+            "body": "Builder / Creator",
+            "metrics": {
+              "likes": 50,
+              "views": 1000
+            }
+          },
+          "id": "5195376d-fbc9-45ea-af62-859f3c88bb04",
+          "publishedAt": "2026-08-31T16:50:00.929Z",
+          "slug": "coucouya-profile",
+          "summary": null,
+          "title": "CouCouYa",
+          "type": "profile",
+          "updatedAt": "2026-08-31T16:50:00.929Z"
+        }
+      ],
+      "id": "about",
+      "props": {}
+    },
+    {
+      "binding": {
+        "source": "profile.metrics"
+      },
+      "component": "metrics",
+      "data": {
+        "likes": 50,
+        "views": 1000
+      },
+      "id": "metrics",
+      "props": {}
+    },
+    {
+      "binding": {
+        "featured": true,
+        "source": "content",
+        "type": "organization"
+      },
+      "component": "organization-list",
+      "data": [
+        {
+          "data": {
+            "role": "current",
+            "website": "https://kosx.ai"
+          },
+          "id": "4222147d-d473-4e6f-baf1-7a1ee47124c0",
+          "publishedAt": "2026-08-31T16:50:01.329Z",
+          "slug": "kosx-ai",
+          "summary": null,
+          "title": "KOSX.ai",
+          "type": "organization",
+          "updatedAt": "2026-08-31T16:50:01.329Z"
+        }
+      ],
+      "id": "organization",
+      "props": {}
+    },
+    {
+      "binding": {
+        "limit": 5,
+        "source": "content",
+        "type": "article"
+      },
+      "component": "article-list",
+      "data": [
+        {
+          "data": {
+            "body": "Agent-first 内容平台的第一篇文章。"
+          },
+          "id": "6af7148e-179b-44bc-96ff-28b4b972bb16",
+          "publishedAt": "2026-08-31T16:50:01.733Z",
+          "slug": "hello-coucouya",
+          "summary": "首篇文章",
+          "title": "Hello CouCouYa",
+          "type": "article",
+          "updatedAt": "2026-08-31T16:50:01.733Z"
+        }
+      ],
+      "id": "writing",
+      "props": {}
+    },
+    {
+      "binding": {
+        "source": "content",
+        "type": "project"
+      },
+      "component": "project-list",
+      "data": [],
+      "id": "projects",
+      "props": {}
+    },
+    {
+      "binding": {
+        "source": "content",
+        "type": "product"
+      },
+      "component": "product-list",
+      "data": [],
+      "id": "products",
+      "props": {}
+    }
+  ],
+  "site": {
+    "domain": "coucouya.com",
+    "id": "eff45485-6146-4b95-8319-9c1213497b71",
+    "locale": "zh-CN",
+    "name": "CouCouYa",
+    "settings": {},
+    "slug": "coucouya",
+    "timezone": "Asia/Shanghai"
+  },
+  "template": {
+    "bindingConfig": {},
+    "definition": {
+      "schema": "admin.template.v1",
+      "sections": [
+        {
+          "binding": {
+            "source": "site.profile"
+          },
+          "component": "hero",
+          "id": "hero"
+        },
+        {
+          "binding": {
+            "source": "content",
+            "type": "profile"
+          },
+          "component": "profile",
+          "id": "about"
+        },
+        {
+          "binding": {
+            "source": "profile.metrics"
+          },
+          "component": "metrics",
+          "id": "metrics"
+        },
+        {
+          "binding": {
+            "featured": true,
+            "source": "content",
+            "type": "organization"
+          },
+          "component": "organization-list",
+          "id": "organization"
+        },
+        {
+          "binding": {
+            "limit": 5,
+            "source": "content",
+            "type": "article"
+          },
+          "component": "article-list",
+          "id": "writing"
+        },
+        {
+          "binding": {
+            "source": "content",
+            "type": "project"
+          },
+          "component": "project-list",
+          "id": "projects"
+        },
+        {
+          "binding": {
+            "source": "content",
+            "type": "product"
+          },
+          "component": "product-list",
+          "id": "products"
+        }
+      ],
+      "type": "page"
+    },
+    "id": "ba6e068e-c60b-4817-8668-11ab0e10b03c",
+    "name": "PersonalBrandHome",
+    "slug": "personal-brand-home",
+    "type": "home",
+    "version": 1
+  },
+  "theme": {
+    "components": {},
+    "id": "08fffbcb-6c86-4d86-b528-cdf6311be347",
+    "name": "CouCouYa",
+    "overrides": {},
+    "slug": "coucouya",
+    "tokens": {
+      "color": {
+        "accent": "#d97706",
+        "background": "#fafaf9",
+        "foreground": "#1c1917"
+      },
+      "radius": {
+        "button": "8px",
+        "card": "12px"
+      },
+      "spacing": {
+        "container": "1120px",
+        "section": "96px"
+      },
+      "typography": {
+        "body": "sans-serif",
+        "heading": "serif",
+        "mono": "mono"
+      }
+    },
+    "version": 1
+  }
+}

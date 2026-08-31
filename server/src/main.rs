@@ -4,7 +4,7 @@ use axum::{
     extract::{DefaultBodyLimit, Request},
     http::{header, StatusCode, Uri},
     response::{IntoResponse, Response},
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 use serde_json::json;
@@ -13,10 +13,14 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 mod ai;
+mod api;
 mod cmsdb;
 mod auth;
 mod automation;
 mod db;
+// Domain Model V1 的 SeaORM entity 层（12 张核心表，见 db.rs 的 0003 迁移）。
+// Entity 只做持久化映射；业务规则属 domain 层，HTTP 契约属 api 层。
+mod entity;
 mod error;
 mod llm;
 mod notify;
@@ -207,6 +211,120 @@ pub fn build_router(st: AppState) -> Router {
         .route("/t/{slug}/{*rest}", get(templates::serve_one))
         .route("/t/active", get(templates::serve_active_index))
         .route("/t/active/{*rest}", get(templates::serve_active))
+        // ── Domain Model V1（Agent-first 领域模型）──────────────────────────
+        // 与旧 CMS 路由（/api/{table}）并存互不干扰；旧表不在本轮重构范围。
+        // Content：业务事实 + Context / Channel 两个关系维度
+        .route(
+            "/api/v1/content",
+            get(api::content::list).post(api::content::create),
+        )
+        .route(
+            "/api/v1/content/{id}",
+            get(api::content::get_one)
+                .patch(api::content::update)
+                .delete(api::content::remove),
+        )
+        .route(
+            "/api/v1/content/{id}/contexts",
+            get(api::content::list_contexts).post(api::content::attach_context),
+        )
+        .route(
+            "/api/v1/content/{id}/contexts/{context_id}",
+            delete(api::content::detach_context),
+        )
+        .route("/api/v1/content/{id}/channels", get(api::content::list_channels))
+        .route(
+            "/api/v1/content/{id}/channels/{channel_id}/publish",
+            post(api::content::publish_to_channel),
+        )
+        .route(
+            "/api/v1/content/{id}/channels/{channel_id}",
+            delete(api::content::unpublish_from_channel),
+        )
+        // Context：Agent 的语义上下文
+        .route(
+            "/api/v1/contexts",
+            get(api::contexts::list).post(api::contexts::create),
+        )
+        .route(
+            "/api/v1/contexts/{id}",
+            get(api::contexts::get_one)
+                .patch(api::contexts::update)
+                .delete(api::contexts::remove),
+        )
+        .route("/api/v1/contexts/{id}/contents", get(api::contexts::contents))
+        // Channel：分发出口
+        .route(
+            "/api/v1/channels",
+            get(api::channels::list).post(api::channels::create),
+        )
+        .route(
+            "/api/v1/channels/{id}",
+            get(api::channels::get_one)
+                .patch(api::channels::update)
+                .delete(api::channels::remove),
+        )
+        .route("/api/v1/channels/{id}/contents", get(api::channels::contents))
+        // Site：呈现载体 + 模板路由绑定 + 主题绑定
+        .route("/api/v1/sites", get(api::sites::list).post(api::sites::create))
+        .route(
+            "/api/v1/sites/{id}",
+            get(api::sites::get_one)
+                .patch(api::sites::update)
+                .delete(api::sites::remove),
+        )
+        .route(
+            "/api/v1/sites/{id}/templates",
+            get(api::sites::list_templates)
+                .post(api::sites::bind_template)
+                .delete(api::sites::unbind_template),
+        )
+        .route(
+            "/api/v1/sites/{id}/themes",
+            get(api::sites::list_themes)
+                .post(api::sites::bind_theme)
+                .delete(api::sites::unbind_theme),
+        )
+        // Render Contract：外部 Renderer 消费的与前端无关的呈现契约
+        .route("/api/v1/sites/{id}/render", get(api::render::render))
+        // Template：怎么组合
+        .route(
+            "/api/v1/templates",
+            get(api::templates::list).post(api::templates::create),
+        )
+        .route(
+            "/api/v1/templates/{id}",
+            get(api::templates::get_one)
+                .patch(api::templates::update)
+                .delete(api::templates::remove),
+        )
+        .route(
+            "/api/v1/templates/{id}/versions",
+            get(api::templates::list_versions).post(api::templates::create_version),
+        )
+        .route(
+            "/api/v1/templates/{id}/versions/{version}",
+            get(api::templates::get_version),
+        )
+        // Theme：怎么呈现
+        .route(
+            "/api/v1/themes",
+            get(api::themes::list).post(api::themes::create),
+        )
+        .route(
+            "/api/v1/themes/{id}",
+            get(api::themes::get_one)
+                .patch(api::themes::update)
+                .delete(api::themes::remove),
+        )
+        .route(
+            "/api/v1/themes/{id}/versions",
+            get(api::themes::list_versions).post(api::themes::create_version),
+        )
+        .route(
+            "/api/v1/themes/{id}/versions/{version}",
+            get(api::themes::get_version),
+        )
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，
         // 放宽到 20MB（仍可被 Nginx/反代层再做最终限制）。
         // 生产态内置静态服务：未匹配到 /api、/uploads、SEO 等路由时，

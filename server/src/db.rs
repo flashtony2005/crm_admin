@@ -242,6 +242,215 @@ const MIGRATIONS: &[Migration] = &[
             "ALTER TABLE media_items ADD COLUMN srcset TEXT",
             "ALTER TABLE members ADD COLUMN stripe_customer_id TEXT DEFAULT ''",
         ]},
+    // ── Domain Model V1：Agent-first 领域模型（12 张核心表）────────────────
+    // 原则：Content 是业务事实，Site 是呈现载体；Template 决定怎么组合，
+    // Theme 决定怎么呈现；Channel 是分发出口而非站点部件。
+    // 与旧表（articles / pages / products / site_settings …）并存、互不干扰，
+    // 旧表不在本轮重构范围。全部 IF NOT EXISTS，保证可重复执行。
+    Migration {
+        version: "0003_domain_model_v1",
+        name: "domain model v1 (12 tables)",
+        lenient: false,
+        sqls: &[
+        // ── Site：呈现载体。只存身份 / 域名 / 语言 / 时区 / 设置，
+        //    绝不内联 template_json / theme_json / content_json；
+        //    呈现绑定一律走 site_templates / site_themes 关联表。
+        "CREATE TABLE IF NOT EXISTS sites (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            domain TEXT,
+            description TEXT,
+            default_locale TEXT NOT NULL DEFAULT 'en-US',
+            timezone TEXT NOT NULL DEFAULT 'UTC',
+            status TEXT NOT NULL DEFAULT 'draft',
+            settings_json TEXT NOT NULL DEFAULT '{}',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_sites_domain ON sites(domain)",
+        "CREATE INDEX IF NOT EXISTS idx_sites_status ON sites(status)",
+        // ── Channel：分发出口。type ∈ website / x / wechat / telegram /
+        //    newsletter / youtube / tiktok / xiaohongshu / api / custom。
+        //    注意：Channel 表示「在哪里分发」，不是「网站的一部分」。
+        //    UNIQUE(provider, external_id) 防同一外部渠道重复登记；
+        //    SQLite 下 NULL 不参与唯一性判定，纯本地渠道不受影响。
+        "CREATE TABLE IF NOT EXISTS channels (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            provider TEXT,
+            external_id TEXT,
+            url TEXT,
+            config_json TEXT NOT NULL DEFAULT '{}',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_channels_type ON channels(type)",
+        "CREATE INDEX IF NOT EXISTS idx_channels_status ON channels(status)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_provider_external
+            ON channels(provider, external_id)",
+        // ── Content：最核心的一张。V1 不为每种类型建业务表，统一由 type 区分
+        //    （profile / article / organization / project / product /
+        //     experiment / link / media / event / custom）；
+        //    类型专属字段全部进 data_json，以后扩展新类型无需改库。
+        "CREATE TABLE IF NOT EXISTS contents (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            slug TEXT,
+            title TEXT,
+            summary TEXT,
+            status TEXT NOT NULL DEFAULT 'draft',
+            locale TEXT NOT NULL DEFAULT 'en-US',
+            data_json TEXT NOT NULL DEFAULT '{}',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            author_id TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
+            published_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_contents_type ON contents(type)",
+        "CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status)",
+        "CREATE INDEX IF NOT EXISTS idx_contents_slug ON contents(slug)",
+        "CREATE INDEX IF NOT EXISTS idx_contents_locale ON contents(locale)",
+        "CREATE INDEX IF NOT EXISTS idx_contents_published ON contents(published_at)",
+        // ── Context：Agent 的语义上下文，不等价于传统 Tag。
+        //    自身可携带 audience / intent / industry / region 等语义，
+        //    供 Analyst 做交叉查询而非简单 tag 匹配；parent_id 支持层级。
+        "CREATE TABLE IF NOT EXISTS contexts (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            description TEXT,
+            data_json TEXT NOT NULL DEFAULT '{}',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            parent_id TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_contexts_type ON contexts(type)",
+        "CREATE INDEX IF NOT EXISTS idx_contexts_parent ON contexts(parent_id)",
+        "CREATE INDEX IF NOT EXISTS idx_contexts_status ON contexts(status)",
+        // ── Content ↔ Context：多对多 + 角色 / 权重。
+        //    role ∈ primary / secondary / audience / topic / intent
+        "CREATE TABLE IF NOT EXISTS content_contexts (
+            content_id TEXT NOT NULL,
+            context_id TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'primary',
+            weight REAL NOT NULL DEFAULT 1.0,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (content_id, context_id),
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE,
+            FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE CASCADE)",
+        "CREATE INDEX IF NOT EXISTS idx_content_contexts_context
+            ON content_contexts(context_id)",
+        // ── Content ↔ Channel：同一 Content 可进入多个渠道
+        //    （Article A → Website + X + Newsletter），
+        //    是后续 Producer / Executor 分发链路的关键基础。
+        "CREATE TABLE IF NOT EXISTS content_channels (
+            content_id TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            external_id TEXT,
+            external_url TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            published_at TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (content_id, channel_id),
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE,
+            FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE)",
+        "CREATE INDEX IF NOT EXISTS idx_content_channels_channel
+            ON content_channels(channel_id)",
+        "CREATE INDEX IF NOT EXISTS idx_content_channels_status
+            ON content_channels(status)",
+        // ── Template：决定「怎么组合」。type ∈ site / home / article /
+        //    listing / project / product / landing / custom
+        "CREATE TABLE IF NOT EXISTS templates (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL,
+            description TEXT,
+            status TEXT NOT NULL DEFAULT 'draft',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_templates_type ON templates(type)",
+        "CREATE INDEX IF NOT EXISTS idx_templates_status ON templates(status)",
+        // ── TemplateVersion：真正的页面结构（definition_json，schema
+        //    admin.template.v1）。V1 刻意不建 components / component_versions
+        //    / component_props / component_bindings 等表——否则等于重新发明
+        //    Webflow / Elementor。section + component + binding + props
+        //    直接声明在 definition_json 内即可；等真出现「多模板共用组件 /
+        //    组件市场 / 第三方组件」需求再抽 Component Registry。
+        "CREATE TABLE IF NOT EXISTS template_versions (
+            id TEXT PRIMARY KEY,
+            template_id TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            definition_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at TEXT NOT NULL,
+            UNIQUE(template_id, version),
+            FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE)",
+        "CREATE INDEX IF NOT EXISTS idx_template_versions_template
+            ON template_versions(template_id)",
+        // ── Site ↔ Template：路由到模板的绑定（/ → PersonalBrandHome）。
+        "CREATE TABLE IF NOT EXISTS site_templates (
+            site_id TEXT NOT NULL,
+            template_id TEXT NOT NULL,
+            route TEXT NOT NULL,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            config_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (site_id, template_id, route),
+            FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
+            FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE)",
+        "CREATE INDEX IF NOT EXISTS idx_site_templates_route
+            ON site_templates(site_id, route)",
+        // ── Theme：决定「怎么呈现」。这里只放元数据，
+        //    真正的 tokens / components 在 theme_versions。
+        "CREATE TABLE IF NOT EXISTS themes (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            description TEXT,
+            status TEXT NOT NULL DEFAULT 'draft',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_themes_status ON themes(status)",
+        // ── ThemeVersion：tokens_json（color / typography / spacing /
+        //    layout / radius）+ components_json，供外部 Renderer 消费。
+        "CREATE TABLE IF NOT EXISTS theme_versions (
+            id TEXT PRIMARY KEY,
+            theme_id TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            tokens_json TEXT NOT NULL,
+            components_json TEXT NOT NULL DEFAULT '{}',
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at TEXT NOT NULL,
+            UNIQUE(theme_id, version),
+            FOREIGN KEY (theme_id) REFERENCES themes(id) ON DELETE CASCADE)",
+        "CREATE INDEX IF NOT EXISTS idx_theme_versions_theme
+            ON theme_versions(theme_id)",
+        // ── Site ↔ Theme：一个站点可挂多套主题，is_default 标记生效者。
+        "CREATE TABLE IF NOT EXISTS site_themes (
+            site_id TEXT NOT NULL,
+            theme_id TEXT NOT NULL,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            config_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (site_id, theme_id),
+            FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
+            FOREIGN KEY (theme_id) REFERENCES themes(id) ON DELETE CASCADE)",
+        "CREATE INDEX IF NOT EXISTS idx_site_themes_default
+            ON site_themes(site_id, is_default)",
+        ]},
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。
