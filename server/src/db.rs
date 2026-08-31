@@ -1,7 +1,11 @@
-//! 数据库连接 + 固定表结构（TD-1：SeaORM 固定表，无本体动态建模）+ 种子数据。
+//! 数据库连接 + 版本化迁移（TD-1：SeaORM 固定表，无本体动态建模）+ 种子数据。
 //!
 //! 表结构是**编译期固定的 DDL**；Phase 2 引入复杂查询时再为各表补
 //! SeaORM entity 结构体，Phase 1 统一资源网关直接走参数化 SQL。
+//!
+//! Schema 演进规则：建表/补列一律走 `_migrations` 记录的版本化迁移
+//! （见 `MIGRATIONS`），**已发布的 version 只追加、不修改**；
+//! 种子数据保持幂等（判空即插），与迁移解耦。
 
 use sea_orm::{ConnectOptions, Database, Statement};
 use sea_orm::Value as SqlValue;
@@ -27,19 +31,37 @@ fn exec(sql: &str) -> sea_orm::Statement {
     sea_orm::Statement::from_string(sea_orm::DatabaseBackend::Sqlite, sql.to_string())
 }
 
-/// 启动时执行：建表（幂等）+ 种子（仅空库时）
-pub async fn bootstrap(db: &CmsDb) {
-    for ddl in [
+/// ── 版本化迁移 ────────────────────────────────────────────────────────────
+struct Migration {
+    version: &'static str,
+    name: &'static str,
+    /// true：单条 SQL 失败被忽略（旧库补列——列已存在属预期）；false：失败即 panic
+    lenient: bool,
+    sqls: &'static [&'static str],
+}
+
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: "0001_base_schema",
+        name: "base tables",
+        lenient: false,
+        sqls: &[
         "CREATE TABLE IF NOT EXISTS tenants (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, nickname TEXT NOT NULL,
             email TEXT DEFAULT '', password_hash TEXT NOT NULL, role TEXT NOT NULL, tenant_id TEXT NOT NULL,
-            status INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+            status INTEGER NOT NULL DEFAULT 1, must_change_password INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS articles (
             id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
             title TEXT DEFAULT '', summary TEXT DEFAULT '', content TEXT DEFAULT '',
             status TEXT DEFAULT 'draft', author TEXT DEFAULT '', tags TEXT DEFAULT '[]',
+            slug TEXT DEFAULT '', featured_image TEXT, published_at TEXT,
+            meta_title TEXT, meta_description TEXT, featured INTEGER DEFAULT 0,
+            scheduled_at TEXT DEFAULT '', canonical_url TEXT DEFAULT '',
+            visibility TEXT DEFAULT 'public', locale TEXT DEFAULT 'zh',
+            views INTEGER DEFAULT 0,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS pages (
             id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
@@ -53,6 +75,7 @@ pub async fn bootstrap(db: &CmsDb) {
             id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
             name TEXT DEFAULT '', url TEXT DEFAULT '', size INTEGER DEFAULT 0, kind TEXT DEFAULT 'image',
             thumbnail TEXT, large TEXT, width INTEGER DEFAULT 0, height INTEGER DEFAULT 0,
+            srcset TEXT,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE INDEX IF NOT EXISTS idx_articles_tenant ON articles(tenant_id, updated_at)",
         "CREATE TABLE IF NOT EXISTS customers (
@@ -80,7 +103,7 @@ pub async fn bootstrap(db: &CmsDb) {
             action TEXT DEFAULT 'publish', target TEXT DEFAULT '',
             requested_by TEXT DEFAULT '', risk TEXT DEFAULT 'low',
             status TEXT DEFAULT 'pending', summary TEXT DEFAULT '',
-            decided_at TEXT,
+            payload TEXT, decided_at TEXT,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS ai_tasks (
             id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
@@ -105,6 +128,8 @@ pub async fn bootstrap(db: &CmsDb) {
             id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
             key TEXT DEFAULT '', name TEXT DEFAULT '', descr TEXT DEFAULT '',
             category TEXT DEFAULT 'seo', connected INTEGER DEFAULT 0,
+            api_key TEXT DEFAULT '',
+            oauth_provider TEXT, oauth_client_id TEXT, oauth_client_secret TEXT, oauth_token TEXT,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         // ── P4 商业层：会员 / 评论 / 订阅 / 邮件 / 出站 Webhook ──
         "CREATE TABLE IF NOT EXISTS members (
@@ -178,9 +203,92 @@ pub async fn bootstrap(db: &CmsDb) {
             sort INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
             UNIQUE(tenant_id, slot, article_id))",
-    ] {
-        db.execute_statement(exec(ddl)).await.expect("建表失败");
+        ]},
+    // 旧库补列：服务存量库升级；新库列已在 0001 建齐，这些 ALTER 会因
+    // "duplicate column name" 失败——lenient=true 忽略，保持幂等。
+    // 注意：必须先于任何种子执行（历史版本把补列放在 users 判空 return
+    // 之后，导致存量库补列永不生效、空库种子引用缺列直接 panic）。
+    Migration {
+        version: "0002_compat_columns",
+        name: "legacy column backfill",
+        lenient: true,
+        sqls: &[
+            "ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''",
+            "ALTER TABLE integrations ADD COLUMN oauth_provider TEXT",
+            "ALTER TABLE integrations ADD COLUMN oauth_client_id TEXT",
+            "ALTER TABLE integrations ADD COLUMN oauth_client_secret TEXT",
+            "ALTER TABLE integrations ADD COLUMN oauth_token TEXT",
+            "ALTER TABLE media_items ADD COLUMN thumbnail TEXT",
+            "ALTER TABLE media_items ADD COLUMN large TEXT",
+            "ALTER TABLE media_items ADD COLUMN width INTEGER DEFAULT 0",
+            "ALTER TABLE media_items ADD COLUMN height INTEGER DEFAULT 0",
+            "ALTER TABLE workflows ADD COLUMN steps TEXT",
+            "ALTER TABLE workflows ADD COLUMN event TEXT",
+            "ALTER TABLE integrations ADD COLUMN api_key TEXT",
+            "ALTER TABLE forms ADD COLUMN descr TEXT",
+            "ALTER TABLE approvals ADD COLUMN payload TEXT",
+            "ALTER TABLE articles ADD COLUMN visibility TEXT DEFAULT 'public'",
+            "ALTER TABLE articles ADD COLUMN locale TEXT DEFAULT 'zh'",
+            "ALTER TABLE articles ADD COLUMN slug TEXT DEFAULT ''",
+            "ALTER TABLE articles ADD COLUMN featured_image TEXT",
+            "ALTER TABLE articles ADD COLUMN published_at TEXT",
+            "ALTER TABLE articles ADD COLUMN meta_title TEXT",
+            "ALTER TABLE articles ADD COLUMN meta_description TEXT",
+            "ALTER TABLE articles ADD COLUMN featured INTEGER DEFAULT 0",
+            "ALTER TABLE articles ADD COLUMN scheduled_at TEXT DEFAULT ''",
+            "ALTER TABLE articles ADD COLUMN canonical_url TEXT DEFAULT ''",
+            "ALTER TABLE articles ADD COLUMN views INTEGER DEFAULT 0",
+            "ALTER TABLE media_items ADD COLUMN srcset TEXT",
+            "ALTER TABLE members ADD COLUMN stripe_customer_id TEXT DEFAULT ''",
+        ]},
+];
+
+/// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。
+/// 已应用版本重启时直接跳过；新增迁移只需在 `MIGRATIONS` 末尾追加。
+async fn run_migrations(db: &CmsDb) {
+    db.execute_statement(exec(
+        "CREATE TABLE IF NOT EXISTS _migrations (
+            version TEXT PRIMARY KEY, name TEXT DEFAULT '', applied_at TEXT NOT NULL)",
+    ))
+    .await
+    .expect("建迁移记录表失败");
+
+    for m in MIGRATIONS {
+        let applied = db
+            .query_one_statement(exec(&format!(
+                "SELECT version FROM _migrations WHERE version = '{}'",
+                m.version
+            )))
+            .await
+            .ok()
+            .flatten()
+            .is_some();
+        if applied {
+            continue;
+        }
+        for sql in m.sqls {
+            if m.lenient {
+                let _ = db.execute_statement(exec(sql)).await;
+            } else {
+                db.execute_statement(exec(sql)).await.expect("迁移执行失败");
+            }
+        }
+        db.execute_statement(exec(&format!(
+            "INSERT INTO _migrations (version, name, applied_at) VALUES ('{}', '{}', '{}')",
+            m.version,
+            m.name,
+            now_iso()
+        )))
+        .await
+        .expect("记录迁移版本失败");
+        eprintln!("[db] migration applied: {} ({})", m.version, m.name);
     }
+}
+
+/// 启动时执行：版本化迁移（建表/补列）+ 幂等种子。
+pub async fn bootstrap(db: &CmsDb) {
+    run_migrations(db).await;
 
     // 站点级设置（主题 / 模板 / 品牌）：空库时写入单租户 t_demo 默认值
     let site_n = db
@@ -568,85 +676,9 @@ pub async fn bootstrap(db: &CmsDb) {
             }
         }
     }
-    // 兼容旧库：users 增加 must_change_password 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0"))
-        .await;
-    // 兼容旧库：users 增加 email 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''"))
-        .await;
-    // 兼容旧库：integrations 增加 OAuth 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE integrations ADD COLUMN oauth_provider TEXT"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE integrations ADD COLUMN oauth_client_id TEXT"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE integrations ADD COLUMN oauth_client_secret TEXT"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE integrations ADD COLUMN oauth_token TEXT"))
-        .await;
-    // 兼容旧库：media_items 增加缩略图/大图/尺寸字段（图片处理 P3）
-    let _ = db
-        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN thumbnail TEXT"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN large TEXT"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN width INTEGER DEFAULT 0"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE media_items ADD COLUMN height INTEGER DEFAULT 0"))
-        .await;
-    // 兼容旧库：workflows 增加 steps 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE workflows ADD COLUMN steps TEXT"))
-        .await;
-    // 兼容旧库：workflows 增加 event 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE workflows ADD COLUMN event TEXT"))
-        .await;
-    // 兼容旧库：integrations 增加 api_key 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE integrations ADD COLUMN api_key TEXT"))
-        .await;
-    // 兼容旧库：forms 增加 descr 列
-    let _ = db
-        .execute_statement(exec("ALTER TABLE forms ADD COLUMN descr TEXT"))
-        .await;
-    // 兼容旧库：approvals 增加 payload 列（幂等迁移）
-    let _ = db
-        .execute_statement(exec("ALTER TABLE approvals ADD COLUMN payload TEXT"))
-        .await;
-    // 兼容旧库：articles 增加可见性（会员/付费门槛）与 locale（多语言）
-    let _ = db
-        .execute_statement(exec("ALTER TABLE articles ADD COLUMN visibility TEXT DEFAULT 'public'"))
-        .await;
-    let _ = db
-        .execute_statement(exec("ALTER TABLE articles ADD COLUMN locale TEXT DEFAULT 'zh'"))
-        .await;
-    // 兼容旧库：articles 补齐内容列（slug/封面/发布时间/SEO）与新增功能列
-    // 早期版本已建这些列，新库此处补齐；ADD COLUMN 失败被忽略，幂等安全
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN slug TEXT DEFAULT ''")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN featured_image TEXT")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN published_at TEXT")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN meta_title TEXT")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN meta_description TEXT")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN featured INTEGER DEFAULT 0")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN scheduled_at TEXT DEFAULT ''")).await;
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN canonical_url TEXT DEFAULT ''")).await;
-    // 兼容旧库：articles 增加阅读量缓存计数（事件生态 / 统计看板）
-    let _ = db.execute_statement(exec("ALTER TABLE articles ADD COLUMN views INTEGER DEFAULT 0")).await;
-    // 兼容旧库：media_items 增加响应式图 srcset
-    let _ = db.execute_statement(exec("ALTER TABLE media_items ADD COLUMN srcset TEXT")).await;
-    // 兼容旧库：members 增加 stripe 客户字段（幂等）
-    let _ = db
-        .execute_statement(exec("ALTER TABLE members ADD COLUMN stripe_customer_id TEXT DEFAULT ''"))
-        .await;
+    // （旧库补列已收拢进迁移 0002_compat_columns，见 MIGRATIONS；
+    //   历史上这段 ALTER 位于 users 判空 return 之后，存量库永远执行不到，
+    //   空库则因种子先于补列执行而 panic——已由迁移前置修复。）
 
     // 统一执行种子 SQL
     for sql in &seed_sqls {

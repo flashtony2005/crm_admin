@@ -31,3 +31,18 @@ pnpm dev                # http://localhost:5188
 ```
 
 > 前端经 Vite 代理访问 `http://127.0.0.1:8088/api`，请先启动后端。
+
+## 脚本
+
+| 脚本 | 用途 |
+|---|---|
+| `server/build_sections.cmd` | 重编译 cms-server（热缓存 `tgt_build4` 增量）并重启 8088 |
+| `scripts/dev.ps1` | 一键开发：停旧进程 → cargo build → 起 8088 后端 + 5188 前端（`-NoBuild` 跳过编译） |
+| `scripts/backup.ps1` | 备份 SQLite 到 `server/backups/`（优先 sqlite3 在线备份；`-Keep N` 保留份数，默认 30） |
+
+## 数据库迁移
+
+建表与补列走 `server/src/db.rs` 中 `MIGRATIONS` 版本化迁移，由 `_migrations`
+表记录已应用版本，启动时判重跳过。**已发布的 version 只追加、不修改**；
+新增 schema 变更在列表末尾追加新版本即可。运行库（`*.db`）不入库，
+空库首次启动自动建表并写入演示种子。

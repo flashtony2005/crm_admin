@@ -28,6 +28,9 @@ server/tgt_*/
 # ── 上传文件（运行时产物，不入库） ──
 server/uploads/
 
+# ── 本地备份（backup.ps1 产物，含业务数据，不入库） ──
+server/backups/
+
 # ── 诊断残留 ──
 server/probe*.txt
 
