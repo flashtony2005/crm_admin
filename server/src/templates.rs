@@ -103,7 +103,15 @@ fn read_manifest() -> Manifest {
 
 fn write_manifest(m: &Manifest) -> Result<(), ApiError> {
     let txt = serde_json::to_string_pretty(m).map_err(|e| ApiError::bad(format!("清单序列化失败：{e}")))?;
-    std::fs::write(manifest_path(), txt).map_err(|e| ApiError::bad(format!("写入清单失败：{e}")))?;
+    // 环境限制：打开已存在的 manifest.json 直接写入会 os error 5（拒绝访问），
+    // 而「创建新文件 / 删除 / 改名」均允许。故走三步替换：
+    // 写 .tmp（新文件）→ 删旧 → 改名。管理操作低频，无锁窗口极小，可接受。
+    let tmp = manifest_path().with_extension("json.tmp");
+    std::fs::write(&tmp, txt).map_err(|e| ApiError::bad(format!("写入清单失败：{e}")))?;
+    if manifest_path().exists() {
+        std::fs::remove_file(manifest_path()).map_err(|e| ApiError::bad(format!("替换清单失败：{e}")))?;
+    }
+    std::fs::rename(&tmp, manifest_path()).map_err(|e| ApiError::bad(format!("替换清单失败：{e}")))?;
     Ok(())
 }
 
