@@ -593,23 +593,24 @@ pub async fn decide(
         return Err(ApiError::not_found("审批不存在或已裁决"));
     }
     // 批准 → 执行携带的 AI 动作（G4 链路最后一环）
+    // 通用化：以「裁决者」身份重放 payload 中的 capability + input，走
+    // ai::run_capability 同一条 Policy → Action → Audit 链路（owner 持有
+    // 全部权限码 → 直接执行；同时执行本身也写入审计，闭环更完整）。
+    // 兼容新旧能力：content.articles.publish 与 domain.content.publish 等。
     if status == "approved" {
         if let Some(Some(m)) = fetch_row(&st, def("approvals")?, &id).await?.as_ref().map(|m| Some(m.clone())) {
-            if let Some(payload) = m.get("payload").cloned() {
-                if !payload.is_null() {
-                    if let Ok(cap) = serde_json::from_value::<Value>(payload) {
-                        let capability = cap.get("capability").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let input = cap.get("input").cloned().unwrap_or(json!({}));
-                        if capability == "content.articles.publish" {
-                            if let Some(aid) = input.get("article_id").and_then(|v| v.as_str()) {
-                                let _ = st.db.execute_statement(Statement::from_sql_and_values(
-                                    sea_orm::DatabaseBackend::Sqlite,
-                                    "UPDATE articles SET status = 'published', updated_at = ? WHERE id = ? AND tenant_id = ?",
-                                    vec![sval(now_iso()), sval(aid.to_string()), sval(st.tenant.clone())],
-                                )).await;
-                            }
-                        }
-                    }
+            // payload 列经 from_text 已解析为 JSON 对象（{...} 开头）；
+            // 兜底兼容仍是字符串的场景。解析出 {capability, input} 后重放。
+            let cap: Option<Value> = m.get("payload").cloned().and_then(|p| match p {
+                Value::Object(_) => Some(p),
+                Value::String(s) => serde_json::from_str::<Value>(&s).ok(),
+                _ => None,
+            });
+            if let Some(cap) = cap {
+                let capability = cap.get("capability").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let input = cap.get("input").cloned().unwrap_or(json!({}));
+                if !capability.is_empty() {
+                    let _ = crate::ai::run_capability(&st, &auth, &capability, &input).await;
                 }
             }
         }

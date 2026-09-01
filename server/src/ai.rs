@@ -30,10 +30,19 @@ pub struct CapDef {
 }
 
 pub static CAPS: &[CapDef] = &[
+    // ── 旧 CMS 能力（articles 表）──
     CapDef { name: "content.articles.draft", required_perm: "content.articles.create", escalatable: false },
     CapDef { name: "content.articles.publish", required_perm: "content.articles.publish", escalatable: true },
     CapDef { name: "content.seo.optimize", required_perm: "content.articles.update", escalatable: false },
     CapDef { name: "content.translate", required_perm: "content.articles.update", escalatable: false },
+    // ── Domain Model V1 能力（contents / content_contexts / content_channels）──
+    // 草稿：editor 有 domain.content.create → 直接执行
+    CapDef { name: "domain.content.draft", required_perm: "domain.content.create", escalatable: false },
+    // 发布：domain.content.publish 未授予 editor → 自动转审批（G4 演示点）
+    CapDef { name: "domain.content.publish", required_perm: "domain.content.publish", escalatable: true },
+    // 挂载语义上下文 / 分发渠道：editor 有 domain.content.update → 直接执行
+    CapDef { name: "domain.content.attachContext", required_perm: "domain.content.update", escalatable: false },
+    CapDef { name: "domain.content.distribute", required_perm: "domain.content.update", escalatable: false },
 ];
 
 fn find_cap(name: &str) -> Option<&'static CapDef> {
@@ -108,17 +117,22 @@ pub(crate) async fn run_capability(
                 audit(st, &actor, &role, cap.name, "denied", "-".into(), "权限不足且不可升级".into());
                 return Err(denied);
             }
-            // ── 升级为审批（发布场景）──
+            // ── 升级为审批（发布场景，article / content 通用）──
+            let content_id = input.get("content_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let article_id = input.get("article_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            if article_id.is_empty() {
-                return Err(ApiError::bad("input.article_id 必填"));
-            }
-            let title = article_title(st, &article_id).await?.unwrap_or_else(|| article_id.clone());
+            let (subj_id, kind) = if !content_id.is_empty() {
+                (content_id, "content")
+            } else if !article_id.is_empty() {
+                (article_id, "article")
+            } else {
+                return Err(ApiError::bad("input.content_id / article_id 必填"));
+            };
+            let title = subject_title(st, &subj_id).await?.unwrap_or_else(|| subj_id.clone());
             let approval_id = Uuid::new_v4().to_string();
             let now = now_iso();
             let payload = json!({
                 "capability": cap.name,
-                "input": { "article_id": article_id },
+                "input": input.clone(),
             })
             .to_string();
             st.db
@@ -129,7 +143,7 @@ pub(crate) async fn run_capability(
                     vec![
                         sval(approval_id.clone()),
                         sval(st.tenant.clone()),
-                        sval(format!("article:{title}")),
+                        sval(format!("{kind}:{title}")),
                         sval(format!("{actor}（AI 代发起）")),
                         sval(format!("AI 能力 {} 需要你的裁决", cap.name)),
                         sval(payload),
@@ -220,6 +234,65 @@ async fn execute(st: &AppState, cap: &str, input: &Value) -> Result<Value, ApiEr
             append_article(st, &id, "\n\n【EN】Osmanthus chestnut bread — autumn limited, baked fresh daily.").await?;
             Ok(json!({ "action": "translated", "targetId": id }))
         }
+        // ── Domain Model V1 ──
+        "domain.content.draft" => {
+            let ctype = input.get("type").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).unwrap_or("article");
+            let id = Uuid::new_v4().to_string();
+            let now = now_iso();
+            let title = input
+                .get("title")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| format!("AI 草稿：{ctype}"));
+            let summary = input.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+            let data = input.get("data").cloned().unwrap_or(json!({}));
+            st.db
+                .execute_statement(Statement::from_sql_and_values(
+                    sea_orm::DatabaseBackend::Sqlite,
+                    "INSERT INTO contents (id, type, slug, title, summary, status, locale, data_json, metadata_json, \
+                     author_id, version, published_at, created_at, updated_at) \
+                     VALUES (?, ?, ?, ?, ?, 'draft', 'zh-CN', ?, '{}', NULL, 1, NULL, ?, ?)",
+                    vec![
+                        sval(id.clone()),
+                        sval(ctype.to_string()),
+                        sval(input.get("slug").and_then(|v| v.as_str()).unwrap_or("").to_string()),
+                        sval(title.clone()),
+                        sval(summary.to_string()),
+                        sval(data.to_string()),
+                        sval(now.clone()),
+                        sval(now),
+                    ],
+                ))
+                .await
+                .map_err(|e| ApiError::bad(format!("写库失败：{e}")))?;
+            Ok(json!({ "action": "domain_draft_created", "targetId": id, "title": title, "type": ctype }))
+        }
+        "domain.content.publish" => {
+            let id = require_content_id(input)?;
+            touch_content(st, &id, "published").await?;
+            Ok(json!({ "action": "domain_published", "targetId": id }))
+        }
+        "domain.content.attachContext" => {
+            let content_id = require_content_id(input)?;
+            let context_id = input.get("context_id").and_then(|v| v.as_str()).filter(|s| !s.is_empty())
+                .ok_or_else(|| ApiError::bad("input.context_id 必填"))?;
+            let role = input.get("role").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).unwrap_or("primary");
+            if !crate::entity::CONTEXT_ROLES.contains(&role) {
+                return Err(ApiError::bad(format!("role 必须是 {} 之一", crate::entity::CONTEXT_ROLES.join(" / "))));
+            }
+            let weight = input.get("weight").and_then(|v| v.as_f64()).unwrap_or(1.0).clamp(0.0, 10.0);
+            attach_context(st, &content_id, &context_id.to_string(), role, weight).await?;
+            Ok(json!({ "action": "context_attached", "targetId": content_id, "contextId": context_id }))
+        }
+        "domain.content.distribute" => {
+            let content_id = require_content_id(input)?;
+            let channel_id = input.get("channel_id").and_then(|v| v.as_str()).filter(|s| !s.is_empty())
+                .ok_or_else(|| ApiError::bad("input.channel_id 必填"))?;
+            let external_url = input.get("external_url").and_then(|v| v.as_str()).map(|s| s.to_string());
+            distribute(st, &content_id, &channel_id.to_string(), external_url).await?;
+            Ok(json!({ "action": "distributed", "targetId": content_id, "channelId": channel_id }))
+        }
         _ => Err(ApiError::bad("能力未实现")),
     }
 }
@@ -233,17 +306,153 @@ fn require_article_id(input: &Value) -> Result<String, ApiError> {
         .ok_or_else(|| ApiError::bad("input.article_id 必填"))
 }
 
-async fn article_title(st: &AppState, id: &str) -> Result<Option<String>, ApiError> {
+fn require_content_id(input: &Value) -> Result<String, ApiError> {
+    input
+        .get("content_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| ApiError::bad("input.content_id 必填"))
+}
+
+/// 主题标题解析：先查 domain contents（无 tenant_id），再查旧 articles（有 tenant_id）
+async fn subject_title(st: &AppState, id: &str) -> Result<Option<String>, ApiError> {
+    if let Some(t) = query_title(st, "contents", id).await? {
+        return Ok(Some(t));
+    }
+    query_title(st, "articles", id).await
+}
+
+async fn query_title(st: &AppState, table: &str, id: &str) -> Result<Option<String>, ApiError> {
+    // domain 表无 tenant_id（单租户），旧 CMS 表有
+    let sql = if table == "contents" {
+        format!("SELECT title FROM {table} WHERE id = ? LIMIT 1")
+    } else {
+        format!("SELECT title FROM {table} WHERE id = ? AND tenant_id = ? LIMIT 1")
+    };
+    let vals = if table == "contents" {
+        vec![sval(id.into())]
+    } else {
+        vec![sval(id.into()), sval(st.tenant.clone())]
+    };
     let r = st
         .db
-        .query_one_statement(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::Sqlite,
-            "SELECT title FROM articles WHERE id = ? AND tenant_id = ? LIMIT 1",
-            vec![sval(id.into()), sval(st.tenant.clone())],
-        ))
+        .query_one_statement(Statement::from_sql_and_values(sea_orm::DatabaseBackend::Sqlite, sql, vals))
         .await
         .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
     Ok(r.and_then(|row| row.try_get::<String>("", "title").ok()))
+}
+
+/// domain contents 状态切换（published 时落 published_at）
+async fn touch_content(st: &AppState, id: &str, status: &str) -> Result<(), ApiError> {
+    let published_at = if status == "published" { Some(now_iso()) } else { None };
+    st.db
+        .execute_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "UPDATE contents SET status = ?, published_at = COALESCE(published_at, ?), updated_at = ? \
+             WHERE id = ?",
+            vec![
+                sval(status.into()),
+                sval(published_at.unwrap_or_default()),
+                sval(now_iso()),
+                sval(id.into()),
+            ],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("更新失败：{e}")))?;
+    Ok(())
+}
+
+/// 挂载语义上下文（复合主键 UPSERT，重复挂载等价于更新 role/weight）
+async fn attach_context(
+    st: &AppState,
+    content_id: &str,
+    context_id: &str,
+    role: &str,
+    weight: f64,
+) -> Result<(), ApiError> {
+    let exists = |table: &str, id: &str| {
+        let sql = format!("SELECT id FROM {table} WHERE id = ? LIMIT 1");
+        st.db.query_one_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            sql,
+            vec![sval(id.to_string())],
+        ))
+    };
+    exists("contents", content_id).await.map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    exists("contexts", context_id).await.map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+
+    st.db
+        .execute_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "INSERT INTO content_contexts (content_id, context_id, role, weight, created_at) \
+             VALUES (?, ?, ?, ?, ?) \
+             ON CONFLICT(content_id, context_id) DO UPDATE SET role = excluded.role, weight = excluded.weight",
+            vec![
+                sval(content_id.to_string()),
+                sval(context_id.to_string()),
+                sval(role.to_string()),
+                SqlValue::Double(Some(weight)),
+                sval(now_iso()),
+            ],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("挂载失败：{e}")))?;
+    Ok(())
+}
+
+/// 分发到渠道（要求内容已发布；UPSERT 保持幂等）
+async fn distribute(
+    st: &AppState,
+    content_id: &str,
+    channel_id: &str,
+    external_url: Option<String>,
+) -> Result<(), ApiError> {
+    let content = st
+        .db
+        .query_one_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT status FROM contents WHERE id = ? LIMIT 1",
+            vec![sval(content_id.to_string())],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let status = content.and_then(|r| r.try_get::<String>("", "status").ok()).unwrap_or_default();
+    if status != "published" {
+        return Err(ApiError::bad("内容尚未发布，不能分发到渠道"));
+    }
+    let channel = st
+        .db
+        .query_one_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT id FROM channels WHERE id = ? LIMIT 1",
+            vec![sval(channel_id.to_string())],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    if channel.is_none() {
+        return Err(ApiError::not_found(format!("渠道不存在：{channel_id}")));
+    }
+
+    let now = now_iso();
+    st.db
+        .execute_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "INSERT INTO content_channels (content_id, channel_id, external_id, external_url, status, published_at, metadata_json, created_at, updated_at) \
+             VALUES (?, ?, NULL, ?, 'active', ?, '{}', ?, ?) \
+             ON CONFLICT(content_id, channel_id) DO UPDATE SET external_url = excluded.external_url, status = excluded.status, updated_at = excluded.updated_at",
+            vec![
+                sval(content_id.to_string()),
+                sval(channel_id.to_string()),
+                sval(external_url.unwrap_or_default()),
+                sval(now.clone()),
+                sval(now.clone()),
+                sval(now),
+            ],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("分发失败：{e}")))?;
+    Ok(())
 }
 
 async fn touch_article(st: &AppState, id: &str, status: &str) -> Result<(), ApiError> {

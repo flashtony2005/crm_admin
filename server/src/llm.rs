@@ -133,11 +133,76 @@ fn tools() -> Value {
                     "required": ["article_id"]
                 }
             }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "domain.content.draft",
+                "description": "在领域模型里创建一条内容草稿（不发布）。用户想按语义模型管理内容时使用；type 可选 article/profile/project/product 等。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "type": { "type": "string", "description": "内容类型：article/profile/project/product/organization 等" },
+                        "title": { "type": "string" },
+                        "slug": { "type": "string" },
+                        "summary": { "type": "string" },
+                        "data": { "type": "object", "description": "结构化数据，如 {\"body\":\"...\"}" }
+                    },
+                    "required": ["title"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "domain.content.publish",
+                "description": "发布一条领域内容（status→published）。当前用户无发布权限时会自动转成待审批请求，属正常流程。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content_id": { "type": "string", "description": "要发布的内容 id，从系统提示的领域内容清单中选取" }
+                    },
+                    "required": ["content_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "domain.content.attachContext",
+                "description": "给一条领域内容挂载语义上下文（Context），表达「谁在看/为什么看/属于什么主题」。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content_id": { "type": "string" },
+                        "context_id": { "type": "string", "description": "上下文 id，从系统提示的语义上下文清单中选取" },
+                        "role": { "type": "string", "enum": ["primary", "secondary", "audience", "topic", "intent"] },
+                        "weight": { "type": "number", "description": "0-10，默认 1" }
+                    },
+                    "required": ["content_id", "context_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "domain.content.distribute",
+                "description": "把一条已发布的内容分发到渠道（一稿多投，如 Website/X/Telegram）。内容未发布时会失败。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content_id": { "type": "string" },
+                        "channel_id": { "type": "string", "description": "渠道 id，从系统提示的分发渠道清单中选取" },
+                        "external_url": { "type": "string" }
+                    },
+                    "required": ["content_id", "channel_id"]
+                }
+            }
         }
     ])
 }
 
-/// system prompt：身份 + 最近文章清单（供 LLM 选取 article_id）+ 行为规则
+/// system prompt：身份 + 最近文章清单 + 领域模型清单（内容/上下文/渠道，供 LLM 选取 id）
 async fn system_prompt(st: &AppState) -> String {
     let rows = st
         .db
@@ -157,15 +222,68 @@ async fn system_prompt(st: &AppState) -> String {
         let status = r.try_get::<String>("", "status").unwrap_or_default();
         list.push_str(&format!("- {id} | {status} | {title}\n"));
     }
+
+    // ── Domain Model V1：内容 / 语义上下文 / 分发渠道 清单 ──
+    let contents = st
+        .db
+        .query_all_statement(Statement::from_string(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT id, type, title, status FROM contents ORDER BY updated_at DESC LIMIT 20",
+        ))
+        .await
+        .unwrap_or_default();
+    let mut clist = String::new();
+    for r in contents.iter() {
+        let id = r.try_get::<String>("", "id").unwrap_or_default();
+        let ctype = r.try_get::<String>("", "type").unwrap_or_default();
+        let title = r.try_get::<String>("", "title").unwrap_or_default();
+        let status = r.try_get::<String>("", "status").unwrap_or_default();
+        clist.push_str(&format!("- {id} | {ctype} | {status} | {title}\n"));
+    }
+    let contexts = st
+        .db
+        .query_all_statement(Statement::from_string(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT id, name, slug FROM contexts ORDER BY updated_at DESC LIMIT 10",
+        ))
+        .await
+        .unwrap_or_default();
+    let mut ctxlist = String::new();
+    for r in contexts.iter() {
+        let id = r.try_get::<String>("", "id").unwrap_or_default();
+        let name = r.try_get::<String>("", "name").unwrap_or_default();
+        ctxlist.push_str(&format!("- {id} | {name}\n"));
+    }
+    let channels = st
+        .db
+        .query_all_statement(Statement::from_string(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT id, name, type FROM channels ORDER BY updated_at DESC LIMIT 10",
+        ))
+        .await
+        .unwrap_or_default();
+    let mut chlist = String::new();
+    for r in channels.iter() {
+        let id = r.try_get::<String>("", "id").unwrap_or_default();
+        let name = r.try_get::<String>("", "name").unwrap_or_default();
+        let ctype = r.try_get::<String>("", "type").unwrap_or_default();
+        chlist.push_str(&format!("- {id} | {ctype} | {name}\n"));
+    }
+
     format!(
         "你是本站点的经营助手（AI-Native CMS）。当前登录者通过你管理网站内容。\n\
-         可用工具见 tools；系统已注入最近 20 篇文章清单（id | 状态 | 标题）：\n{list}\n\
+         可用工具见 tools。系统注入的参考清单：\n\
+         【最近文章（id | 状态 | 标题）】\n{list}\n\
+         【领域内容（id | 类型 | 状态 | 标题）】\n{clist}\n\
+         【语义上下文（id | 名称）】\n{ctxlist}\n\
+         【分发渠道（id | 类型 | 名称）】\n{chlist}\n\
          规则：\n\
-         1. 用户指令能用工具完成就调用工具；一次可调用多个工具。\n\
-         2. 执行结果会以 tool 消息返回，请如实向用户汇报，不要编造结果。\n\
-         3. 发布类操作若返回 needs_approval，告诉用户已提交审批、在 AI → Approvals 查看。\n\
-         4. 闲聊或无法映射到工具的请求，直接自然语言回答，不调用工具。\n\
-         5. 全程使用简体中文。"
+         1. 用户指令能用工具完成就调用工具；一次可调用多个工具（例如先建草稿再挂上下文）。\n\
+         2. 涉及 domain.content.attachContext / distribute 时，必须从上面的领域清单里选真实的 context_id / channel_id / content_id。\n\
+         3. 执行结果会以 tool 消息返回，请如实向用户汇报，不要编造结果。\n\
+         4. 发布类操作若返回 needs_approval，告诉用户已提交审批、在 AI → Approvals 查看。\n\
+         5. 闲聊或无法映射到工具的请求，直接自然语言回答，不调用工具。\n\
+         6. 全程使用简体中文。"
     )
 }
 
