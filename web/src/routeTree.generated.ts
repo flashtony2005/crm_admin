@@ -42,6 +42,10 @@ import { Route as ContentProductsRouteImport } from './routes/content/products'
 import { Route as ContentSubscriptionsRouteImport } from './routes/content/subscriptions'
 import { Route as ContentTagsRouteImport } from './routes/content/tags'
 import { Route as ContentWebhooksRouteImport } from './routes/content/webhooks'
+import { Route as DomainChannelsRouteImport } from './routes/domain/channels'
+import { Route as DomainContentRouteImport } from './routes/domain/content'
+import { Route as DomainContextsRouteImport } from './routes/domain/contexts'
+import { Route as DomainPresentationRouteImport } from './routes/domain/presentation'
 import { Route as FFormIdRouteImport } from './routes/f.$formId'
 import { Route as ReadKeyRouteImport } from './routes/read.$key'
 import { Route as TagSlugRouteImport } from './routes/tag.$slug'
@@ -213,6 +217,26 @@ const ContentWebhooksRoute = ContentWebhooksRouteImport.update({
   path: '/content/webhooks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DomainChannelsRoute = DomainChannelsRouteImport.update({
+  id: '/domain/channels',
+  path: '/domain/channels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DomainContentRoute = DomainContentRouteImport.update({
+  id: '/domain/content',
+  path: '/domain/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DomainContextsRoute = DomainContextsRouteImport.update({
+  id: '/domain/contexts',
+  path: '/domain/contexts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DomainPresentationRoute = DomainPresentationRouteImport.update({
+  id: '/domain/presentation',
+  path: '/domain/presentation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FFormIdRoute = FFormIdRouteImport.update({
   id: '/f/$formId',
   path: '/f/$formId',
@@ -273,6 +297,10 @@ export interface FileRoutesByFullPath {
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
+  '/domain/channels': typeof DomainChannelsRoute
+  '/domain/content': typeof DomainContentRoute
+  '/domain/contexts': typeof DomainContextsRoute
+  '/domain/presentation': typeof DomainPresentationRoute
   '/f/$formId': typeof FFormIdRoute
   '/read/$key': typeof ReadKeyRoute
   '/tag/$slug': typeof TagSlugRoute
@@ -313,6 +341,10 @@ export interface FileRoutesByTo {
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
+  '/domain/channels': typeof DomainChannelsRoute
+  '/domain/content': typeof DomainContentRoute
+  '/domain/contexts': typeof DomainContextsRoute
+  '/domain/presentation': typeof DomainPresentationRoute
   '/f/$formId': typeof FFormIdRoute
   '/read/$key': typeof ReadKeyRoute
   '/tag/$slug': typeof TagSlugRoute
@@ -354,6 +386,10 @@ export interface FileRoutesById {
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
+  '/domain/channels': typeof DomainChannelsRoute
+  '/domain/content': typeof DomainContentRoute
+  '/domain/contexts': typeof DomainContextsRoute
+  '/domain/presentation': typeof DomainPresentationRoute
   '/f/$formId': typeof FFormIdRoute
   '/read/$key': typeof ReadKeyRoute
   '/tag/$slug': typeof TagSlugRoute
@@ -396,6 +432,10 @@ export interface FileRouteTypes {
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
+    | '/domain/channels'
+    | '/domain/content'
+    | '/domain/contexts'
+    | '/domain/presentation'
     | '/f/$formId'
     | '/read/$key'
     | '/tag/$slug'
@@ -436,6 +476,10 @@ export interface FileRouteTypes {
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
+    | '/domain/channels'
+    | '/domain/content'
+    | '/domain/contexts'
+    | '/domain/presentation'
     | '/f/$formId'
     | '/read/$key'
     | '/tag/$slug'
@@ -476,6 +520,10 @@ export interface FileRouteTypes {
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
+    | '/domain/channels'
+    | '/domain/content'
+    | '/domain/contexts'
+    | '/domain/presentation'
     | '/f/$formId'
     | '/read/$key'
     | '/tag/$slug'
@@ -517,6 +565,10 @@ export interface RootRouteChildren {
   ContentSubscriptionsRoute: typeof ContentSubscriptionsRoute
   ContentTagsRoute: typeof ContentTagsRoute
   ContentWebhooksRoute: typeof ContentWebhooksRoute
+  DomainChannelsRoute: typeof DomainChannelsRoute
+  DomainContentRoute: typeof DomainContentRoute
+  DomainContextsRoute: typeof DomainContextsRoute
+  DomainPresentationRoute: typeof DomainPresentationRoute
   FFormIdRoute: typeof FFormIdRoute
   ReadKeyRoute: typeof ReadKeyRoute
   TagSlugRoute: typeof TagSlugRoute
@@ -757,6 +809,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentWebhooksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/domain/channels': {
+      id: '/domain/channels'
+      path: '/domain/channels'
+      fullPath: '/domain/channels'
+      preLoaderRoute: typeof DomainChannelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/domain/content': {
+      id: '/domain/content'
+      path: '/domain/content'
+      fullPath: '/domain/content'
+      preLoaderRoute: typeof DomainContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/domain/contexts': {
+      id: '/domain/contexts'
+      path: '/domain/contexts'
+      fullPath: '/domain/contexts'
+      preLoaderRoute: typeof DomainContextsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/domain/presentation': {
+      id: '/domain/presentation'
+      path: '/domain/presentation'
+      fullPath: '/domain/presentation'
+      preLoaderRoute: typeof DomainPresentationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/f/$formId': {
       id: '/f/$formId'
       path: '/f/$formId'
@@ -829,6 +909,10 @@ const rootRouteChildren: RootRouteChildren = {
   ContentSubscriptionsRoute: ContentSubscriptionsRoute,
   ContentTagsRoute: ContentTagsRoute,
   ContentWebhooksRoute: ContentWebhooksRoute,
+  DomainChannelsRoute: DomainChannelsRoute,
+  DomainContentRoute: DomainContentRoute,
+  DomainContextsRoute: DomainContextsRoute,
+  DomainPresentationRoute: DomainPresentationRoute,
   FFormIdRoute: FFormIdRoute,
   ReadKeyRoute: ReadKeyRoute,
   TagSlugRoute: TagSlugRoute,

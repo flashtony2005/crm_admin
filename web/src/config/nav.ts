@@ -109,6 +109,17 @@ export const PRODUCT_NAV: NavNode[] = [
     ],
   },
   {
+    key: 'domain',
+    label: '域模型',
+    icon: 'box',
+    children: [
+      { key: 'domain-content', label: '内容', path: '/domain/content', icon: 'article', desc: '业务事实：挂载上下文 / 一稿多投', perm: 'domain.content.view' },
+      { key: 'domain-contexts', label: '语义上下文', path: '/domain/contexts', icon: 'tag', desc: 'Agent 理解内容的语义维度', perm: 'domain.context.view' },
+      { key: 'domain-channels', label: '分发渠道', path: '/domain/channels', icon: 'plug', desc: '内容出口（网站 / X / 公众号…）', perm: 'domain.channel.view' },
+      { key: 'domain-presentation', label: '站点与呈现', path: '/domain/presentation', icon: 'layers', desc: 'Site 绑定模板 / 主题 / Render 契约', perm: 'domain.site.view' },
+    ],
+  },
+  {
     key: 'site-appearance',
     label: '站点外观',
     path: '/site-appearance',
