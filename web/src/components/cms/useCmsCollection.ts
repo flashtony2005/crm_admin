@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CrudService } from '../../api/cms/store'
 
@@ -17,11 +17,14 @@ export function useCmsCollection<T extends { id: string; updatedAt?: string }>(
     /** 参与搜索匹配的字符串字段 */
     searchFields?: (keyof T & string)[]
     pageSize?: number
+    /** 服务端分页（大表启用）：按页拉取 + 服务端 total；搜索仅作用于当前页 */
+    serverPaged?: boolean
     /** 自定义过滤（在 searchFields 之后追加），返回 false 表示剔除 */
     extraFilter?: (row: T, query: string) => boolean
   },
 ) {
   const pageSize = opts?.pageSize ?? 10
+  const serverPaged = opts?.serverPaged ?? false
   const searchFields = opts?.searchFields ?? []
   const qc = useQueryClient()
 
@@ -33,10 +36,17 @@ export function useCmsCollection<T extends { id: string; updatedAt?: string }>(
   const [page, setPage] = useState(1)
 
   const listQuery = useQuery({
-    queryKey: [...queryKey, 'list'],
-    queryFn: () => api.list(),
+    queryKey: serverPaged ? [...queryKey, 'paged', page, pageSize] : [...queryKey, 'list'],
+    queryFn: async (): Promise<{ items: T[]; total: number }> => {
+      if (serverPaged && api.listPaged) {
+        return api.listPaged(Math.max(1, page), pageSize)
+      }
+      const rows = await api.list()
+      return { items: rows, total: rows.length }
+    },
   })
-  const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
+  const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data])
+  const serverTotal = listQuery.data?.total ?? 0
 
   const searchKey = searchFields.join('\u0000')
   const filtered = useMemo(() => {
@@ -52,8 +62,13 @@ export function useCmsCollection<T extends { id: string; updatedAt?: string }>(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- searchFields 以 searchKey（拼接串）参与依赖
   }, [items, search, searchKey])
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const totalCount = serverPaged ? serverTotal : filtered.length
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const safePage = Math.min(page, pageCount)
+  // 数据收缩后自动回到合法页（如删除末页最后一条后 total 变小）
+  useEffect(() => {
+    if (safePage !== page) setPage(safePage)
+  }, [safePage, page])
   const paged = useMemo(
     () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filtered, safePage, pageSize],
@@ -79,7 +94,7 @@ export function useCmsCollection<T extends { id: string; updatedAt?: string }>(
     items,
     filtered,
     paged,
-    total: filtered.length,
+    total: totalCount,
     isLoading: listQuery.isLoading,
     isError: listQuery.isError,
     refetch: listQuery.refetch,

@@ -50,6 +50,8 @@ fn member_claims(id: &str, email: &str, tenant: &str) -> crate::auth::Claims {
         username: email.to_string(),
         role: "member".to_string(),
         tenant: tenant.to_string(),
+        // 会员 token 不参与 users.token_version 校验（那是后台账号体系），置 0
+        tv: 0,
         exp: crate::auth::now_secs() + 30 * 86400,
     }
 }
@@ -59,6 +61,70 @@ pub struct MemberRegister {
     pub email: String,
     pub name: Option<String>,
     pub password: String,
+    /// 邀请码：member_invite_required=on 时必填；off 时可空
+    #[serde(default)]
+    pub invite_code: Option<String>,
+}
+
+/// 读注册门槛开关：site_settings.member_invite_required ∈ on/1/true 视为开启
+async fn invite_required(st: &AppState) -> bool {
+    let v = st
+        .db
+        .query_one(
+            "SELECT value FROM site_settings WHERE tenant_id = ? AND key = 'member_invite_required' LIMIT 1",
+            vec![sval(st.tenant.clone())],
+        )
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.try_get::<String>("", "value").ok())
+        .unwrap_or_else(|| "off".into());
+    matches!(v.as_str(), "on" | "1" | "true")
+}
+
+/// 校验并原子核销一个邀请码：返回邀请人 member id。
+/// 核销走 `UPDATE ... WHERE used < quota` 条件写 + rows_affected 判定，
+/// 并发重复注册不会超额消费额度。
+async fn consume_invite(st: &AppState, code: &str) -> Result<String, ApiError> {
+    let now = now_iso();
+    let row = st
+        .db
+        .query_one(
+            "SELECT id, owner_member_id, quota, used, expires_at, enabled \
+             FROM invite_codes WHERE tenant_id = ? AND code = ? LIMIT 1",
+            vec![sval(st.tenant.clone()), sval(code.to_string())],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let Some(r) = row else { return Err(ApiError::bad("邀请码无效")) };
+    let id: String = r.try_get("", "id").map_err(internal)?;
+    let owner: String = r.try_get("", "owner_member_id").unwrap_or_default();
+    let quota: i64 = r.try_get::<i64>("", "quota").unwrap_or(1);
+    let used: i64 = r.try_get::<i64>("", "used").unwrap_or(0);
+    let expires_at: String = r.try_get("", "expires_at").unwrap_or_default();
+    let enabled: i64 = r.try_get::<i64>("", "enabled").unwrap_or(1);
+    if enabled != 1 {
+        return Err(ApiError::bad("邀请码已停用"));
+    }
+    if used >= quota {
+        return Err(ApiError::bad("邀请码次数已用完"));
+    }
+    if !expires_at.is_empty() && expires_at.as_str() <= now.as_str() {
+        return Err(ApiError::bad("邀请码已过期"));
+    }
+    let n = st
+        .db
+        .execute(
+            "UPDATE invite_codes SET used = used + 1, updated_at = ? \
+             WHERE id = ? AND used < quota",
+            vec![sval(now), sval(id)],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("核销失败：{e}")))?;
+    if n == 0 {
+        return Err(ApiError::bad("邀请码次数已用完"));
+    }
+    Ok(owner)
 }
 
 /// POST /api/public/members/register
@@ -70,6 +136,19 @@ pub async fn register(State(st): State<AppState>, Json(req): Json<MemberRegister
     if req.password.len() < 8 {
         return Err(ApiError::bad("密码至少 8 位"));
     }
+    // 邀请门槛：开启时必须凭有效邀请码注册；关闭时提供了码也要校验（显式意图）
+    let required = invite_required(&st).await;
+    let code = req
+        .invite_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let invited_by = match code.as_deref() {
+        Some(c) => consume_invite(&st, c).await?,
+        None if required => return Err(ApiError::bad("本站已开启邀请制，注册需要邀请码")),
+        None => String::new(),
+    };
     // 重名检查
     let exist = st
         .db
@@ -87,14 +166,15 @@ pub async fn register(State(st): State<AppState>, Json(req): Json<MemberRegister
     let name = req.name.clone().unwrap_or_else(|| email.clone());
     st.db
         .execute(
-            "INSERT INTO members (id, tenant_id, email, name, password_hash, status, plan, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, ?, 1, 'free', ?, ?)",
+            "INSERT INTO members (id, tenant_id, email, name, password_hash, status, plan, invited_by, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, ?, 1, 'free', ?, ?, ?)",
             vec![
                 sval(id.clone()),
                 sval(st.tenant.clone()),
                 sval(email.clone()),
                 sval(name.clone()),
                 sval(hash_password(&req.password)),
+                sval(invited_by.clone()),
                 sval(now.clone()),
                 sval(now.clone()),
             ],
@@ -103,7 +183,7 @@ pub async fn register(State(st): State<AppState>, Json(req): Json<MemberRegister
         .map_err(|e| ApiError::bad(format!("注册失败：{e}")))?;
     let token = sign(&member_claims(&id, &email, &st.tenant))?;
     // 触发会员注册出站 Webhook
-    crate::webhooks_out::emit(&st, "member.registered", json!({ "id": id, "email": email, "name": name }));
+    crate::webhooks_out::emit(&st, "member.registered", json!({ "id": id, "email": email, "name": name, "invited": !invited_by.is_empty() }));
     ok(json!({ "token": token, "member": public_member(&id, &email, &name, "free") }))
 }
 

@@ -235,8 +235,8 @@ export function ZoneEditDialog({ target, onClose, onSaved }: Props) {
     const preset =
       target.group === 'footer'
         ? [
-            { label: 'X / Twitter', href: 'https://x.com/KeKeYa88', target: '_blank' },
-            { label: 'KOSX.ai', href: 'https://kosx.ai/', target: '_blank' },
+            { label: 'X / Twitter', href: 'https://x.com/your-handle', target: '_blank' },
+            { label: '我的主页', href: '#about', target: '' },
           ]
         : [
             { label: '关于', href: '#about', target: '' },

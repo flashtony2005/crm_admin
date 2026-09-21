@@ -336,7 +336,7 @@ function TemplateCard({
 
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <a
-          href={tpl.previewUrl}
+          href={tpl.previewUrl.replace(/\/+$/, '')}
           target="_blank"
           rel="noreferrer"
           className="text-[12px] text-primary underline hover:text-primary/80"

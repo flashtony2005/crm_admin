@@ -15,9 +15,13 @@ function makeHas(role: keyof typeof ROLE_PERMS) {
 }
 
 describe('config/nav 产品导航', () => {
-  it('产品 IA 与 PRODUCT_VISION §3 一致（7 个一级入口）', () => {
+  it('产品 IA：一级分组与 PRODUCT_VISION §3 演进一致（11 个一级入口）', () => {
     const keys = PRODUCT_NAV.map((n) => n.key)
-    expect(keys).toEqual(['home', 'content', 'ai', 'business', 'automation', 'team', 'settings'])
+    // 演进记录：初版 7 组；P4 加入 commerce；后续加入 domain / site-appearance / templates
+    expect(keys).toEqual([
+      'home', 'content', 'ai', 'business', 'automation', 'commerce',
+      'team', 'site-appearance', 'templates', 'settings',
+    ])
   })
 
   it('flattenNavLeaves 展开所有叶子且不含分组', () => {
@@ -38,16 +42,22 @@ describe('config/nav 产品导航', () => {
   it('管理员（owner）：看全部菜单', () => {
     const nav = filterNavByPerm(PRODUCT_NAV, makeHas('owner'))
     const labels = nav.map((n) => n.key)
-    expect(labels).toEqual(['home', 'content', 'ai', 'business', 'automation', 'team', 'settings'])
+    expect(labels).toEqual([
+      'home', 'content', 'ai', 'business', 'automation', 'commerce',
+      'team', 'site-appearance', 'templates', 'settings',
+    ])
   })
 
   it('经办者（editor）：只显示与其角色相关的菜单', () => {
     const nav = filterNavByPerm(PRODUCT_NAV, makeHas('editor'))
     const keys = nav.map((n) => n.key)
-    // 可见：Home / Content / AI(Assistant+Tasks) / Business / Automation（editor 有 workflows.toggle 可管理工作流）
-    expect(keys).toEqual(['home', 'content', 'ai', 'business', 'automation'])
-    // 隐藏：Team、Settings、Approvals（Owner 裁决台）
+    // 可见：Home / Content / AI / Business / Automation / Commerce（P4 商业层）/ Site-Appearance
+    expect(keys).toEqual([
+      'home', 'content', 'ai', 'business', 'automation', 'commerce', 'site-appearance',
+    ])
+    // 隐藏：Team、Templates、Settings
     expect(keys).not.toContain('team')
+    expect(keys).not.toContain('templates')
     expect(keys).not.toContain('settings')
     const ai = nav.find((n) => n.key === 'ai')
     if (ai && isSection(ai)) {
@@ -60,7 +70,7 @@ describe('config/nav 产品导航', () => {
   it('观察者（viewer）：只读菜单，无任何管理入口', () => {
     const nav = filterNavByPerm(PRODUCT_NAV, makeHas('viewer'))
     const keys = nav.map((n) => n.key)
-    expect(keys).toEqual(['home', 'content', 'ai', 'business'])
+    expect(keys).toEqual(['home', 'content', 'ai', 'business', 'site-appearance'])
   })
 
   it('空分组自动隐藏：若 editor 无任何 content 查看权，Content 整组消失', () => {

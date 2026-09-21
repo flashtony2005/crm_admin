@@ -9,6 +9,8 @@
 
 export interface CrudService<T extends { id: string }> {
   list(): Promise<T[]>
+  /** 可选：服务端分页（真实后端实现；未实现时调用方回落 list() 全量） */
+  listPaged?(page: number, pageSize: number): Promise<{ items: T[]; total: number }>
   get(id: string): Promise<T | undefined>
   create(input: Omit<T, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<T>
   update(id: string, patch: Partial<T>): Promise<T>

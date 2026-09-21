@@ -9,7 +9,8 @@
 //!
 //! 业务代码只依赖 CmsDb/Row，与后端选择解耦（SeaORM 固定表结构约定不变）。
 
-use sea_orm::{ConnectionTrait, Statement, Value as SqlValue};
+// TransactionTrait：begin() 定义在此 trait 上（不在 ConnectionTrait 上）
+use sea_orm::{ConnectionTrait, Statement, TransactionTrait, Value as SqlValue};
 use std::sync::Arc;
 
 /// 行值（SQLite 方言类型）
@@ -159,6 +160,19 @@ impl CmsDb {
                 let db = sea_orm::Database::connect("sqlite://cms.db?mode=rwc")
                     .await
                     .map_err(|e| format!("本地库连接失败：{e}"))?;
+                // F1 修复：SQLite 默认 rollback journal 在「读多写少但偶发并发」下频繁
+                // 抛 SQLITE_BUSY。开 WAL 让读写不互斥，busy_timeout 让写冲突自动等待，
+                // synchronous=NORMAL 在 WAL 下安全且显著提速。失败仅告警不阻断启动。
+                for pragma in [
+                    "PRAGMA journal_mode=WAL;",
+                    "PRAGMA busy_timeout=5000;",
+                    "PRAGMA synchronous=NORMAL;",
+                    "PRAGMA foreign_keys=ON;",
+                ] {
+                    if let Err(e) = db.execute_unprepared(pragma).await {
+                        eprintln!("[cmsdb] 设置 {pragma} 失败：{e}");
+                    }
+                }
                 Ok(Self(Arc::new(Backend::Local(db))))
             }
         }
@@ -232,6 +246,41 @@ impl CmsDb {
         Ok(self.query_all(sql, args).await?.into_iter().next())
     }
 
+    /// 在**单个连接**上原子执行多条写语句（此前 CmsDb 完全没有事务能力）。
+    ///
+    /// - SQLite：`BEGIN IMMEDIATE` … `COMMIT`，任一条失败自动 `ROLLBACK`。
+    ///   注意不能靠手工拼 `BEGIN` —— `execute_raw` 每次从连接池取连接，
+    ///   事务状态挂在连接上，跨语句可能落到不同连接而完全失效。
+    /// - Turso：单次 pipeline 请求内顺序执行，首尾包 `BEGIN IMMEDIATE` / `COMMIT`
+    ///
+    /// 返回每条语句的受影响行数（顺序与入参一致），供「影响行数=0 即冲突/余额不足」类判断使用。
+    pub async fn exec_tx(&self, sqls: &[(&str, Vec<SqlValue>)]) -> Result<Vec<u64>, DbErr> {
+        if sqls.is_empty() {
+            return Ok(Vec::new());
+        }
+        match &*self.0 {
+            Backend::Local(db) => {
+                let txn = db.begin().await.map_err(|e| DbErr(format!("开启事务失败：{e}")))?;
+                let mut out = Vec::with_capacity(sqls.len());
+                for (sql, args) in sqls {
+                    let st = Statement::from_sql_and_values(db.get_database_backend(), *sql, args.clone());
+                    match txn.execute_raw(st).await {
+                        Ok(r) => out.push(r.rows_affected()),
+                        Err(e) => {
+                            let _ = txn.rollback().await;
+                            return Err(DbErr(format!("事务执行失败：{e}")));
+                        }
+                    }
+                }
+                txn.commit()
+                    .await
+                    .map_err(|e| DbErr(format!("提交事务失败：{e}")))?;
+                Ok(out)
+            }
+            Backend::Turso { client, url, token, .. } => turso_tx(client, url, token, sqls).await,
+        }
+    }
+
     /// 查多行
     pub async fn query_all(&self, sql: &str, args: Vec<SqlValue>) -> Result<Vec<Row>, DbErr> {
         match &*self.0 {
@@ -260,6 +309,10 @@ fn to_param(v: &SqlValue) -> serde_json::Value {
         V::Int(Some(n)) => serde_json::json!({ "type": "integer", "value": n }),
         V::Decimal(Some(d)) => serde_json::json!({ "type": "real", "value": d }),
         V::Float(Some(f)) => serde_json::json!({ "type": "real", "value": f }),
+        // F1 修复：sea-orm 的 Col::Real 经 to_param 走的是 V::Double，此前落到 `_ => null`
+        // 分支，导致 Turso 后端下 products.price / tiers.price_* 静默写 NULL 且不报错
+        // （本地 SQLite 经 sea-orm 原生路径不受影响，故长期未被发现）。
+        V::Double(Some(f)) => serde_json::json!({ "type": "real", "value": f }),
         V::Bool(Some(b)) => serde_json::json!({ "type": "integer", "value": if *b { 1 } else { 0 } }),
         _ => serde_json::json!({ "type": "null", "value": null }),
     }
@@ -315,6 +368,64 @@ async fn turso_pipeline(
         .cloned()
         .unwrap_or(serde_json::Value::Null);
     Ok(first.get("rows_written").and_then(|n| n.as_u64()).unwrap_or(0))
+}
+
+/// Turso 事务：单 pipeline 请求内多语句，首尾包 `BEGIN IMMEDIATE` / `COMMIT`
+async fn turso_tx(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+    sqls: &[(&str, Vec<SqlValue>)],
+) -> Result<Vec<u64>, DbErr> {
+    let mut reqs: Vec<serde_json::Value> = Vec::with_capacity(sqls.len() + 2);
+    reqs.push(serde_json::json!({ "type": "execute", "stmt": { "sql": "BEGIN IMMEDIATE" } }));
+    for (sql, args) in sqls {
+        let params: Vec<serde_json::Value> = args.iter().map(to_param).collect();
+        reqs.push(serde_json::json!({ "type": "execute", "stmt": { "sql": *sql, "args": params } }));
+    }
+    reqs.push(serde_json::json!({ "type": "execute", "stmt": { "sql": "COMMIT" } }));
+
+    let resp = client
+        .post(format!("{url}/v2/pipeline"))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "requests": reqs }))
+        .send()
+        .await
+        .map_err(|e| DbErr(format!("Turso 事务请求失败：{e}")))?;
+    let status = resp.status();
+    let json: serde_json::Value = resp.json().await.map_err(|e| DbErr(format!("Turso 响应解析失败：{e}")))?;
+    if !status.is_success() {
+        return Err(DbErr(format!(
+            "Turso 错误 {}：{}",
+            status,
+            json.get("error").map(|e| e.to_string()).unwrap_or_default()
+        )));
+    }
+    let results = json
+        .get("results")
+        .and_then(|r| r.as_array())
+        .ok_or_else(|| DbErr("Turso 响应缺少 results".into()))?;
+    // 任一条语句报错即整体失败（服务端已执行 BEGIN，未 COMMIT 的部分不会落盘）
+    for (i, r) in results.iter().enumerate() {
+        if let Some(err) = r.pointer("/error").or_else(|| r.pointer("/response/error")) {
+            if !err.is_null() {
+                return Err(DbErr(format!("Turso 事务第 {i} 条失败：{err}")));
+            }
+        }
+    }
+    // results[0]=BEGIN，results[1..=N]=业务语句，results[N+1]=COMMIT
+    let n = sqls.len();
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        out.push(
+            results
+                .get(i + 1)
+                .and_then(|r| r.pointer("/response/result/rows_written"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
+        );
+    }
+    Ok(out)
 }
 
 async fn turso_query(

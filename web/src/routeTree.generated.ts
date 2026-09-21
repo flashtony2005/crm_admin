@@ -37,18 +37,16 @@ import { Route as ContentI18nRouteImport } from './routes/content/i18n'
 import { Route as ContentMediaRouteImport } from './routes/content/media'
 import { Route as ContentMembersRouteImport } from './routes/content/members'
 import { Route as ContentNewsletterRouteImport } from './routes/content/newsletter'
+import { Route as ContentOrdersRouteImport } from './routes/content/orders'
 import { Route as ContentPagesRouteImport } from './routes/content/pages'
 import { Route as ContentProductsRouteImport } from './routes/content/products'
 import { Route as ContentSubscriptionsRouteImport } from './routes/content/subscriptions'
 import { Route as ContentTagsRouteImport } from './routes/content/tags'
 import { Route as ContentWebhooksRouteImport } from './routes/content/webhooks'
-import { Route as DomainChannelsRouteImport } from './routes/domain/channels'
-import { Route as DomainContentRouteImport } from './routes/domain/content'
-import { Route as DomainContextsRouteImport } from './routes/domain/contexts'
-import { Route as DomainPresentationRouteImport } from './routes/domain/presentation'
 import { Route as FFormIdRouteImport } from './routes/f.$formId'
 import { Route as ReadKeyRouteImport } from './routes/read.$key'
 import { Route as TagSlugRouteImport } from './routes/tag.$slug'
+import { Route as TeamAuditRouteImport } from './routes/team/audit'
 import { Route as TeamRolesRouteImport } from './routes/team/roles'
 import { Route as TeamUsersRouteImport } from './routes/team/users'
 
@@ -192,6 +190,11 @@ const ContentNewsletterRoute = ContentNewsletterRouteImport.update({
   path: '/content/newsletter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentOrdersRoute = ContentOrdersRouteImport.update({
+  id: '/content/orders',
+  path: '/content/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContentPagesRoute = ContentPagesRouteImport.update({
   id: '/content/pages',
   path: '/content/pages',
@@ -217,26 +220,6 @@ const ContentWebhooksRoute = ContentWebhooksRouteImport.update({
   path: '/content/webhooks',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DomainChannelsRoute = DomainChannelsRouteImport.update({
-  id: '/domain/channels',
-  path: '/domain/channels',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DomainContentRoute = DomainContentRouteImport.update({
-  id: '/domain/content',
-  path: '/domain/content',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DomainContextsRoute = DomainContextsRouteImport.update({
-  id: '/domain/contexts',
-  path: '/domain/contexts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DomainPresentationRoute = DomainPresentationRouteImport.update({
-  id: '/domain/presentation',
-  path: '/domain/presentation',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const FFormIdRoute = FFormIdRouteImport.update({
   id: '/f/$formId',
   path: '/f/$formId',
@@ -250,6 +233,11 @@ const ReadKeyRoute = ReadKeyRouteImport.update({
 const TagSlugRoute = TagSlugRouteImport.update({
   id: '/tag/$slug',
   path: '/tag/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamAuditRoute = TeamAuditRouteImport.update({
+  id: '/team/audit',
+  path: '/team/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeamRolesRoute = TeamRolesRouteImport.update({
@@ -292,18 +280,16 @@ export interface FileRoutesByFullPath {
   '/content/media': typeof ContentMediaRoute
   '/content/members': typeof ContentMembersRoute
   '/content/newsletter': typeof ContentNewsletterRoute
+  '/content/orders': typeof ContentOrdersRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
-  '/domain/channels': typeof DomainChannelsRoute
-  '/domain/content': typeof DomainContentRoute
-  '/domain/contexts': typeof DomainContextsRoute
-  '/domain/presentation': typeof DomainPresentationRoute
   '/f/$formId': typeof FFormIdRoute
   '/read/$key': typeof ReadKeyRoute
   '/tag/$slug': typeof TagSlugRoute
+  '/team/audit': typeof TeamAuditRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
 }
@@ -336,18 +322,16 @@ export interface FileRoutesByTo {
   '/content/media': typeof ContentMediaRoute
   '/content/members': typeof ContentMembersRoute
   '/content/newsletter': typeof ContentNewsletterRoute
+  '/content/orders': typeof ContentOrdersRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
-  '/domain/channels': typeof DomainChannelsRoute
-  '/domain/content': typeof DomainContentRoute
-  '/domain/contexts': typeof DomainContextsRoute
-  '/domain/presentation': typeof DomainPresentationRoute
   '/f/$formId': typeof FFormIdRoute
   '/read/$key': typeof ReadKeyRoute
   '/tag/$slug': typeof TagSlugRoute
+  '/team/audit': typeof TeamAuditRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
 }
@@ -381,18 +365,16 @@ export interface FileRoutesById {
   '/content/media': typeof ContentMediaRoute
   '/content/members': typeof ContentMembersRoute
   '/content/newsletter': typeof ContentNewsletterRoute
+  '/content/orders': typeof ContentOrdersRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
-  '/domain/channels': typeof DomainChannelsRoute
-  '/domain/content': typeof DomainContentRoute
-  '/domain/contexts': typeof DomainContextsRoute
-  '/domain/presentation': typeof DomainPresentationRoute
   '/f/$formId': typeof FFormIdRoute
   '/read/$key': typeof ReadKeyRoute
   '/tag/$slug': typeof TagSlugRoute
+  '/team/audit': typeof TeamAuditRoute
   '/team/roles': typeof TeamRolesRoute
   '/team/users': typeof TeamUsersRoute
 }
@@ -427,18 +409,16 @@ export interface FileRouteTypes {
     | '/content/media'
     | '/content/members'
     | '/content/newsletter'
+    | '/content/orders'
     | '/content/pages'
     | '/content/products'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
-    | '/domain/channels'
-    | '/domain/content'
-    | '/domain/contexts'
-    | '/domain/presentation'
     | '/f/$formId'
     | '/read/$key'
     | '/tag/$slug'
+    | '/team/audit'
     | '/team/roles'
     | '/team/users'
   fileRoutesByTo: FileRoutesByTo
@@ -471,18 +451,16 @@ export interface FileRouteTypes {
     | '/content/media'
     | '/content/members'
     | '/content/newsletter'
+    | '/content/orders'
     | '/content/pages'
     | '/content/products'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
-    | '/domain/channels'
-    | '/domain/content'
-    | '/domain/contexts'
-    | '/domain/presentation'
     | '/f/$formId'
     | '/read/$key'
     | '/tag/$slug'
+    | '/team/audit'
     | '/team/roles'
     | '/team/users'
   id:
@@ -515,18 +493,16 @@ export interface FileRouteTypes {
     | '/content/media'
     | '/content/members'
     | '/content/newsletter'
+    | '/content/orders'
     | '/content/pages'
     | '/content/products'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
-    | '/domain/channels'
-    | '/domain/content'
-    | '/domain/contexts'
-    | '/domain/presentation'
     | '/f/$formId'
     | '/read/$key'
     | '/tag/$slug'
+    | '/team/audit'
     | '/team/roles'
     | '/team/users'
   fileRoutesById: FileRoutesById
@@ -560,18 +536,16 @@ export interface RootRouteChildren {
   ContentMediaRoute: typeof ContentMediaRoute
   ContentMembersRoute: typeof ContentMembersRoute
   ContentNewsletterRoute: typeof ContentNewsletterRoute
+  ContentOrdersRoute: typeof ContentOrdersRoute
   ContentPagesRoute: typeof ContentPagesRoute
   ContentProductsRoute: typeof ContentProductsRoute
   ContentSubscriptionsRoute: typeof ContentSubscriptionsRoute
   ContentTagsRoute: typeof ContentTagsRoute
   ContentWebhooksRoute: typeof ContentWebhooksRoute
-  DomainChannelsRoute: typeof DomainChannelsRoute
-  DomainContentRoute: typeof DomainContentRoute
-  DomainContextsRoute: typeof DomainContextsRoute
-  DomainPresentationRoute: typeof DomainPresentationRoute
   FFormIdRoute: typeof FFormIdRoute
   ReadKeyRoute: typeof ReadKeyRoute
   TagSlugRoute: typeof TagSlugRoute
+  TeamAuditRoute: typeof TeamAuditRoute
   TeamRolesRoute: typeof TeamRolesRoute
   TeamUsersRoute: typeof TeamUsersRoute
 }
@@ -774,6 +748,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentNewsletterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/orders': {
+      id: '/content/orders'
+      path: '/content/orders'
+      fullPath: '/content/orders'
+      preLoaderRoute: typeof ContentOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/pages': {
       id: '/content/pages'
       path: '/content/pages'
@@ -809,34 +790,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentWebhooksRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/domain/channels': {
-      id: '/domain/channels'
-      path: '/domain/channels'
-      fullPath: '/domain/channels'
-      preLoaderRoute: typeof DomainChannelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/domain/content': {
-      id: '/domain/content'
-      path: '/domain/content'
-      fullPath: '/domain/content'
-      preLoaderRoute: typeof DomainContentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/domain/contexts': {
-      id: '/domain/contexts'
-      path: '/domain/contexts'
-      fullPath: '/domain/contexts'
-      preLoaderRoute: typeof DomainContextsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/domain/presentation': {
-      id: '/domain/presentation'
-      path: '/domain/presentation'
-      fullPath: '/domain/presentation'
-      preLoaderRoute: typeof DomainPresentationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/f/$formId': {
       id: '/f/$formId'
       path: '/f/$formId'
@@ -856,6 +809,13 @@ declare module '@tanstack/react-router' {
       path: '/tag/$slug'
       fullPath: '/tag/$slug'
       preLoaderRoute: typeof TagSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team/audit': {
+      id: '/team/audit'
+      path: '/team/audit'
+      fullPath: '/team/audit'
+      preLoaderRoute: typeof TeamAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/team/roles': {
@@ -904,18 +864,16 @@ const rootRouteChildren: RootRouteChildren = {
   ContentMediaRoute: ContentMediaRoute,
   ContentMembersRoute: ContentMembersRoute,
   ContentNewsletterRoute: ContentNewsletterRoute,
+  ContentOrdersRoute: ContentOrdersRoute,
   ContentPagesRoute: ContentPagesRoute,
   ContentProductsRoute: ContentProductsRoute,
   ContentSubscriptionsRoute: ContentSubscriptionsRoute,
   ContentTagsRoute: ContentTagsRoute,
   ContentWebhooksRoute: ContentWebhooksRoute,
-  DomainChannelsRoute: DomainChannelsRoute,
-  DomainContentRoute: DomainContentRoute,
-  DomainContextsRoute: DomainContextsRoute,
-  DomainPresentationRoute: DomainPresentationRoute,
   FFormIdRoute: FFormIdRoute,
   ReadKeyRoute: ReadKeyRoute,
   TagSlugRoute: TagSlugRoute,
+  TeamAuditRoute: TeamAuditRoute,
   TeamRolesRoute: TeamRolesRoute,
   TeamUsersRoute: TeamUsersRoute,
 }

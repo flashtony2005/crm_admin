@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>会员中心</title>
+<style>
+/* ========== 主题变量：default / neon / editorial（由 JS 按 active 模板切换） ========== */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#f8f9fb; --line:#e5e7eb;
+  --text:#18181b; --muted:#71717a; --accent:#2563eb; --accent-ink:#ffffff;
+  --ok:#059669; --warn:#b45309; --warn-bg:#fef3c7; --warn-line:#fde68a;
+  --bad:#dc2626; --bad-bg:#fee2e2; --bad-line:#fecaca;
+  --radius:14px; --font-display:system-ui,-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  --font-text:var(--font-display); --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+}
+body[data-theme="neon"]{
+  --bg:#07070d; --panel:rgba(14,16,28,.82); --panel-2:rgba(20,22,38,.82); --line:rgba(0,240,255,.28);
+  --text:#e8f6ff; --muted:#9fb3c8; --accent:#00f0ff; --accent-ink:#07070d;
+  --ok:#34d399; --warn:#fbbf24; --warn-bg:rgba(251,191,36,.10); --warn-line:rgba(251,191,36,.35);
+  --bad:#ff5d7a; --bad-bg:rgba(255,93,122,.10); --bad-line:rgba(255,93,122,.35);
+  --radius:10px; --shadow:0 0 0 1px rgba(0,240,255,.06),0 10px 34px rgba(0,0,0,.55);
+}
+body[data-theme="editorial"]{
+  --bg:#f4efe6; --panel:#fffdf8; --panel-2:#f6f0e4; --line:#d8cdba;
+  --text:#211d17; --muted:#6f655a; --accent:#c2410c; --accent-ink:#fffdf8;
+  --ok:#2f6f5b; --warn:#92400e; --warn-bg:#f5e6c8; --warn-line:#e4d3a8;
+  --bad:#b91c1c; --bad-bg:#f6dcd5; --bad-line:#e8c4b8;
+  --radius:4px; --font-display:'Fraunces','Noto Serif SC',Georgia,serif;
+  --font-text:'Inter',-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; --shadow:0 1px 2px rgba(33,29,23,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--text);font-family:var(--font-text)}
+body{min-height:100vh;-webkit-font-smoothing:antialiased;line-height:1.6}
+body[data-theme="neon"]{
+  background-image:
+    radial-gradient(60vw 50vh at 15% 0%, rgba(139,92,246,.16), transparent 60%),
+    radial-gradient(50vw 45vh at 90% 10%, rgba(0,240,255,.12), transparent 60%),
+    radial-gradient(70vw 55vh at 50% 110%, rgba(255,46,166,.10), transparent 60%);
+}
+body[data-theme="editorial"]{
+  background-image:radial-gradient(circle at 18% -10%, #fbf7ef 0%, var(--bg) 42%);
+}
+a{color:inherit}
+.wrap{max-width:860px;margin:0 auto;padding:0 20px}
+/* ===== 顶栏 ===== */
+header.top{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);
+  background:color-mix(in srgb, var(--bg) 78%, transparent);border-bottom:1px solid var(--line)}
+.top-inner{max-width:860px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--font-display);font-weight:700;font-size:17px;display:flex;align-items:center;gap:10px}
+.brand .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);flex:none}
+body[data-theme="neon"] .brand .dot{box-shadow:0 0 12px var(--accent)}
+.top-links{display:flex;gap:14px;font-size:13px;color:var(--muted)}
+.top-links a{text-decoration:none}
+.top-links a:hover{color:var(--accent)}
+/* ===== 通用卡片 / 元素 ===== */
+main{padding:28px 0 72px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.card + .card, .section + .section{margin-top:16px}
+h2.sec{font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:.04em;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.kbadge{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.08em;padding:3px 10px;border-radius:999px;
+  border:1px solid var(--line);color:var(--muted);background:var(--panel-2)}
+.kbadge.on{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;user-select:none;
+  font:inherit;font-size:13.5px;font-weight:600;padding:9px 16px;border-radius:calc(var(--radius) - 4px);
+  border:1px solid var(--line);background:var(--panel);color:var(--text);transition:filter .15s, transform .1s}
+.btn:hover{filter:brightness(.97)} .btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+body[data-theme="neon"] .btn.primary{box-shadow:0 0 18px rgba(0,240,255,.45)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:6px 12px;font-size:12.5px}
+input,select{font:inherit;font-size:14px;color:var(--text);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:calc(var(--radius) - 4px);padding:9px 12px;outline:none;width:100%}
+input:focus{border-color:var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.banner{border-radius:calc(var(--radius) - 4px);padding:11px 14px;font-size:13.5px;border:1px solid;margin-top:12px}
+.banner.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.banner.bad{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.tbl th{font-size:11.5px;font-weight:600;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);letter-spacing:.05em}
+table.tbl td{padding:8px;border-bottom:1px solid var(--line)}
+table.tbl tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.pos{color:var(--ok)} .neg{color:var(--bad)}
+.pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.04em}
+.pill.paid{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+.pill.pending{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+.pill.ok{background:var(--bad-bg);color:var(--ok);border:1px solid var(--bad-line)}
+.pill.closed{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+/* ===== Tab 栏 ===== */
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:18px;overflow-x:auto}
+.tabs button{flex:1;white-space:nowrap;cursor:pointer;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);
+  background:transparent;border:none;border-radius:999px;padding:8px 14px;transition:.15s}
+.tabs button.on{background:var(--accent);color:var(--accent-ink)}
+body[data-theme="neon"] .tabs button.on{box-shadow:0 0 14px rgba(0,240,255,.4)}
+/* ===== 登录卡 ===== */
+.auth-hero{text-align:center;padding:44px 16px 30px}
+.auth-hero h1{font-family:var(--font-display);font-size:clamp(26px,4.6vw,38px);letter-spacing:.01em}
+.auth-hero p{color:var(--muted);margin-top:10px;font-size:14px;max-width:46ch;margin-inline:auto}
+.auth-card{max-width:420px;margin:0 auto}
+.auth-card .mode{display:flex;gap:4px;margin-bottom:16px}
+.auth-card .mode button{flex:1;cursor:pointer;font:inherit;font-size:13px;font-weight:600;padding:8px;border-radius:8px;
+  border:1px solid var(--line);background:transparent;color:var(--muted)}
+.auth-card .mode button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.field{margin-bottom:12px} .field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:5px}
+/* ===== 钱包大数字 ===== */
+.wallet-num{font-family:var(--font-display);font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{cursor:pointer;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);color:var(--text)}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tier{border:1px solid var(--line);border-radius:calc(var(--radius) - 2px);padding:16px;background:var(--panel-2)}
+.tier .tname{font-family:var(--font-display);font-weight:700;font-size:16px}
+.tier .tprice{font-family:var(--font-display);font-size:24px;font-weight:800;margin:6px 0 2px}
+/* ===== 弹层 ===== */
+#modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);padding:20px}
+#modal.show{display:flex}
+#modal .box{max-width:420px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:22px}
+.ordno{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:.04em;
+  background:var(--panel-2);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin:10px 0;word-break:break-all}
+.qrbx{display:grid;place-items:center;padding:10px 0}
+.qrbx svg{width:216px;height:216px;border-radius:10px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;display:none;
+  background:var(--text);color:var(--bg);font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px;box-shadow:var(--shadow)}
+footer.foot{border-top:1px solid var(--line);padding:18px 0 26px;text-align:center;color:var(--muted);font-size:12px}
+@media (max-width:640px){
+  .grid2{grid-template-columns:1fr}
+  main{padding-top:18px}
+  .card{padding:16px}
+  .top-links{display:none}
+}
+</style>
+</head>
+<body data-theme="default">
+
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="/t/active" style="text-decoration:none">
+      <span class="dot"></span><span id="brandName">会员中心</span>
+    </a>
+    <div class="top-links">
+      <a href="/t/active">← 返回首页</a>
+      <a href="#" id="memberChip" style="display:none"></a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap"><div id="app"><div class="card muted small">加载中…</div></div></main>
+
+<footer class="foot"><span id="footNote">会员中心 · 自适应站点主题</span></footer>
+
+<div id="modal"><div class="box" id="modalBox"></div></div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  /* ================= 基础 ================= */
+  var API = (new URLSearchParams(location.search).get('api') || '').replace(/\/+$/,'');
+  function get(p){ return API + p; }
+  function token(){ try{ return localStorage.getItem('member_token'); }catch(e){ return null; } }
+  function setToken(t){ try{ t ? localStorage.setItem('member_token', t) : localStorage.removeItem('member_token'); }catch(e){} }
+
+  async function call(path, opts){
+    var h = Object.assign({}, (opts && opts.headers) || {});
+    if(opts && opts.body) h['Content-Type'] = 'application/json';
+    var t = token(); if(t) h['Authorization'] = 'Bearer ' + t;
+    var r = await fetch(get(path), Object.assign({}, opts || {}, { headers: h }));
+    var d = null;
+    try{ d = await r.json(); }catch(e){}
+    if(!r.ok){
+      var msg = (d && (d.error || d.message)) || ('请求失败（HTTP ' + r.status + '）');
+      if(r.status === 401){ setToken(null); state.me = null; state.wallet = null; }
+      throw new Error(msg);
+    }
+    return d && d.data !== undefined ? d.data : d;
+  }
+
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function yuan(cents){ return '¥' + ((cents || 0) / 100).toFixed(2); }
+  function toast(msg){
+    var t = el('toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast._h); toast._h = setTimeout(function(){ t.style.display = 'none'; }, 2400);
+  }
+  function openModal(html){ el('modalBox').innerHTML = html; el('modal').classList.add('show'); }
+  function closeModal(){ el('modal').classList.remove('show'); }
+  el('modal').addEventListener('click', function(e){ if(e.target === el('modal')) closeModal(); });
+
+  var LEDGER_LABEL = {
+    signin:'每日签到', recharge:'充值到账', purchase:'购买文章', redeem:'兑码',
+    redeem_points:'兑码（积分）', redeem_plan:'兑码（会员）', invite_reward:'邀请奖励'
+  };
+  var BIZ_LABEL = { points_recharge:'积分充值', plan:'订阅会员' };
+
+  /* ================= 状态 ================= */
+  var state = {
+    site:null, tplActive:'', me:null, wallet:null, tiers:[], orders:[],
+    tab:'overview', authMode:'login', redeem:'', recharge:'100', busy:false
+  };
+
+  /* ================= 主题自适应 ================= */
+  function loadFont(href){
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+    document.head.appendChild(l);
+  }
+  function applyTheme(slug, site){
+    var s = String(slug || '').toLowerCase();
+    var theme = 'default';
+    if(s === 'neon') theme = 'neon';
+    else if(s === 'editorial') theme = 'editorial';
+    document.body.setAttribute('data-theme', theme);
+    document.title = (site && site.home && site.home.brand ? site.home.brand + ' · ' : '') + '会员中心';
+    if(theme === 'neon'){
+      loadFont('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+    } else if(theme === 'editorial'){
+      loadFont('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Noto+Serif+SC:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+    }
+    el('brandName').textContent = (site && site.home && site.home.brand) || '会员中心';
+    el('footNote').textContent = ((site && site.home && site.home.brand) || '') + ' · 会员中心（主题：' + slug + '）';
+  }
+
+  /* ================= 数据加载 ================= */
+  async function loadAll(){
+    // 站点信息 + 模板列表（决定主题）
+    try{
+      var rs = await call('/api/public/site', {}); state.site = rs;
+      var rt = await call('/api/public/templates', {});
+      state.tplActive = (rt && rt.active) || '';
+      applyTheme(state.tplActive, state.site);
+    }catch(e){ /* 主题失败不阻塞 */ }
+    // 已登录：加载钱包/套餐/订单
+    if(token()){
+      try{
+        var rm = await call('/api/public/members/me', {});
+        state.me = (rm && rm.member) || rm;
+      }catch(e){ state.me = null; }
+      if(state.me){
+        await Promise.all([loadWallet(), loadTiers(), loadOrders()].map(function(p){ return p.catch(function(){}); }));
+      }
+    }
+    render();
+  }
+  async function loadWallet(){ state.wallet = await call('/api/public/members/wallet', {}); }
+  async function loadTiers(){
+    try{
+      var r = await call('/api/public/tiers', {});
+      state.tiers = (r && (r.items || r.tiers)) || (Array.isArray(r) ? r : []);
+    }catch(e){ state.tiers = []; }
+  }
+  async function loadOrders(){
+    try{
+      var r = await call('/api/public/members/orders', {});
+      state.orders = (r && r.items) || [];
+    }catch(e){ state.orders = []; }
+  }
+
+  /* ================= 渲染 ================= */
+  function expiryBanner(w){
+    if(!w) return '';
+    if(w.planExpired){
+      return '<div class="banner bad">您的会员已于 ' + esc((w.planExpiresAt || '').slice(0,10)) +
+        ' 过期，续费后可继续享受会员权益。</div>';
+    }
+    if(w.planExpiring){
+      return '<div class="banner warn">您的会员将于 ' + esc((w.planExpiresAt || '').slice(0,10)) +
+        ' 到期（还剩 ' + (w.planDaysLeft == null ? '—' : w.planDaysLeft) + ' 天），可提前续费避免中断。</div>';
+    }
+    return '';
+  }
+
+  function planBadge(w){
+    if(!w) return '';
+    var free = !w.plan || w.plan === 'free' || w.planExpired;
+    return '<span class="kbadge' + (free ? '' : ' on') + '">' +
+      (free ? '免费用户' : esc(w.plan) + ' 会员') + '</span>' +
+      (w.plan && w.plan !== 'free' && w.planExpiresAt && !w.planExpired
+        ? ' <span class="small muted">有效期至 ' + esc(w.planExpiresAt.slice(0,10)) +
+          (w.planDaysLeft != null && w.planDaysLeft >= 0 ? '（剩 ' + w.planDaysLeft + ' 天）' : '（不限期）') + '</span>'
+        : '');
+  }
+
+  function authView(){
+    var needInvite = !!(state.site && (state.site.memberInviteRequired === true || state.site.memberInviteRequired === 'on' || state.site.memberInviteRequired === '1' || state.site.memberInviteRequired === 'true'));
+    var isLogin = state.authMode === 'login';
+    return '' +
+    '<div class="auth-hero">' +
+      '<h1>成为站点会员</h1>' +
+      '<p>登录后可签到攒积分、订阅会员内容、用积分解锁单篇付费文章，订单由站长确认后自动到账。</p>' +
+    '</div>' +
+    '<div class="card auth-card">' +
+      '<div class="mode">' +
+        '<button data-auth="login" class="' + (isLogin ? 'on' : '') + '">登录</button>' +
+        '<button data-auth="register" class="' + (isLogin ? '' : 'on') + '">注册</button>' +
+      '</div>' +
+      '<div class="field' + (isLogin ? '' : '') + '" id="fName" style="display:' + (isLogin ? 'none' : 'block') + '">' +
+        '<label>昵称</label><input id="inName" placeholder="怎么称呼你" />' +
+      '</div>' +
+      '<div class="field"><label>邮箱</label><input id="inEmail" type="email" placeholder="you@example.com" /></div>' +
+      '<div class="field"><label>密码</label><input id="inPass" type="password" placeholder="至少 6 位" /></div>' +
+      '<div class="field" id="fInvite" style="display:' + (isLogin ? 'none' : 'block') + '">' +
+        '<label>邀请码' + (needInvite ? '（本站开启邀请注册，必填）' : '（如有）') + '</label>' +
+        '<input id="inInvite" placeholder="' + (needInvite ? '请输入邀请码' : '选填') + '" />' +
+      '</div>' +
+      '<div id="authErr" class="small" style="color:var(--bad);display:none;margin-bottom:10px"></div>' +
+      '<button class="btn primary" style="width:100%" id="btnAuth">' + (isLogin ? '登录' : '注册并加入') + '</button>' +
+    '</div>';
+  }
+
+  function tabBar(){
+    var tabs = [['overview','概览'],['wallet','钱包'],['plan','订阅'],['orders','订单']];
+    return '<div class="tabs">' + tabs.map(function(t){
+      return '<button data-tab="' + t[0] + '" class="' + (state.tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function overviewView(){
+    var w = state.wallet;
+    return '' +
+    '<div class="card">' +
+      '<h2 class="sec">会员状态</h2>' +
+      '<div class="row" style="justify-content:space-between">' +
+        '<div>' + planBadge(w) +
+          '<div class="small muted" style="margin-top:6px">' + esc((state.me && (state.me.name || state.me.email)) || '') + '</div>' +
+        '</div>' +
+        '<button class="btn sm" id="btnLogout">退出登录</button>' +
+      '</div>' +
+      expiryBanner(w) +
+      (w && !w.invited ? '' : (w && w.invited ? '<div class="small muted" style="margin-top:10px">🎁 你通过邀请码加入；成功付费后邀请人会获得奖励积分。</div>' : '')) +
+    '</div>' +
+    '<div class="grid2 section">' +
+      '<div class="card"><h2 class="sec">积分余额</h2><div class="wallet-num">' + (w ? w.balance : '—') + '</div>' +
+        '<div class="chip-row"><button class="btn sm" data-goto="wallet">去签到 / 充值</button></div></div>' +
+      '<div class="card"><h2 class="sec">会员权益</h2>' +
+        '<div class="small muted">订阅会员可无限阅读订阅级文章；单篇付费文章可用积分解锁；每日签到、邀请好友均可获得积分。</div>' +
+        '<div class="chip-row"><button class="btn sm primary" data-goto="plan">查看订阅套餐</button></div></div>' +
+    '</div>';
+  }
+
+  function walletView(){
+    var w = state.wallet;
+    if(!w) return '<div class="card muted">钱包加载中…</div>';
+    var ledgerRows = (w.ledger || []).map(function(l){
+      return '<tr><td>' + esc(LEDGER_LABEL[l.reason] || l.reason || '—') +
+        (l.note ? '<div class="small muted">' + esc(l.note) + '</div>' : '') + '</td>' +
+        '<td class="small muted">' + esc((l.createdAt || '').slice(0,10)) + '</td>' +
+        '<td class="num ' + (l.delta >= 0 ? 'pos' : 'neg') + '">' + (l.delta >= 0 ? '+' : '') + l.delta + '</td></tr>';
+    }).join('');
+    return '' +
+    '<div class="card">' +
+      '<h2 class="sec">钱包</h2>' +
+      '<div class="row" style="align-items:flex-end;justify-content:space-between">' +
+        '<div><div class="small muted">积分余额</div><div class="wallet-num">' + w.balance + '</div></div>' +
+        '<button class="btn primary" id="btnSignin"' + (w.signedToday ? ' disabled' : '') + '>' +
+          (w.signedToday ? '今日已签到' : '签到 +' + w.signinPoints) + '</button>' +
+      '</div>' +
+      '<hr style="border:none;border-top:1px solid var(--line);margin:16px 0" />' +
+      '<div class="small" style="font-weight:600;margin-bottom:8px">兑换码</div>' +
+      '<div class="row"><input id="inRedeem" placeholder="输入兑换码（积分 / 会员天数）" style="flex:1;min-width:180px" />' +
+        '<button class="btn" id="btnRedeem">兑换</button></div>' +
+      '<div class="small" style="font-weight:600;margin:16px 0 8px">积分充值（1 积分 = ¥0.01，下单后由站长确认收款）</div>' +
+      '<div class="chip-row" id="chipAmt">' + [100,500,1000].map(function(n){
+        return '<span class="chip' + (String(n) === String(state.recharge) ? ' on' : '') + '" data-amt="' + n + '">' + n + ' 积分 ¥' + (n/100).toFixed(2) + '</span>';
+      }).join('') + '</div>' +
+      '<div class="row" style="margin-top:10px"><input id="inRecharge" inputmode="numeric" placeholder="自定义积分数量" value="' + esc(state.recharge) + '" style="max-width:180px" />' +
+        '<button class="btn primary" id="btnRecharge">微信扫码支付</button>' +
+        '<button class="btn" id="btnRechargeManual">人工转账下单</button></div>' +
+    '</div>' +
+    '<div class="card section">' +
+      '<h2 class="sec">积分流水（最近 50 条）</h2>' +
+      (ledgerRows
+        ? '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>事项</th><th>日期</th><th class="num">变动</th></tr></thead><tbody>' + ledgerRows + '</tbody></table></div>'
+        : '<div class="small muted">暂无流水，先去签到吧。</div>') +
+    '</div>';
+  }
+
+  function planView(){
+    var w = state.wallet;
+    var tiers = (state.tiers || []).filter(function(t){ return t.active !== 0 && t.active !== false; });
+    var tierCards = tiers.map(function(t){
+      return '<div class="tier">' +
+        '<div class="tname">' + esc(t.name || t.slug || '') + '</div>' +
+        '<div class="tprice">¥' + (Number(t.priceMonthly) || 0).toFixed(2) + '<span class="small muted"> / 月</span></div>' +
+        (t.description ? '<div class="small muted">' + esc(t.description) + '</div>' : '') +
+        '<div class="row" style="margin-top:12px">' +
+          '<button class="btn primary sm" data-tier-wx="' + esc(t.id) + '">微信扫码' +
+          (w && w.plan && w.plan !== 'free' ? '续费' : '订阅') + '</button>' +
+          '<button class="btn sm" data-tier="' + esc(t.id) + '">人工转账</button></div>' +
+      '</div>';
+    }).join('');
+    return '' +
+    '<div class="card"><h2 class="sec">订阅套餐</h2>' +
+      (tiers.length
+        ? '<div class="grid2">' + tierCards + '</div>'
+        : '<div class="small muted">站长尚未开放订阅套餐，可先用积分充值解锁单篇内容。</div>') +
+      '<div class="small muted" style="margin-top:12px">说明：下单后请按收款码转账，并在备注填写订单号；站长确认收款后自动开通 / 续期 30 天。</div>' +
+    '</div>' +
+    '<div class="card section"><h2 class="sec">当前状态</h2>' + planBadge(w) + expiryBanner(w) + '</div>';
+  }
+
+  function ordersView(){
+    var rows = (state.orders || []).map(function(o){
+      var st = o.status === 'paid' ? '<span class="pill ok">已到账</span>'
+        : o.status === 'pending' ? '<span class="pill pending">待确认</span>'
+        : '<span class="pill closed">已关闭</span>';
+      var desc = o.bizType === 'points_recharge' ? ('+' + o.points + ' 积分')
+        : (o.bizType === 'plan' ? ('会员 ' + (o.planDays || 30) + ' 天') : esc(o.bizType));
+      return '<tr><td class="small" style="font-family:ui-monospace,monospace">' + esc(o.orderNo) + '</td>' +
+        '<td>' + esc(BIZ_LABEL[o.bizType] || o.bizType) + '<div class="small muted">' + desc + '</div></td>' +
+        '<td class="num">' + yuan(o.amountCents) + '</td>' +
+        '<td>' + esc((o.createdAt || '').slice(0,10)) + '</td>' +
+        '<td>' + st + '</td></tr>';
+    }).join('');
+    return '<div class="card"><h2 class="sec">我的订单</h2>' +
+      (rows
+        ? '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>订单号</th><th>内容</th><th class="num">金额</th><th>日期</th><th>状态</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        : '<div class="small muted">还没有订单。</div>') +
+    '</div>';
+  }
+
+  function memberView(){
+    var body = state.tab === 'wallet' ? walletView()
+      : state.tab === 'plan' ? planView()
+      : state.tab === 'orders' ? ordersView()
+      : overviewView();
+    return tabBar() + body;
+  }
+
+  function render(){
+    var chip = el('memberChip');
+    if(state.me){ chip.style.display = 'inline'; chip.textContent = state.me.name || state.me.email; chip.onclick = function(e){ e.preventDefault(); state.tab='overview'; render(); }; }
+    else chip.style.display = 'none';
+    el('app').innerHTML = state.me ? memberView() : authView();
+    bind();
+  }
+
+  /* ================= 交互绑定 ================= */
+  function on(sel, ev, fn){ var n = el(sel); if(n) n.addEventListener(ev, fn); }
+  function q(sel){ return document.querySelector(sel); }
+  function qa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+  function bind(){
+    // 未登录
+    qa('[data-auth]').forEach(function(b){ b.onclick = function(){ state.authMode = b.getAttribute('data-auth'); render(); }; });
+    on('btnAuth', 'click', doAuth);
+    // tab 切换
+    qa('[data-tab]').forEach(function(b){ b.onclick = function(){ state.tab = b.getAttribute('data-tab'); render(); }; });
+    qa('[data-goto]').forEach(function(b){ b.onclick = function(){ state.tab = b.getAttribute('data-goto'); render(); }; });
+    on('btnLogout', 'click', function(){ setToken(null); state.me = null; state.wallet = null; state.orders = []; toast('已退出登录'); render(); });
+    // 钱包
+    on('btnSignin', 'click', async function(){
+      try{ var r = await call('/api/public/members/signin', { method:'POST' });
+        toast('签到成功 +' + r.delta + ' 积分'); await loadWallet(); render();
+      }catch(e){ toast(e.message); }
+    });
+    on('btnRedeem', 'click', async function(){
+      var code = (el('inRedeem') || {}).value || '';
+      if(!code.trim()) return toast('请输入兑换码');
+      try{
+        var r = await call('/api/public/members/redeem', { method:'POST', body: JSON.stringify({ code: code.trim() }) });
+        toast(r.kind === 'plan_days' ? ('兑换成功：会员 +' + r.days + ' 天') : ('兑换成功：积分 +' + r.delta));
+        await Promise.all([loadWallet(), loadOrders()]); render();
+      }catch(e){ toast(e.message); }
+    });
+    qa('[data-amt]').forEach(function(c){
+      c.onclick = function(){ state.recharge = c.getAttribute('data-amt'); var i = el('inRecharge'); if(i) i.value = state.recharge;
+        qa('[data-amt]').forEach(function(x){ x.classList.toggle('on', x === c); }); };
+    });
+    on('inRecharge', 'input', function(){ state.recharge = el('inRecharge').value.replace(/\D/g,''); });
+    on('btnRecharge', 'click', function(){ createOrder('points_recharge', { points: Number(state.recharge) || 0 }, 'wechat'); });
+    on('btnRechargeManual', 'click', function(){ createOrder('points_recharge', { points: Number(state.recharge) || 0 }); });
+    // 订阅：扫码（首选）/ 人工转账（兜底）
+    qa('[data-tier-wx]').forEach(function(b){ b.onclick = function(){ createOrder('plan', { tier_id: b.getAttribute('data-tier-wx') }, 'wechat'); }; });
+    qa('[data-tier]').forEach(function(b){ b.onclick = function(){ createOrder('plan', { tier_id: b.getAttribute('data-tier') }); }; });
+  }
+
+  async function doAuth(){
+    var isLogin = state.authMode === 'login';
+    var email = (el('inEmail') || {}).value || '';
+    var pass = (el('inPass') || {}).value || '';
+    var err = el('authErr');
+    function fail(m){ if(err){ err.textContent = m; err.style.display = 'block'; } toast(m); }
+    if(!email.trim() || !pass) return fail('请填写邮箱和密码');
+    if(err) err.style.display = 'none';
+    try{
+      if(isLogin){
+        var r = await call('/api/public/members/login', { method:'POST', body: JSON.stringify({ email: email.trim(), password: pass }) });
+        setToken(r.token); state.me = r.member || null;
+      }else{
+        var name = (el('inName') || {}).value || '';
+        var invite = (el('inInvite') || {}).value || '';
+        var r2 = await call('/api/public/members/register', { method:'POST', body: JSON.stringify({
+          email: email.trim(), name: name.trim(), password: pass, invite_code: (invite.trim() || null) }) });
+        setToken(r2.token); state.me = r2.member || null;
+        toast('注册成功，欢迎加入！');
+      }
+      state.tab = 'overview';
+      await Promise.all([loadWallet(), loadTiers(), loadOrders()].map(function(p){ return p.catch(function(){}); }));
+      render();
+    }catch(e){ fail(e.message); }
+  }
+
+  function pollOrder(orderNo, onPaid){
+    var started = Date.now();
+    var h = setInterval(async function(){
+      if(Date.now() - started > 10 * 60 * 1000){ clearInterval(h); return; }
+      try{
+        var r = await call('/api/public/orders/' + encodeURIComponent(orderNo), {});
+        if(r.status === 'paid'){ clearInterval(h); onPaid(r); }
+      }catch(e){ /* 轮询失败静默重试 */ }
+    }, 3000);
+  }
+
+  function openWechatQr(r){
+    openModal(
+      '<h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:6px">微信扫码支付</h2>' +
+      '<div class="small muted">' + esc(BIZ_LABEL[r.bizType] || '') + ' · 金额 <b style="color:var(--text)">' + yuan(r.amountCents) + '</b> · 订单号 <span style="font-family:ui-monospace,monospace">' + esc(r.orderNo) + '</span></div>' +
+      '<div class="qrbx">' + (r.qrSvg || '') + '</div>' +
+      '<div class="small muted" style="text-align:center">支付成功后自动到账并刷新余额</div>' +
+      '<div class="row" style="margin-top:14px;justify-content:center">' +
+        '<button class="btn sm" id="mClose">关闭</button></div>');
+    on('mClose', 'click', function(){ clearInterval(openWechatQr._h); closeModal(); });
+    clearInterval(openWechatQr._h);
+    openWechatQr._h = pollOrder(r.orderNo, function(){
+      toast('支付成功，已到账');
+      closeModal();
+      state.tab = 'orders';
+      Promise.all([loadWallet(), loadOrders()]).then(render);
+    });
+  }
+
+  async function createOrder(bizType, extra, channel){
+    if(state.busy) return;
+    state.busy = true;
+    try{
+      var body = Object.assign({ biz_type: bizType }, extra || {});
+      if(channel) body.channel = channel;
+      var r = await call('/api/public/orders', { method:'POST', body: JSON.stringify(body) });
+      if(r.channel === 'wechat' && r.codeUrl){
+        openWechatQr(Object.assign({ bizType: bizType }, r));
+        return;
+      }
+      openModal(
+        '<h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:6px">订单已创建</h2>' +
+        '<div class="small muted">' + esc(BIZ_LABEL[bizType] || bizType) + ' · 金额 <b style="color:var(--text)">' + yuan(r.amountCents) + '</b></div>' +
+        '<div class="ordno">' + esc(r.orderNo) + '</div>' +
+        '<div class="small muted">' + esc(r.hint || '请按收款码完成转账，并在转账备注填写该订单号；站长确认收款后自动到账。') + '</div>' +
+        '<div class="row" style="margin-top:16px;justify-content:flex-end">' +
+          '<button class="btn sm" id="mCopy">复制订单号</button>' +
+          '<button class="btn primary sm" id="mOk">好的</button></div>');
+      on('mCopy', 'click', function(){
+        try{ navigator.clipboard.writeText(r.orderNo); toast('已复制'); }catch(e){ toast('复制失败，请手动选择'); }
+      });
+      on('mOk', 'click', function(){ closeModal(); state.tab = 'orders'; loadOrders().then(render); });
+    }catch(e){ toast(e.message); }
+    finally{ state.busy = false; }
+  }
+
+  /* ================= 启动 ================= */
+  loadAll();
+})();
+</script>
+</body>
+</html>

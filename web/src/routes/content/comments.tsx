@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 function CommentsPage() {
   const [statusFilter, setStatusFilter] = useState('')
-  const t = useCmsCollection(commentsApi, ['cms-comments'], { searchFields: ['authorName', 'content'] })
+  const t = useCmsCollection(commentsApi, ['cms-comments'], { searchFields: ['authorName', 'content'], serverPaged: true })
 
   const moderate = async (row: Comment, status: string) => {
     await commentsApi.update(row.id, { status } as Partial<Comment>)

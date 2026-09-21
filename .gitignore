@@ -19,6 +19,7 @@ server/tgt_*/
 # ── 数据库（默认禁止入库，避免暴露业务数据） ──
 *.db
 *.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 # 注：cms.db / cms_live.db 已移出版本控制（2026-08-31）。运行时由 server/src/db.rs 的
@@ -70,3 +71,9 @@ server/cargo_build.err
 
 # ── TanStack Router 插件临时目录 ──
 web/.tanstack/
+
+# ── TypeScript 增量构建缓存 ──
+web/.tsb/
+
+# ── Windows 快捷方式 ──
+*.lnk

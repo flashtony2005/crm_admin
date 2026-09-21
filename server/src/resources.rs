@@ -77,6 +77,11 @@ pub static TABLES: &[TableDef] = &[
             ("featured","featured",Col::Bool),
             ("scheduled_at","scheduledAt",Col::TextNull),
             ("canonical_url","canonicalUrl",Col::TextNull),
+            // 付费墙/可见性（回归修复：曾在此重构中丢失，致后台无法设置售卖分级）
+            ("visibility","visibility",Col::Text),
+            ("locale","locale",Col::Text),
+            ("paid_level","paidLevel",Col::Int),
+            ("price_points","pricePoints",Col::Int),
         ],
     },
     TableDef {
@@ -206,6 +211,56 @@ pub static TABLES: &[TableDef] = &[
             ("email","email",Col::Text),("name","name",Col::Text),
             ("status","status",Col::Int),("plan","plan",Col::Text),
             ("stripe_customer_id","stripeCustomerId",Col::Text),
+            ("invited_by","invitedBy",Col::Text),
+        ],
+    },
+    // 邀请码：额度制（used 由注册核销自动 +1，后台只配 code/quota/有效期/启停）
+    TableDef {
+        key: "invite_codes", table: "invite_codes", perm_prefix: "content.members",
+        create_perm: Some("content.members.create"), update_perm: Some("content.members.update"),
+        delete_perm: Some("content.members.delete"),
+        columns: cols![
+            ("code","code",Col::Text),("owner_member_id","ownerMemberId",Col::Text),
+            ("quota","quota",Col::Int),("used","used",Col::Int),
+            ("expires_at","expiresAt",Col::TextNull),("enabled","enabled",Col::Bool),
+        ],
+    },
+    // 兑换码：一次性核销（kind: points=充积分 / plan_days=会员天数）；
+    // used_by/used_at 由会员兑换时后端写入，后台只管 code/kind/value。
+    TableDef {
+        key: "redeem_codes", table: "redeem_codes", perm_prefix: "content.members",
+        create_perm: Some("content.members.create"), update_perm: Some("content.members.update"),
+        delete_perm: Some("content.members.delete"),
+        columns: cols![
+            ("code","code",Col::Text),("kind","kind",Col::Text),
+            ("value","value",Col::Int),("status","status",Col::Text),
+            ("used_by","usedBy",Col::Text),("used_at","usedAt",Col::Text),
+        ],
+    },
+    // 订单：人工确认收款的管理视图（列表/备注改写走网关；真正的「确认收款」
+    // 发货走专用路由 /api/admin/orders/{id}/confirm，含原子防重与邀请奖励）。
+    TableDef {
+        key: "orders", table: "orders", perm_prefix: "content.members",
+        create_perm: Some("content.members.never"), update_perm: Some("content.members.update"),
+        delete_perm: Some("content.members.delete"),
+        columns: cols![
+            ("order_no","orderNo",Col::Text),("member_id","memberId",Col::Text),
+            ("biz_type","bizType",Col::Text),("tier_id","tierId",Col::Text),
+            ("points","points",Col::Int),("plan_days","planDays",Col::Int),
+            ("amount_cents","amountCents",Col::Int),("channel","channel",Col::Text),
+            ("status","status",Col::Text),("ref_no","refNo",Col::Text),
+            ("paid_at","paidAt",Col::Text),
+        ],
+    },
+    // 积分流水：审计只读面（发放/扣减一律走后端逻辑或 Owner 手工调账）
+    TableDef {
+        key: "points_ledger", table: "points_ledger", perm_prefix: "content.points",
+        create_perm: Some("content.points.never"), update_perm: Some("content.points.never"),
+        delete_perm: Some("content.points.never"),
+        columns: cols![
+            ("member_id","memberId",Col::Text),("delta","delta",Col::Int),
+            ("balance_after","balanceAfter",Col::Int),("reason","reason",Col::Text),
+            ("ref_id","refId",Col::Text),("note","note",Col::Text),
         ],
     },
     TableDef {
@@ -289,6 +344,17 @@ pub static TABLES: &[TableDef] = &[
             ("enabled","enabled",Col::Bool),
         ],
     },
+    TableDef {
+        key: "dispatches", table: "article_dispatches", perm_prefix: "content.articles",
+        create_perm: Some("content.articles.update"), update_perm: Some("content.articles.update"),
+        delete_perm: Some("content.articles.update"),
+        columns: cols![
+            ("article_id","articleId",Col::Text),("channel","channel",Col::Text),
+            ("external_url","externalUrl",Col::TextNull),("status","status",Col::Text),
+            ("dispatched_at","dispatchedAt",Col::TextNull),("note","note",Col::TextNull),
+        ],
+    },
+
 ];
 
 fn def(key: &str) -> Result<&'static TableDef, ApiError> {
@@ -403,6 +469,11 @@ pub async fn list(
 ) -> ApiResult {
     let d = def(&key)?;
     ensure(&auth, &format!("{}.view", d.perm_prefix))?;
+    // 分页参数从过滤字典剥离（page 1 起；pageSize 上限 200）
+    let mut filters = filters;
+    let page = filters.remove("page").and_then(|v| v.parse::<u64>().ok());
+    let page_size = filters.remove("pageSize").and_then(|v| v.parse::<u64>().ok());
+
     let mut where_clauses = vec!["tenant_id = ?".to_string()];
     let mut vals: Vec<SqlValue> = vec![sval(st.tenant.clone())];
     for (k, v) in &filters {
@@ -412,12 +483,44 @@ pub async fn list(
         }
     }
     let cols = d.columns.iter().map(|c| c.sql.to_string()).collect::<Vec<_>>().join(", ");
+    let where_sql = where_clauses.join(" AND ");
+
+    // 真实总数（与过滤条件一致）；未分页时 total == items.len()，向后兼容
+    let count_sql = format!("SELECT COUNT(*) AS cnt FROM {} WHERE {}", d.table, where_sql);
+    let cnt_row = st
+        .db
+        .query_one_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            count_sql,
+            vals.clone(),
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let total: i64 = cnt_row
+        .and_then(|r| r.try_get::<i64>("", "cnt").ok())
+        .unwrap_or(0);
+
+    // 未传分页参数时保持全量返回（兼容客户端搜索/过滤模式）
+    let (limit_sql, extra_vals) = match (page, page_size) {
+        (Some(p), Some(sz)) => {
+            let sz = sz.clamp(1, 200).max(1) as i64;
+            let p = p.max(1) as i64;
+            (
+                " LIMIT ? OFFSET ?".to_string(),
+                vec![
+                    to_param(&Value::from(sz), Col::Int),
+                    to_param(&Value::from((p - 1) * sz), Col::Int),
+                ],
+            )
+        }
+        _ => (String::new(), Vec::new()),
+    };
+
     let sql = format!(
-        "SELECT id, tenant_id, {}, created_at, updated_at FROM {} WHERE {} ORDER BY updated_at DESC",
-        cols,
-        d.table,
-        where_clauses.join(" AND ")
+        "SELECT id, tenant_id, {}, created_at, updated_at FROM {} WHERE {} ORDER BY updated_at DESC{}",
+        cols, d.table, where_sql, limit_sql
     );
+    vals.extend(extra_vals);
     let rows = st
         .db
         .query_all_statement(Statement::from_sql_and_values(
@@ -428,8 +531,7 @@ pub async fn list(
         .await
         .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
     let items: Vec<Value> = rows.iter().map(|r| row_to_json(d, r)).collect::<Result<_, _>>()?;
-    let total = items.len();
-    ok_list(items, total)
+    ok_list(items, total as usize)
 }
 
 /// GET /api/{table}/{id}
@@ -509,6 +611,13 @@ pub async fn update(
     let mut vals: Vec<SqlValue> = Vec::new();
     for c in d.columns {
         if let Some(v) = body.get(c.json) {
+            // F3 修复：Secret 列读出时恒为 "configured" 占位（不泄露真实密钥），
+            // 若原样回写，后台编辑 integrations / webhooks 等记录保存后，
+            // 真实密钥会被覆盖成字符串 "configured" —— 集成静默失效且不可逆
+            // （原密钥已无法读回，只能重新录入）。此处跳过未改动的占位值。
+            if matches!(c.kind, Col::Secret) && v.as_str() == Some("configured") {
+                continue;
+            }
             if !v.is_null() || matches!(c.kind, Col::TextNull) {
                 sets.push(format!("{} = ?", c.sql));
                 vals.push(to_param(v, c.kind));
@@ -596,7 +705,7 @@ pub async fn decide(
     // 通用化：以「裁决者」身份重放 payload 中的 capability + input，走
     // ai::run_capability 同一条 Policy → Action → Audit 链路（owner 持有
     // 全部权限码 → 直接执行；同时执行本身也写入审计，闭环更完整）。
-    // 兼容新旧能力：content.articles.publish 与 domain.content.publish 等。
+    // 审批通过后重放 payload 里的 capability（域模型能力已随 B 方案移除，仅存文章 4 能力）。
     if status == "approved" {
         if let Some(Some(m)) = fetch_row(&st, def("approvals")?, &id).await?.as_ref().map(|m| Some(m.clone())) {
             // payload 列经 from_text 已解析为 JSON 对象（{...} 开头）；

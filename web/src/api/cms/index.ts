@@ -19,9 +19,10 @@ import {
 } from './seed'
 import type {
   AiTask, Approval, Article, Comment, Customer, FormDef,
-  Integration, Lead, LocaleMessages, MediaItem, Member,
-  MemberProfile, Page, Product, Subscriber, Tag, Tier,
-  WebhookSubscription, WorkflowDef,
+  Integration, InviteCode, Lead, LocaleMessages, MediaItem, Member,
+  FulfillTask, MemberProfile, Order, Page, PayConfigInfo, Product, ReconResp, RedeemCode,
+  RetryFulfillResp, Subscriber, Tag, Tier,
+  WalletInfo, WebhookSubscription, WorkflowDef,
 } from './types'
 
 export * from './types'
@@ -105,6 +106,93 @@ export const tiersApi = CMS_MODE === 'real'
 export const webhooksApi = CMS_MODE === 'real'
   ? httpCollection<WebhookSubscription>('webhooks')
   : collection<WebhookSubscription>('webhooks', [])
+export const inviteCodesApi = CMS_MODE === 'real'
+  ? httpCollection<InviteCode>('invite_codes')
+  : collection<InviteCode>('invite_codes', [])
+export const redeemCodesApi = CMS_MODE === 'real'
+  ? httpCollection<RedeemCode>('redeem_codes')
+  : collection<RedeemCode>('redeem_codes', [])
+export const ordersApi = CMS_MODE === 'real'
+  ? httpCollection<Order>('orders')
+  : collection<Order>('orders', [])
+
+/**
+ * 创作者社区 P1：积分钱包 / 签到 / 兑码 / 积分买断 / 订单。
+ * member 端点需携带会员令牌（localStorage member_token）；
+ * admin 端点（confirmOrder）走管理员令牌，由 request 自动附带。
+ */
+function memberHeaders(): Record<string, string> {
+  const t = getMemberToken()
+  return t ? { Authorization: `Bearer ${t}` } : {}
+}
+
+export const communityApi = {
+  wallet(): Promise<WalletInfo> {
+    return (async () => {
+      const r = await request<{ data: WalletInfo }>('/api/public/members/wallet', {
+        headers: memberHeaders(),
+      })
+      return r.data
+    })()
+  },
+  async signin(): Promise<{ delta: number; balance: number }> {
+    const r = await request<{ data: { delta: number; balance: number } }>('/api/public/members/signin', {
+      method: 'POST',
+      headers: memberHeaders(),
+    })
+    return r.data
+  },
+  async redeem(code: string): Promise<{ kind: string; delta?: number; balance?: number; days?: number }> {
+    const r = await request<{ data: { kind: string; delta?: number; balance?: number; days?: number } }>(
+      '/api/public/members/redeem',
+      { method: 'POST', headers: { 'Content-Type': 'application/json', ...memberHeaders() }, body: JSON.stringify({ code }) },
+    )
+    return r.data
+  },
+  async purchaseArticle(articleId: string): Promise<{ alreadyOwned?: boolean; spent?: number; balance?: number }> {
+    const r = await request<{ data: { alreadyOwned?: boolean; spent?: number; balance?: number } }>(
+      '/api/public/members/purchase-article',
+      { method: 'POST', headers: { 'Content-Type': 'application/json', ...memberHeaders() }, body: JSON.stringify({ article_id: articleId }) },
+    )
+    return r.data
+  },
+  async createOrder(
+    bizType: 'points_recharge' | 'plan',
+    opts?: { points?: number; tierId?: string; channel?: 'manual' | 'wechat' },
+  ): Promise<{
+    orderNo: string
+    amountCents: number
+    channel: string
+    hint: string
+    codeUrl?: string
+    qrSvg?: string
+  }> {
+    const r = await request<{ data: { orderNo: string; amountCents: number; channel: string; hint: string; codeUrl?: string; qrSvg?: string } }>(
+      '/api/public/orders',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...memberHeaders() },
+        body: JSON.stringify({ biz_type: bizType, points: opts?.points, tier_id: opts?.tierId, channel: opts?.channel }),
+      },
+    )
+    return r.data
+  },
+  /** 会员查询自己的订单状态（微信扫码轮询用） */
+  async orderStatus(orderNo: string): Promise<{ orderNo: string; status: string; amountCents: number; paidAt: string }> {
+    const r = await request<{ data: { orderNo: string; status: string; amountCents: number; paidAt: string } }>(
+      `/api/public/orders/${encodeURIComponent(orderNo)}`,
+      { headers: memberHeaders() },
+    )
+    return r.data
+  },
+  async confirmOrder(id: string): Promise<{ orderNo: string; inviteReward?: unknown }> {
+    const r = await request<{ data: { orderNo: string; inviteReward?: unknown } }>(
+      `/api/admin/orders/${id}/confirm`,
+      { method: 'POST' },
+    )
+    return r.data
+  },
+}
 
 /**
  * 会员自助认证（公开端点，与管理员 members 集合无关）。
@@ -122,10 +210,10 @@ export function clearMemberToken(): void {
 }
 
 export const memberAuth = {
-  async register(email: string, name: string, password: string): Promise<MemberProfile> {
+  async register(email: string, name: string, password: string, inviteCode?: string): Promise<MemberProfile> {
     const r = await request<{ data: { token: string; member: MemberProfile } }>(
       '/api/public/members/register',
-      { method: 'POST', body: JSON.stringify({ email, name, password }) },
+      { method: 'POST', body: JSON.stringify({ email, name, password, inviteCode: inviteCode || undefined }) },
     )
     setMemberToken(r.data.token)
     return r.data.member
@@ -324,4 +412,56 @@ export async function uploadFile(file: File): Promise<UploadedFile> {
   const item = body.data?.items?.[0]
   if (!item) throw new ApiError(res.status, '上传未返回文件地址')
   return item
+}
+
+/** P2 在线支付：微信支付配置 + 订单对账（管理端） */
+export const payAdminApi = {
+  async recon(days = 30): Promise<ReconResp> {
+    const r = await request<{ data: ReconResp }>(`/api/admin/orders/recon?days=${days}`)
+    return r.data
+  },
+  async closeStale(): Promise<{ closed: number }> {
+    const r = await request<{ data: { closed: number } }>('/api/admin/orders/close-stale', { method: 'POST' })
+    return r.data
+  },
+  /** 发货未完成的订单（已收款但积分/订阅未到账） */
+  async fulfillPending(): Promise<{ items: FulfillTask[] }> {
+    const r = await request<{ data: { items: FulfillTask[] } }>('/api/admin/orders/fulfill-pending')
+    return r.data
+  },
+  /** 重放未完成的发货动作（幂等，可反复调用） */
+  async retryFulfill(): Promise<RetryFulfillResp> {
+    const r = await request<{ data: RetryFulfillResp }>('/api/admin/orders/retry-fulfill', { method: 'POST' })
+    return r.data
+  },
+  async getConfig(): Promise<PayConfigInfo> {
+    const r = await request<{ data: PayConfigInfo }>('/api/admin/payconfig')
+    return r.data
+  },
+  async saveConfig(p: {
+    appid?: string
+    mchid?: string
+    serialNo?: string
+    apiV3Key?: string
+    privateKey?: string
+    platformPubKey?: string
+  }): Promise<{ saved: number }> {
+    const r = await request<{ data: { saved: number } }>('/api/admin/payconfig', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p),
+    })
+    return r.data
+  },
+}
+
+
+/** 审计日志（P2）：/api 写操作留痕，Owner 专用 */
+export const auditApi = {
+  async list(page: number, pageSize: number): Promise<{ items: import('./types').AuditRow[]; total: number }> {
+    const body = await request<{ ok: boolean; data: import('./types').AuditRow[]; total: number }>(
+      `/api/admin/audit?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(pageSize)}`,
+    )
+    return { items: body.data ?? [], total: body.total ?? 0 }
+  },
 }

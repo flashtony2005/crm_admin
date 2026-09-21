@@ -94,35 +94,10 @@ export const P = {
   // Team / Settings
   teamUsersView: 'team.users.view',
   teamUsersInvite: 'team.users.invite',
+  teamUsersUpdate: 'team.users.update',
   teamRolesView: 'team.roles.view',
   teamRolesManage: 'team.roles.manage',
   settingsManage: 'settings.manage',
-  // Domain Model V1（Agent-first 领域模型，/api/v1 —— 与后端 perm.rs 严格镜像）
-  domainContentView: 'domain.content.view',
-  domainContentCreate: 'domain.content.create',
-  domainContentUpdate: 'domain.content.update',
-  domainContentDelete: 'domain.content.delete',
-  domainContextView: 'domain.context.view',
-  domainContextCreate: 'domain.context.create',
-  domainContextUpdate: 'domain.context.update',
-  domainContextDelete: 'domain.context.delete',
-  domainChannelView: 'domain.channel.view',
-  domainChannelCreate: 'domain.channel.create',
-  domainChannelUpdate: 'domain.channel.update',
-  domainChannelDelete: 'domain.channel.delete',
-  domainSiteView: 'domain.site.view',
-  domainSiteCreate: 'domain.site.create',
-  domainSiteUpdate: 'domain.site.update',
-  domainSiteDelete: 'domain.site.delete',
-  domainTemplateView: 'domain.template.view',
-  domainTemplateCreate: 'domain.template.create',
-  domainTemplateUpdate: 'domain.template.update',
-  domainTemplateDelete: 'domain.template.delete',
-  domainThemeView: 'domain.theme.view',
-  domainThemeCreate: 'domain.theme.create',
-  domainThemeUpdate: 'domain.theme.update',
-  domainThemeDelete: 'domain.theme.delete',
-  domainRenderView: 'domain.render.view',
 } as const
 
 export type PermCode = (typeof P)[keyof typeof P]
@@ -140,9 +115,6 @@ const VIEW_ALL: PermString[] = [
   'business.customers.view', 'business.leads.view', 'business.forms.view',
   'automation.workflows.view', 'automation.integrations.view',
   'site.nav.view', 'site.homePins.view',
-  // Domain Model V1：全角色只读
-  'domain.content.view', 'domain.context.view', 'domain.channel.view',
-  'domain.site.view', 'domain.template.view', 'domain.theme.view', 'domain.render.view',
 ]
 
 /** 角色 → 权限集矩阵（Phase 3 由后端角色配置取代；语义保持一致） */
@@ -170,10 +142,6 @@ export const ROLE_PERMS: Record<RoleKey, PermString[]> = {
     // 站点导航/页脚链接 + 主页置顶（与后端 perm.rs Editor 矩阵镜像）
     'site.nav.view', 'site.nav.create', 'site.nav.update', 'site.nav.delete',
     'site.homePins.view', 'site.homePins.create', 'site.homePins.update', 'site.homePins.delete',
-    // Domain Model V1：可生产内容/上下文/渠道（site 配置与发布不授写权，走审批）
-    'domain.content.create', 'domain.content.update', 'domain.content.delete',
-    'domain.context.create', 'domain.context.update', 'domain.context.delete',
-    'domain.channel.create', 'domain.channel.update', 'domain.channel.delete',
   ],
   viewer: [...VIEW_ALL, 'content.sections.view'],
 }

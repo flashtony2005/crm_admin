@@ -13,7 +13,7 @@ import { P } from '../../config/permissions'
 import { toast } from '../../components/cms/toast'
 
 function NewsletterPage() {
-  const t = useCmsCollection(subscribersApi, ['cms-subscribers'], { searchFields: ['email', 'name'] })
+  const t = useCmsCollection(subscribersApi, ['cms-subscribers'], { searchFields: ['email', 'name'], serverPaged: true })
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)

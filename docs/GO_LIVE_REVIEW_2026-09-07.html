@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="vcwtTn9uICA4TSmerB1HuO">
+<head data-page-node-id="ybDTSKjnERIUltkk6eGHbW">
+<meta charset="UTF-8" data-page-node-id="xQ4vbEOSBlWX0mRfSUG7Oz">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="709hmPY9Uvy5qOlTGhTr7L">
+<title>上线就绪度评审 · 2026-09-07</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --ink:#1a1d23; --muted:#6b7280; --line:#e5e7eb;
+    --red:#dc2626; --red-bg:#fef2f2; --amber:#d97706; --amber-bg:#fffbeb;
+    --green:#059669; --green-bg:#ecfdf5; --blue:#2563eb; --blue-bg:#eff6ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;padding:32px 16px}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:26px;margin-bottom:4px}
+  h2{font-size:19px;margin:36px 0 12px;padding-left:10px;border-left:4px solid var(--blue)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:16px}
+  .verdict{background:linear-gradient(135deg,#fffbeb,#fef2f2);border:1px solid #fde68a;border-radius:12px;padding:22px 24px;margin-bottom:8px}
+  .verdict h2{border:none;margin:0 0 8px;padding:0;font-size:20px}
+  .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;margin-right:6px;vertical-align:2px}
+  .t-red{background:var(--red-bg);color:var(--red)} .t-amber{background:var(--amber-bg);color:var(--amber)}
+  .t-green{background:var(--green-bg);color:var(--green)} .t-blue{background:var(--blue-bg);color:var(--blue)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th{background:#f3f4f6;text-align:left;padding:8px 10px;font-size:13px;border-bottom:2px solid var(--line);white-space:nowrap}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  code{font-family:Consolas,monospace;font-size:12.5px;background:#f3f4f6;padding:1px 5px;border-radius:4px}
+  .loc{color:var(--muted);font-size:12px;font-family:Consolas,monospace;white-space:nowrap}
+  .num{font-weight:700;font-size:28px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-align:center}
+  .kpi .lab{font-size:12px;color:var(--muted)}
+  .ok{color:var(--green);font-weight:600} .bad{color:var(--red);font-weight:600} .warn{color:var(--amber);font-weight:600}
+  ul{padding-left:20px} li{margin:4px 0}
+  .muted{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body data-page-node-id="xG6wtgxDlsOgj8E4MsNhJE">
+<div class="wrap" data-page-node-id="Lp1BSPgctkVRqqRPM2WNLv">
+
+<h1 data-page-node-id="i27K8E1ykUeOOG4WyUwo7E">上线就绪度评审</h1>
+<div class="sub" data-page-node-id="3xMfkrzUlAMsiYnIcyFm6f">评审对象：admin（创作者变现站全栈系统）· 逐项以代码为准核查 · 2026-09-07</div>
+
+<div class="verdict" data-page-node-id="N1sBZU2Liu8ERdcWh5yKaF">
+  <h2 data-page-node-id="4n0kV3qz4Mc7RsY3aA5kCc">结论：<span class="warn" data-page-node-id="cVnQncDGcSG3c0mDJWxMas">能上线，但不能裸上</span></h2>
+  <p data-page-node-id="R9Om7DQQQU4FbuF0f1ifgY">四个业务支柱（CMS / 会员付费 / 社区 / 运营后台）代码层面均完整可用，<b data-page-node-id="H77O1TSZlr4NkoBl7KLiY7">资金链路无已知硬伤</b>。真正卡上线的不是业务功能，而是 3 件<b data-page-node-id="GP03KLGGFNCz9ElEene0wb">运维与账号安全</b>事项——全部可以在半天内办完。办完即可灰度上线（个人/小团队自运营场景）；对外正式运营前建议再清掉 P1 批次。</p>
+</div>
+
+<div class="kpis" data-page-node-id="AGiMsC04qLyQHPQpuAUR1U">
+  <div class="kpi" data-page-node-id="zZgPKjMCABXdFlWH2GUohU"><div class="num ok" data-page-node-id="GzDQxhur5sU15TL9e0Ur7y">4/4</div><div class="lab" data-page-node-id="7iH2XUhlavGTExi6c3ku2T">业务支柱完整</div></div>
+  <div class="kpi" data-page-node-id="TsLOvN8zBlBOxSC2bJrlUq"><div class="num bad" data-page-node-id="ut6V5yz07tGV9liTv915WI">3</div><div class="lab" data-page-node-id="dXLcX5FkLzDRAqLAIJkX5o">上线前必办（阻断级）</div></div>
+  <div class="kpi" data-page-node-id="kFTj4BBas56BDCHjQzRyEK"><div class="num warn" data-page-node-id="vRtcMEZCcEZjVqheLBkluM">5</div><div class="lab" data-page-node-id="sFnl9UxYaRkX8MvIUoteeP">上线后一周内（P1）</div></div>
+  <div class="kpi" data-page-node-id="3YukVRvzN0TlhOMMXNTHU7"><div class="num ok" data-page-node-id="gtcS86ECCL1gXOhOGzNSAO">18/18</div><div class="lab" data-page-node-id="venzOqZrclWrJegV48nAeZ">集成测试通过</div></div>
+</div>
+
+<h2 data-page-node-id="heLGN74M94gJvEkrO3tFYL">一、逐支柱体检（以代码为准）</h2>
+<div class="card" data-page-node-id="nZ8zcBhYBBtHbEZNKSuuJC">
+<table data-page-node-id="f0VIlVB4OFjmVTa34FHATM">
+<tr data-page-node-id="2ejPCX3h8h1krGt3B3V4yE"><th data-page-node-id="B3WZtv3XlLIH5Hf4qL7B9H">支柱</th><th data-page-node-id="axL7EyowDz1U29S5beB0qr">判定</th><th data-page-node-id="yl6Wfb4mixgOIaNDOk98CC">核查到的证据</th><th data-page-node-id="KSGFeYG6AE1acKlo3VamN2">缺口</th></tr>
+<tr data-page-node-id="rNa1oNtxHfdaJvyArznHEF"><td data-page-node-id="Y8CoT6vtMj2y6Xr429fS3E"><b data-page-node-id="XeHfjIBnrbqunArSKsTpyT">CMS 内核</b></td><td class="ok" data-page-node-id="V365TX8F65WG7aAyzsebSg">完整</td>
+  <td data-page-node-id="FRhVavGcWDtjh0txprEvQP">发布流（草稿/审批/定时）、付费墙 paid_level 0–3、SEO、GraphQL、阅读统计（views 批处理）、模板主题热插拔</td><td data-page-node-id="rWW9Lia4aEfZ1MZP5EPFXp">—</td></tr>
+<tr data-page-node-id="tMiM8Na9NmOmma3YP9M1iH"><td data-page-node-id="sWdksSRj2ET9meUt0na2AT"><b data-page-node-id="kHKwiHBwDv9ATndVYrUY57">会员付费</b></td><td class="warn" data-page-node-id="d7iC3r7IgHv68h8vlC79ap">核心完整</td>
+  <td data-page-node-id="bbAz5BmOGmO6hQs7gYnpZS">微信 Native + 回调验签 + 金额校验；订单发货 outbox + 指数退避重试；积分/兑码/邀请全链路原子化并有集成测试锁定（18/18）；对账、封盘、发货异常重试后台齐备</td>
+  <td data-page-node-id="vvOMrdz75NV3GonOtyR9xy">无退款链路；会员无改密/找回密码</td></tr>
+<tr data-page-node-id="xs670eECSMr8due5EIaIoB"><td data-page-node-id="DlS58LN4vrpxbSES05zhDn"><b data-page-node-id="KOyWrZvB7D94oCxBIGxCHw">社区互动</b></td><td class="warn" data-page-node-id="BxoNKQvKogLje6RWYmrBVy">基础完整</td>
+  <td data-page-node-id="U0D69NJQ7fRTsJEN9MzoMa">注册（邀请码）/登录（argon2、30 天 token）、评论（webhook 事件）、订阅</td>
+  <td data-page-node-id="uBd4tXrxqIY4vmJWkc5SJi">公开端点无防滥用；邮箱未验证</td></tr>
+<tr data-page-node-id="A7qPYtpgpooTYXjPs7lHim"><td data-page-node-id="DripYIQ8cP0xto3uFzwbeh"><b data-page-node-id="5P0vquYfWHHxjby8iEsRfN">运营后台</b></td><td class="ok" data-page-node-id="KMSr8cL9nDogoFKOkUWk1T">完整</td>
+  <td data-page-node-id="WdPvvUjYZevCzSV4dC9j04">24 表通用网关、权限矩阵（Owner/Editor/Viewer）、审计日志 + X-Request-Id、看板、文件上传（20MB 限制 + 缩略图）、newsletter SMTP 真实集成（lettre）</td><td data-page-node-id="oo9Y2erS3gD0RDuF6lQlxw">—</td></tr>
+<tr data-page-node-id="Mt62DDiCgb1Khfvub6apqh"><td data-page-node-id="QTeKnONDHDNym8upR9cvhc"><b data-page-node-id="3abbjpcV5wPh1kdQIUSlCi">生产运维</b></td><td class="bad" data-page-node-id="UclFYUgkesrThD1ma0zwYC">最薄弱</td>
+  <td data-page-node-id="P0DbC8HjIeUZtwZaYBeAAn">healthz ✓、WAL ✓、迁移分级告警 ✓、JWT_SECRET 生产强制 ✓、CORS 白名单 ✓</td>
+  <td data-page-node-id="2mk4Qb5fo1fe2AHLHXpDK2">无备份、无结构化日志、无优雅停机、/graphiql 暴露</td></tr>
+</table>
+</div>
+
+<h2 data-page-node-id="MXsfGsEJQlCiYhkefkarhy">二、🔴 上线前必办（半天可完成）</h2>
+<div class="card" data-page-node-id="Jov2Du8L17xJ3iM2WyqxVH">
+<table data-page-node-id="xrwqSfBUAmylZz9iEKbMEn">
+<tr data-page-node-id="IeiAp9EsXqU2IyypB1bzGj"><th style="width:36px" data-page-node-id="ZA6KDSrxlAhHNKpyY98rDc">#</th><th style="width:210px" data-page-node-id="rEozF5T0x4sm9FjL4dvpbZ">事项</th><th data-page-node-id="iGScbmrxDXy1vYCrTP7KOI">为什么阻断</th><th data-page-node-id="XmE45pPZ3zaCeP2bDkFu3e">办 法</th></tr>
+<tr data-page-node-id="bV6SozZ5O69LpAzfUToVsA"><td data-page-node-id="THts9fMD2pnxdk5RHAjmfs">1</td><td data-page-node-id="JqxUgYS7aorFdS0EOESCxr"><b data-page-node-id="Urveh4n3HsXYUjDioWEDWk">种子账号还是 demo1234</b><br data-page-node-id="csRst6SMB1FEuuHCAXt9xB"><span class="loc" data-page-node-id="2btRg0w44nlYwem43zWoqI">db.rs:824</span></td>
+  <td data-page-node-id="V75PFVm19SSfOtkIAdoEig">owner/editor/viewer 三个后台账号密码是公开仓库里写死的 <code data-page-node-id="VMvR70TnNqbgfta2lCYV3I">demo1234</code>，且 <code data-page-node-id="1KRn6i1as7zUlmjC0gOIw4">must_change_password</code> 默认 0——<b data-page-node-id="KXidrD6ervcGcVRFzxajQS">没有任何机制强制改密</b>。上线等于把后台钥匙贴在门上。</td>
+  <td data-page-node-id="vc7tVN60WAqJEOltQYiRpX">上线前登录改密（改密后 token_version+1 全端失效），或直接在库中 UPDATE。</td></tr>
+<tr data-page-node-id="KMDVjBOCVNyCA8UBYB9yTy"><td data-page-node-id="dhE72HqpGqHxALAbaBUmJQ">2</td><td data-page-node-id="XGzMRZIovjzCRf4RYbGRDH"><b data-page-node-id="L2anCtMs8zFb9eLFl1AqOg">全库零备份</b></td>
+  <td data-page-node-id="fMeFMMStw0tQTExt6DUDwh">「完全自持」意味着没有数据库厂商兜底：SQLite 单文件，磁盘坏 / 误操作 = 全站数据（会员、订单、流水）一次清零。这是自持系统最典型的翻车点。</td>
+  <td data-page-node-id="HaV5jHDCnW4t04GWNQ0Cuz">最简：Windows 计划任务跑 <code data-page-node-id="YtXrAS8GzFKqv4cm0M5Utj">sqlite3 cms.db ".backup backup-YYYYMMDD.db"</code> + 拷贝到另一块盘/网盘；进阶：Litestream 实时复制。备份要做<b data-page-node-id="25BqvTSi8l8DGUWFNfaS6d">恢复演练</b>一次。</td></tr>
+<tr data-page-node-id="gItEQHgxi6huSK0CjDt4L7"><td data-page-node-id="3XlBeSivrsqfU0bBIVPFmO">3</td><td data-page-node-id="pT21mwTWcu3UMgoDYa41Zp"><b data-page-node-id="hiMfNMZFGZliKs0OobFzom">会员登录无限速</b><br data-page-node-id="x4DALMe0DysNMK1SotlgCI"><span class="loc" data-page-node-id="jaGSpTFcTmA4HZXw6kyGJX">members.rs</span></td>
+  <td data-page-node-id="4Mi7eHCYFYDvOmnVyN7bDG"><code data-page-node-id="BTpsgHp3m5dXli4HJlk78p">login_locks</code>（5 次锁 15 分钟）只挂在管理员登录上；会员登录接口对公网开放、可无限暴力破解。</td>
+  <td data-page-node-id="pNyoeo8FR9gVVpKrCeo2pB">把 auth.rs 的 login_locks 查锁/计数复用到 <code data-page-node-id="MBsznHAJABCywm1IN2dQrr">members_login</code>，半小时工作量。</td></tr>
+</table>
+</div>
+
+<h2 data-page-node-id="9y4dbQ5fRyQ6aTtVWACBvt">三、🟠 P1：上线后一周内补齐</h2>
+<div class="card" data-page-node-id="awhGSDY1loHkBqvIEUn8qT">
+<table data-page-node-id="qFCHlD0FmpxloMOoFHvbPP">
+<tr data-page-node-id="CasmKdBpY3pP8QIssNg3ga"><th style="width:36px" data-page-node-id="trmbuAXGlABW47oibGSbFM">#</th><th style="width:220px" data-page-node-id="GzthsMMEvIOi6rM33PAygl">事项</th><th data-page-node-id="LkA5OVbginTc59AcDtNPz5">影响</th><th data-page-node-id="4ul2IV2MeEBdGZAACOKAvT">建议</th></tr>
+<tr data-page-node-id="MeGAynk9wuY1KX0I4qDbkr"><td data-page-node-id="FjXQxJc51sRK77YFt4gyiS">4</td><td data-page-node-id="535WfRYDnVkH0Nfs3pWBLu"><b data-page-node-id="6LdFiGcKhsL7HX12hpuEsn">会员改密 / 忘记密码</b><br data-page-node-id="FApMydeGSU5uT3WVJimdyn"><span class="loc" data-page-node-id="hKLEZZjunAoiGdra3EndDQ">members.rs 仅 register/login</span></td>
+  <td data-page-node-id="sRxT9UjGFmlMviinBtT0Zj">会员忘记密码 = 账号永久失联，只能人工改库。付费会员尤其致命。</td>
+  <td data-page-node-id="qq83GHaet4jHB8RbbRzXTf">SMTP 已集成（newsletter/lettre），补 reset token（一次性、15 分钟过期）+ 改密端点。</td></tr>
+<tr data-page-node-id="naepVxfQw8jd8dDBiSVPt4"><td data-page-node-id="ym58m9Iml6vVracKjH9Wes">5</td><td data-page-node-id="TDXO93fmPLhBiL7rpLg3ow"><b data-page-node-id="lThGc2v3MsWSyTmdVBd8JF">SVG 上传 = 存储型 XSS</b><br data-page-node-id="2o3EhFv1v2rGqvsu7o981Z"><span class="loc" data-page-node-id="9PrGhfFVh3y1EiVwjMOONg">upload.rs:65 / uploads 公开伺服</span></td>
+  <td data-page-node-id="cClcXU2OEJQXvUcr4H9VKz">上传接口接受 <code data-page-node-id="ORJemHA87XvoNKjpRDOSPN">image/svg+xml</code>，/uploads 匿名可读；SVG 内嵌 <code data-page-node-id="rqkms6CEu9LIFE6c0XC3LK">&lt;script&gt;</code> 在访客浏览器执行，可打后台管理员会话。</td>
+  <td data-page-node-id="iSqzdbhDOCim9Kny54dDF2">短期：上传白名单去掉 svg；或响应头加 <code data-page-node-id="OkQa2qPtvw4IHKVij551V4">Content-Security-Policy: sandbox</code> / <code data-page-node-id="hJhslKb2iyDykHHDOrom0Y">Content-Disposition: attachment</code>。</td></tr>
+<tr data-page-node-id="VPDzK2FEo2z5PpJpzhfiNP"><td data-page-node-id="JFwNAf7eqWJBxEiLYGTqpI">6</td><td data-page-node-id="XMWa0uzjlN2981rgVuEhVA"><b data-page-node-id="lDagJSHCSzkDU7CU0rLj7N">/graphiql 调试台生产暴露</b><br data-page-node-id="ji4Lb9TohiiNeqWVHGOROF"><span class="loc" data-page-node-id="FmACCu0iRMhN2bVsC4CBy5">main.rs:201</span></td>
+  <td data-page-node-id="92vRhHHAT949KVBjwGOEEK">交互式 GraphQL 控制台匿名可访问，等于把数据模型地图贴出来。</td>
+  <td data-page-node-id="HDBZLyFDcr0VBFBgCLbApw"><code data-page-node-id="yCQEQmLie90tJFolpdtacC">CMS_ENV=production</code> 时直接不挂该路由（一行判断）。</td></tr>
+<tr data-page-node-id="VCgg475GI1oXcmxDY5MAvt"><td data-page-node-id="RNzzv2z51ck7SyjuJFHaZa">7</td><td data-page-node-id="AYU8iejiNwykIosU54Yif1"><b data-page-node-id="krX3pHFKbzEkcSfVDBQ8bP">公开评论/表单无防滥用</b></td>
+  <td data-page-node-id="ek0BWoFFDMehTJNy4A0yav">无 captcha/honeypot/限速，可脚本刷评论、刷表单线索，污染审计与看板。</td>
+  <td data-page-node-id="mBB0Ano0vPE40cPEuPDvzY">最轻：honeypot 字段 + 同 IP 每分钟计数（复用 SQLite 表）。</td></tr>
+<tr data-page-node-id="AfO7NAUbABgMhPzB2WKWxv"><td data-page-node-id="pVdwkRvmi5l0U0CBiq8zEC">8</td><td data-page-node-id="BWuTjxUYQgRyn3kjvu1pTk"><b data-page-node-id="41YOEK4FpBFLDfMIEignhy">无退款链路</b></td>
+  <td data-page-node-id="v2lGFxZuhrlQvZHtfJarS6">误付/客诉只能去微信商户后台手工退，系统侧无记录 → 对账漂移。</td>
+  <td data-page-node-id="MP3Y8Gfk2QemnDAXjjCyKm">短期：商户后台退款后，后台订单补「已退款」状态 + 对账口径排除；中期接 v3 refund API。</td></tr>
+</table>
+</div>
+
+<h2 data-page-node-id="lGgiDcDmv2HUxKL27qYDyf">四、🟡 P2：择期（不阻断）</h2>
+<div class="card" data-page-node-id="bRCoBEHdqhUvf8EUWNwlH6">
+<ul data-page-node-id="bC9urUDy02vGImGzpqEsNd">
+  <li data-page-node-id="khyeA7yDi1RSXZ5u2PFAjH"><b data-page-node-id="JVEdIaZMlwXq49O0RjjTFy">可观测性</b>：无 tracing/结构化日志、无优雅停机（SIGTERM 直接掉，在途请求与 webhook 投递靠 outbox 兜底——有兜底，但排障只能靠 stderr 与审计表）。</li>
+  <li data-page-node-id="CHetNGtsBqAL7hv426CWto"><b data-page-node-id="GssFbe3bNwt4Qgx0rW06zm">会员 token 不可撤销</b>：MemberAuth 仅验签不查库（members.rs:24 提取器），封禁会员后其 token 仍可用最长 30 天；管理员侧已有 token_version 机制，会员侧未接入。</li>
+  <li data-page-node-id="2SZfw8BYfT5J6WYmGIDTpD"><b data-page-node-id="jbmJswuhjKmkChStodjtA2">邮箱未验证</b>：注册可填任意邮箱（含他人邮箱），影响通知触达与找回密码的可信度。</li>
+  <li data-page-node-id="HWpYm1RMhm7G7dpuHYZXLu"><b data-page-node-id="XGtpNoRKHugFeVJkB3AYGy">部署面</b>：需自备 TLS 反代（Caddy 最省事，自动 HTTPS）、进程守护（NSSM/计划任务）、<code data-page-node-id="RmgIRfldgVyYOXztYMcWuZ">CMS_ENV=production + JWT_SECRET + CORS_ORIGINS + PUBLIC_BASE_URL</code> 四件环境变量。</li>
+</ul>
+</div>
+
+<h2 data-page-node-id="ovMIIwwrrj2HxCTktMS3Ch">五、已达标项（可放心）</h2>
+<div class="card" data-page-node-id="GujPCjt3fhgo9BXdGsy9Sn">
+<table data-page-node-id="Dr32W6CM7ZtLIZwSxUruZt">
+<tr data-page-node-id="Ni6HUSDHLDajZnEHkeyFWc"><th data-page-node-id="vuTMDd07LgdFcTv9DUU6Rc">维度</th><th data-page-node-id="iA6CC6ZXS4xKG5hwLZsTrT">状态</th></tr>
+<tr data-page-node-id="GHcNaDw5PfT0dNQFsacfIC"><td data-page-node-id="eKAFs1yixvyt63DhhxsciF">密码与凭据</td><td class="ok" data-page-node-id="GwmC3EWXP7H9JmGlb3lov4">argon2（后台+会员一致）；JWT Bearer 无 Cookie（CSRF 攻击面天然小）；token_version 改密即全端下线；停用账号立即 401</td></tr>
+<tr data-page-node-id="r1uKZUAlDXd8C7RHavdi2Y"><td data-page-node-id="Alz6sc0DJcEPShTaFXC2NA">资金正确性</td><td class="ok" data-page-node-id="9Uxu5T9nJxQOVdPlDDnP6A">流水单条 INSERT 原子算余额；余额不为负有测试锁定；订单确认/兑码/邀请奖励幂等有测试锁定；回调验签+金额校验；发货 outbox 崩溃不漏</td></tr>
+<tr data-page-node-id="aBqB2vpG98NDpzgDBXMEPD"><td data-page-node-id="e5oT6OcuJl82FbWX65gadg">配置安全</td><td class="ok" data-page-node-id="sa2gI0BODnZfoI6T0KacBl">production 强制 JWT_SECRET；CORS 白名单；Secret 列防占位符覆盖；路径穿越双重防护</td></tr>
+<tr data-page-node-id="yAXPNi51f9rhhmaHHKu1bn"><td data-page-node-id="z5Tx5JFACTZ6wuvYMcGVjv">数据层</td><td class="ok" data-page-node-id="mg6j7mBFQSVFWILEMDFQHX">WAL + busy_timeout + 迁移幂等分级告警（0001–0009）；服务端分页防大表全量拉取</td></tr>
+<tr data-page-node-id="YgB9zzlzZY31pbnDE8S4Ak"><td data-page-node-id="Sh59GSCizFsnzaHn9hkIEz">可追溯</td><td class="ok" data-page-node-id="tXlSxRK1yDwvjdQOFxhhz1">全写操作审计 + X-Request-Id；审计页仅 Owner</td></tr>
+</table>
+</div>
+
+<h2 data-page-node-id="9GNHCU53la6pj0gj9CPaYB">六、上线路线图</h2>
+<div class="card" data-page-node-id="tAIgZnmpDU2s6jJWEzBl9I">
+<table data-page-node-id="iutjvg8JuwU4WjDaZmBcC3">
+<tr data-page-node-id="UWOicsTUo2Ley9Qu2eKLwO"><th data-page-node-id="BKCyGpbNw8FvEqzE0zTjae">阶段</th><th data-page-node-id="lyJM7hfXNKFI4XpfkkzmdZ">动作</th></tr>
+<tr data-page-node-id="rcmTrpWAalU38ZHkEbBvje"><td data-page-node-id="gRyMRJAdJMN310QRlAXNqV"><b data-page-node-id="0kJX0MxptGJwuO0yVR9roL">D-Day（半天）</b></td><td data-page-node-id="6xuDtLTjtgLujzzaPTEHWe">改种子密码 → 配好备份 + 恢复演练 → 会员登录限速（或临时仅接受邀请码注册缩面）→ 环境变量四件套 + Caddy TLS + 进程守护 → healthz 挂监控</td></tr>
+<tr data-page-node-id="cWOubNXUGYshi5w2Cvjyjz"><td data-page-node-id="Xq6WewGa2DHgkWYG1v68Ky"><b data-page-node-id="KfnqEGo5KXRRRyqhUgcw5f">首周</b></td><td data-page-node-id="RsEz8OcBlO1u6PtXE8s9Km">会员改密/找回（#4）→ SVG 处理（#5）→ graphiql 关闭（#6）→ 防滥用（#7）→ 退款手工流程定好（#8）</td></tr>
+<tr data-page-node-id="QSJ3HRfgM3F3F8GnTqhdXW"><td data-page-node-id="V4botLxSUi4c6HcrExioGv"><b data-page-node-id="rmvlp4MPhfNE8OlQCEefpM">首月</b></td><td data-page-node-id="40ethMIpkR0OVTITtpRvFv">tracing + 优雅停机、会员 token 撤销、邮箱验证、退款 API 化</td></tr>
+</table>
+<p class="muted" data-page-node-id="9fOisgiCxG90SavfY3oHlL">判定口径：灰度上线 = 自运营 + 小流量 + 你自己盯审计与备份；正式运营 = 公开注册 + 真实收款，P1 全清再开。</p>
+</div>
+
+</div>
+</body>
+</html>

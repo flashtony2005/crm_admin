@@ -94,6 +94,7 @@ export const PRODUCT_NAV: NavNode[] = [
     icon: 'card',
     children: [
       { key: 'members', label: '会员', path: '/content/members', icon: 'users', desc: '注册会员管理', perm: 'content.members.view' },
+      { key: 'orders', label: '订单', path: '/content/orders', icon: 'card', desc: '收款确认 / 充值与订阅发货', perm: 'content.members.view' },
       { key: 'comments', label: '评论', path: '/content/comments', icon: 'comment', desc: '内容评论与审核', perm: 'content.comments.view' },
       { key: 'newsletter', label: '邮件订阅', path: '/content/newsletter', icon: 'mail', desc: '订阅者与群发', perm: 'newsletter.subscribers.view' },
       { key: 'subscriptions', label: '付费订阅', path: '/content/subscriptions', icon: 'card', desc: '套餐与变现', perm: 'subscriptions.tiers.view' },
@@ -106,17 +107,8 @@ export const PRODUCT_NAV: NavNode[] = [
     children: [
       { key: 'users', label: '成员', path: '/team/users', icon: 'users', desc: '成员管理', perm: 'team.users.view' },
       { key: 'roles', label: '角色', path: '/team/roles', icon: 'shield', desc: '角色与权限', perm: 'team.roles.view' },
-    ],
-  },
-  {
-    key: 'domain',
-    label: '域模型',
-    icon: 'box',
-    children: [
-      { key: 'domain-content', label: '内容', path: '/domain/content', icon: 'article', desc: '业务事实：挂载上下文 / 一稿多投', perm: 'domain.content.view' },
-      { key: 'domain-contexts', label: '语义上下文', path: '/domain/contexts', icon: 'tag', desc: 'Agent 理解内容的语义维度', perm: 'domain.context.view' },
-      { key: 'domain-channels', label: '分发渠道', path: '/domain/channels', icon: 'plug', desc: '内容出口（网站 / X / 公众号…）', perm: 'domain.channel.view' },
-      { key: 'domain-presentation', label: '站点与呈现', path: '/domain/presentation', icon: 'layers', desc: 'Site 绑定模板 / 主题 / Render 契约', perm: 'domain.site.view' },
+      // 审计日志与后端端点同权限（team.users.update = Owner 专用）
+      { key: 'audit', label: '审计日志', path: '/team/audit', icon: 'role', desc: '全站写操作留痕', perm: 'team.users.update' },
     ],
   },
   {

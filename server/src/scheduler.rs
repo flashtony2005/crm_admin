@@ -133,6 +133,12 @@ pub async fn tick_once(st: &AppState) -> usize {
     // 先处理定时发布（与 schedule.* 工作流解耦，独立每分钟扫描）
     let _ = publish_scheduled(st).await;
 
+    // G2：重投到期的 webhook 投递（崩溃遗留 / 失败指数退避重试）
+    let _ = crate::webhooks_out::retry_due(st).await;
+
+    // P2：阅读计数批量落库（track 端点内存累加，此处合并为少量 UPDATE）
+    let _ = crate::stats::flush_views(st).await;
+
     let rows = st
         .db
         .query_all_statement(Statement::from_string(

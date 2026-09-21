@@ -47,6 +47,10 @@ export interface Article extends BaseRecord {
   scheduledAt?: string
   /** 规范链接（canonical URL）；留空则用默认文章 URL */
   canonicalUrl?: string
+  /** 售卖分级（优先于 visibility）：0 公开 / 1 订阅会员 / 2 积分买断 / 3 邀请专享 */
+  paidLevel?: number
+  /** 积分解锁单价（paidLevel=2 时生效，P1 积分商城消费） */
+  pricePoints?: number
 }
 
 export interface Page extends BaseRecord {
@@ -201,6 +205,75 @@ export interface Member extends BaseRecord {
   /** 套餐：free / 各 tier slug */
   plan: string
   stripeCustomerId?: string
+  /** 邀请人 member id（非空 = 凭邀请码注册加入） */
+  invitedBy?: string
+}
+
+/** 邀请码（额度制：好友凭码注册核销 used+1） */
+export interface InviteCode extends BaseRecord {
+  code: string
+  /** 邀请人 member id（后台生成的运营码可留空） */
+  ownerMemberId?: string
+  /** 总额度 */
+  quota: number
+  /** 已核销次数（注册时自动 +1） */
+  used: number
+  /** 过期时间（ISO 字符串；空 = 永不过期） */
+  expiresAt?: string
+  enabled: boolean
+}
+
+/** 兑换码（一次性：kind points=充积分 / plan_days=会员天数） */
+export interface RedeemCode extends BaseRecord {
+  code: string
+  kind: 'points' | 'plan_days' | string
+  value: number
+  status: 'unused' | 'used' | string
+  usedBy?: string
+  usedAt?: string
+}
+
+/** 订单（人工确认收款；channel 预留 manual/code/wechat） */
+export interface Order extends BaseRecord {
+  orderNo: string
+  memberId: string
+  bizType: 'points_recharge' | 'plan' | string
+  tierId?: string
+  points?: number
+  planDays?: number
+  amountCents: number
+  channel: string
+  status: 'pending' | 'paid' | 'closed' | string
+  refNo?: string
+  paidAt?: string
+}
+
+/** 积分流水行 */
+export interface LedgerEntry {
+  delta: number
+  balanceAfter: number
+  reason: string
+  refId: string
+  note: string
+  createdAt: string
+}
+
+/** 会员钱包（GET /api/public/members/wallet） */
+export interface WalletInfo {
+  balance: number
+  plan: string
+  planExpiresAt: string
+  /** 付费计划剩余天数（-1 = 免费/无期限） */
+  planDaysLeft?: number
+  /** 7 天内到期 */
+  planExpiring?: boolean
+  /** 已过期（subscribed() 已视为无效） */
+  planExpired?: boolean
+  invited: boolean
+  signedToday: boolean
+  signinPoints: number
+  inviteRewardPoints: number
+  ledger: LedgerEntry[]
 }
 
 /** 当前登录会员（不含敏感字段） */
@@ -254,3 +327,62 @@ export interface WebhookSubscription extends BaseRecord {
 /** 多语言翻译字典 */
 export type LocaleMessages = Record<string, string>
 export type Locale = 'zh' | 'en'
+
+/** 微信支付配置查看（脱敏；P2 在线支付） */
+export interface PayConfigInfo {
+  appid: string
+  mchid: string
+  serialNo: string
+  apiV3KeySet: boolean
+  apiV3KeyMasked: string
+  privateKeySet: boolean
+  platformPubKeySet: boolean
+  ready: boolean
+}
+
+/** 对账分组行：日期 × 渠道 × 状态 */
+export interface ReconRow {
+  date: string
+  channel: string
+  status: string
+  count: number
+  amountCents: number
+}
+
+/** 对账响应（窗口内汇总） */
+export interface ReconResp {
+  days: number
+  rows: ReconRow[]
+  summary: Record<string, { count: number; amountCents: number }>
+}
+
+/** 审计日志行（P2：/api 写操作留痕） */
+export interface AuditRow {
+  userId: string
+  username: string
+  method: string
+  path: string
+  status: number
+  durationMs: number
+  requestId: string
+  createdAt: string
+}
+
+/** 发货未完成项（outbox，F2 防漏发货） */
+export interface FulfillTask {
+  orderId: string
+  orderNo: string
+  stageKey: string
+  stage: string
+  status: string
+  attempts: number
+  lastError: string
+  updatedAt: string
+}
+
+/** 重试发货结果 */
+export interface RetryFulfillResp {
+  retried: number
+  recovered: number
+  stillFailing: string[]
+}

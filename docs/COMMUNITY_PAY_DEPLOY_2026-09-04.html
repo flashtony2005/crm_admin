@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>创作者社区系统 · 部署与联调文档（P0-P3）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#fff; --line:#e5e7eb; --text:#18181b; --muted:#71717a;
+  --blue:#2563eb; --green:#059669; --amber:#b45309; --red:#dc2626;
+  --code-bg:#1e293b; --code-ink:#e2e8f0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+body{line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px 80px}
+header.hero{background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9);color:#fff;padding:52px 0 44px;margin-bottom:32px}
+header.hero .wrap{padding-bottom:0}
+.hero h1{font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:.01em}
+.hero p{margin-top:10px;opacity:.92;font-size:14.5px;max-width:64ch}
+.stages{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.stage{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:10px 16px;font-size:13px}
+.stage b{display:block;font-size:15px}
+h2{font-size:20px;font-weight:800;margin:44px 0 14px;padding-top:8px;border-top:2px solid var(--line)}
+h2 .no{color:var(--blue);margin-right:8px}
+h3{font-size:15.5px;font-weight:700;margin:22px 0 8px}
+p{margin:8px 0;color:#3f3f46}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+ul,ol{margin:8px 0 8px 22px}
+li{margin:5px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:#eef2ff;color:#3730a3;padding:1px 6px;border-radius:5px}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;margin:10px 0}
+pre code{background:none;color:inherit;padding:0}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+th{text-align:left;font-size:12px;color:var(--muted);border-bottom:2px solid var(--line);padding:7px 10px;letter-spacing:.04em}
+td{border-bottom:1px solid var(--line);padding:8px 10px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.03em}
+.tag.get{background:#dbeafe;color:#1d4ed8}.tag.post{background:#dcfce7;color:#15803d}
+.tag.put{background:#fef3c7;color:#b45309}.tag.pub{background:#f1f5f9;color:#475569}
+.tag.ok{background:#dcfce7;color:#15803d}
+.warn{border-left:4px solid #f59e0b;background:#fffbeb;border-radius:0 10px 10px 0;padding:12px 16px;margin:12px 0;font-size:13.5px}
+.danger{border-left:4px solid var(--red);background:#fef2f2;border-radius:0 10px 10px 0;padding:12px 16px;margin:12px 0;font-size:13.5px}
+.check{list-style:none;margin-left:0}
+.check li{padding-left:28px;position:relative}
+.check li::before{content:'☐';position:absolute;left:0;color:var(--blue);font-size:16px}
+.svgbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;overflow-x:auto}
+.caption{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.kpi div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 18px;font-size:12.5px;color:var(--muted)}
+.kpi b{display:block;font-size:20px;color:var(--text)}
+a{color:var(--blue)}
+.toc{columns:2;column-gap:32px;font-size:13.5px}
+.toc li{break-inside:avoid}
+@media(max-width:720px){.toc{columns:1}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>创作者社区系统 · 部署与联调文档</h1>
+    <p>私有部署创作者社区：内容付费墙 + 积分/邀请 + 双轨收款（微信扫码 / 人工确认）+ 会员中心 + 经营看板。本文档覆盖 P0–P3 全部交付的部署步骤、微信支付商户参数获取、回调验签说明与上线检查清单。</p>
+    <div class="stages">
+      <div class="stage"><b>P0 ✅</b>邀请注册 + 内容付费墙</div>
+      <div class="stage"><b>P1 ✅</b>积分流水 + 兑码 + 订单</div>
+      <div class="stage"><b>P2 ✅</b>微信 Native + 对账</div>
+      <div class="stage"><b>P3 ✅</b>会员中心 + 看板 + 到期提醒</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="card">
+  <b>目录</b>
+  <ol class="toc">
+    <li>系统架构总览</li>
+    <li>功能地图（P0–P3）</li>
+    <li>部署步骤</li>
+    <li>微信支付联调指南</li>
+    <li>支付链路与回调验签</li>
+    <li>API 速查表</li>
+    <li>功能验证清单</li>
+    <li>上线检查清单</li>
+    <li>已知限制与后续规划</li>
+  </ol>
+</nav>
+
+<!-- ============ 1 架构 ============ -->
+<h2><span class="no">①</span>系统架构总览</h2>
+<div class="svgbox">
+<svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/></marker>
+  </defs>
+  <!-- 公开层 -->
+  <rect x="20" y="20" width="840" height="72" rx="12" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="40" y="46" font-size="13" font-weight="700" fill="#1e40af">公开层（8088 主域，同源免 CORS）</text>
+  <text x="40" y="70" font-size="12" fill="#334155">/t/active 模板首页（neon / editorial / coucouya）　·　/t/member 会员中心　·　/read/{slug} 阅读页（402 付费墙）</text>
+  <!-- 业务层 -->
+  <rect x="20" y="126" width="840" height="96" rx="12" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="40" y="152" font-size="13" font-weight="700" fill="#166534">业务层（Rust Axum · cms-server）</text>
+  <g font-size="11.5" fill="#14532d">
+    <rect x="40" y="166" width="150" height="40" rx="8" fill="#fff" stroke="#86efac"/><text x="52" y="183" font-weight="600">members.rs</text><text x="52" y="198">注册/登录/邀请码</text>
+    <rect x="206" y="166" width="150" height="40" rx="8" fill="#fff" stroke="#86efac"/><text x="218" y="183" font-weight="600">public_api.rs</text><text x="218" y="198">付费墙/文章门控</text>
+    <rect x="372" y="166" width="150" height="40" rx="8" fill="#fff" stroke="#86efac"/><text x="384" y="183" font-weight="600">points.rs</text><text x="384" y="198">钱包/订单/对账</text>
+    <rect x="538" y="166" width="150" height="40" rx="8" fill="#fff" stroke="#86efac"/><text x="550" y="183" font-weight="600">wechat_pay.rs</text><text x="550" y="198">v3 签名/回调/二维码</text>
+    <rect x="704" y="166" width="136" height="40" rx="8" fill="#fff" stroke="#86efac"/><text x="716" y="183" font-weight="600">stats.rs</text><text x="716" y="198">看板/到期提醒</text>
+  </g>
+  <!-- 数据层 -->
+  <rect x="20" y="256" width="400" height="64" rx="12" fill="#fefce8" stroke="#fde047"/>
+  <text x="40" y="282" font-size="13" font-weight="700" fill="#854d0e">数据层（SQLite 本地 / Turso 远程）</text>
+  <text x="40" y="302" font-size="12" fill="#713f12">members · articles · orders · points_ledger · invite_codes · redeem_codes · site_settings</text>
+  <!-- 外部 -->
+  <rect x="456" y="256" width="404" height="64" rx="12" fill="#fdf2f8" stroke="#fbcfe8"/>
+  <text x="476" y="282" font-size="13" font-weight="700" fill="#9d174d">外部（微信支付 API v3）</text>
+  <text x="476" y="302" font-size="12" fill="#831843">下单 api.mch.weixin.qq.com　·　回调 POST /api/public/pay/wechat/notify</text>
+  <line x1="220" y1="92" x2="220" y2="124" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="447" y1="206" x2="547" y2="254" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="547" y1="254" x2="447" y2="206" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" stroke-dasharray="4 3"/>
+  <line x1="658" y1="126" x2="658" y2="122" stroke="none"/>
+  <line x1="700" y1="256" x2="700" y2="224" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" stroke-dasharray="4 3"/>
+</svg>
+<div class="caption">图 1 · 系统分层：模板页与会员中心同源直连业务 API；订单/积分双写落库；微信 v3 双向通信</div>
+</div>
+
+<!-- ============ 2 功能地图 ============ -->
+<h2><span class="no">②</span>功能地图（P0–P3）</h2>
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">P0 · 邀请注册 + 内容付费墙</h3>
+    <ul>
+      <li>邀请码门控：<code>site_settings.member_invite_required</code> 开关，注册原子核销（额度/有效期/启停）</li>
+      <li>文章付费分级 <code>paid_level</code>：0 公开 / 1 订阅 / 2 积分买断 / 3 仅邀请，优先级高于旧 visibility</li>
+      <li>HTTP 402 墙：返回 <code>{locked, reason, paidLevel, pricePoints, preview}</code>，前台按类型渲染解锁按钮</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">P1 · 积分 + 订单 + 邀请奖励</h3>
+    <ul>
+      <li>积分流水 <code>points_ledger</code> 是唯一事实源（余额 = SUM(delta)，带 balance_after 快照）</li>
+      <li>每日签到 / 兑码（积分或会员天数）/ 积分买断单篇（幂等）</li>
+      <li>订单（充值/订阅）人工确认收款：原子 <code>pending→paid</code>，自动发货</li>
+      <li>邀请奖励延迟到账：好友首次付费后补发（每好友一次，防薅）</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">P2 · 微信 Native 在线支付</h3>
+    <ul>
+      <li>API v3 标准接入：SHA256withRSA 请求签名 → Native 下单 → code_url → 二维码 SVG</li>
+      <li>回调验签（平台公钥可选强制）+ AES-256-GCM 解密 + 幂等发货（与人工确认同链路 <code>fulfill_order</code>）</li>
+      <li>对账：按日×渠道×状态透视 + 一键关闭 24h 超时订单</li>
+      <li>商户凭据存 site_settings，后台可视化管理（脱敏显示）</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">P3 · 会员中心 + 看板 + 到期提醒</h3>
+    <ul>
+      <li><code>/t/member</code> 会员中心模板页：概览/钱包/订阅/订单，主题自动跟随 active 模板（neon 暗色 / editorial 纸感 / 默认浅色）</li>
+      <li>看板「社区经营」：收入/订单/付费会员 KPI + 14 天收入与新增会员趋势 + 临期会员表</li>
+      <li>到期提醒：<code>planDaysLeft / planExpiring(≤7天) / planExpired</code>，会员页与会员中心横幅提示</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ 3 部署 ============ -->
+<h2><span class="no">③</span>部署步骤</h2>
+<div class="card">
+  <h3 style="margin-top:0">3.1 编译与启动（Windows 本机）</h3>
+  <pre><code>cd F:\project\admin\server
+build_sections.cmd        :: 双击或命令行运行；自动清理构建锁 → 编译 → 重启 :8088</code></pre>
+  <ul>
+    <li>脚本使用温暖目标目录 <code>tgt_build4</code> 增量编译（约 2–5 分钟）；本次含新增依赖（rsa / aes-gcm / qrcode / base64），<b>首次编译会额外下载并编译新 crate</b></li>
+    <li>数据库迁移在启动时自动执行（版本化 MIGRATIONS，0004/0005 已含 P0/P1 表，P2/P3 无新增迁移）</li>
+  </ul>
+  <h3>3.2 环境变量</h3>
+  <table>
+    <tr><th>变量</th><th>必填</th><th>说明</th></tr>
+    <tr><td><code>PUBLIC_BASE_URL</code></td><td>微信联调时必填</td><td>对外服务基址，如 <code>https://your.domain.com</code>；微信回调地址 = 此值 + <code>/api/public/pay/wechat/notify</code>。缺省 <code>http://localhost:8088</code>（仅本地测试用）</td></tr>
+    <tr><td><code>STRIPE_SECRET_KEY</code> / <code>STRIPE_WEBHOOK_SECRET</code></td><td>否</td><td>Stripe 订阅通道（测试模式已在用）；微信为主通道时可不配</td></tr>
+    <tr><td><code>WECHAT_PAY_API_BASE</code></td><td>否</td><td>微信 API 基址，缺省 <code>https://api.mch.weixin.qq.com</code></td></tr>
+    <tr><td><code>TEMPLATES_DIR</code></td><td>否</td><td>模板目录，缺省 <code>server/templates/</code></td></tr>
+  </table>
+  <h3>3.3 模板与会员中心（无需编译）</h3>
+  <p><code>/t/member</code> 与 neon/editorial 模板均为磁盘静态文件，重启即生效或直接生效；会员中心已注册进 <code>templates/manifest.json</code>（后台模板列表可见，命名"会员中心"）。</p>
+</div>
+
+<!-- ============ 4 微信支付联调 ============ -->
+<h2><span class="no">④</span>微信支付联调指南</h2>
+<div class="card">
+  <h3 style="margin-top:0">4.1 商户参数获取（微信商户平台 pay.weixin.qq.com）</h3>
+  <ol>
+    <li><b>开通产品</b>：产品中心 → 开通「Native 支付」</li>
+    <li><b>APIv3 密钥</b>：账户中心 → API 安全 → 设置 APIv3 密钥（32 字节字符串，自己设定并妥善保管）</li>
+    <li><b>申请 API 证书</b>：同页申请商户 API 证书，下载证书工具导出：<b>商户私钥</b> <code>apiclient_key.pem</code>（完整 PEM 内容）与<b>证书序列号</b></li>
+    <li><b>平台公钥/证书</b>：API 安全 → 微信支付公钥（2024 年后新商户默认公钥模式），复制<b>微信支付公钥</b> PEM（用于回调验签；旧商户为平台证书模式，需下载平台证书并配置其公钥）</li>
+    <li><b>绑定 AppID</b>：账户中心 → AppID 账号管理（公众号/小程序/开放平台任一）</li>
+    <li><b>回调域名</b>：无需单独配置，但 <code>PUBLIC_BASE_URL</code> 必须为公网 HTTPS/HTTP 可达地址且 ICP 备案（微信要求）</li>
+  </ol>
+  <h3>4.2 后台配置</h3>
+  <p>管理后台 → <b>订单</b> → 展开「微信支付配置（Native 扫码）」，填写：</p>
+  <table>
+    <tr><th>字段</th><th>对应参数</th><th>说明</th></tr>
+    <tr><td>AppID</td><td>appid</td><td>已绑定的公众号/小程序 AppID</td></tr>
+    <tr><td>商户号 mchid</td><td>mchid</td><td>纯数字商户号</td></tr>
+    <tr><td>证书序列号</td><td>serial_no</td><td>商户 API 证书序列号（40 位十六进制）</td></tr>
+    <tr><td>APIv3 密钥</td><td>api_v3_key</td><td>第 2 步设置的 32 字节密钥（回调解密核心）</td></tr>
+    <tr><td>商户私钥 PEM</td><td>private_key</td><td><code>apiclient_key.pem</code> 全文（含 BEGIN/END 行）</td></tr>
+    <tr><td>平台公钥 PEM</td><td>platform_pub_key</td><td>微信支付公钥全文（选填；配置后回调强制验签）</td></tr>
+  </table>
+  <div class="warn">⚠️ 密钥项保存后仅显示尾 4 位掩码；留空提交不会覆盖已保存的值。全部参数就绪后配置卡角标变为「已就绪」，会员端才会显示微信扫码入口（未就绪时下单会提示缺失项）。</div>
+  <h3>4.3 本地/无公网环境怎么验证</h3>
+  <ul>
+    <li><b>回调不可达</b>时，扫码支付成功但订单不会自动到账——可用商户平台「交易账单」核对后，在后台订单页人工点「确认收款」兜底（幂等，不会重复发货）</li>
+    <li>或者用内网穿透（frp / ngrok）把 8088 映射到公网，并将 <code>PUBLIC_BASE_URL</code> 指向穿透地址做全链路联调</li>
+    <li>订单状态接口 <code>GET /api/public/orders/{orderNo}</code> 可随时查询，前端轮询即基于它</li>
+  </ul>
+</div>
+
+<!-- ============ 5 支付链路 ============ -->
+<h2><span class="no">⑤</span>支付链路与回调验签</h2>
+<div class="svgbox">
+<svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="12">
+  <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+  <g>
+    <rect x="16" y="24" width="130" height="44" rx="9" fill="#eff6ff" stroke="#93c5fd"/><text x="34" y="50" font-weight="600" fill="#1e40af">会员端下单</text>
+    <rect x="196" y="24" width="150" height="44" rx="9" fill="#eff6ff" stroke="#93c5fd"/><text x="212" y="44" font-weight="600" fill="#1e40af">POST /api/public/orders</text><text x="212" y="60" fill="#475569">channel=wechat</text>
+    <rect x="396" y="24" width="160" height="44" rx="9" fill="#fff" stroke="#cbd5e1"/><text x="410" y="44" font-weight="600" fill="#334155">v3 签名 + Native 下单</text><text x="410" y="60" fill="#64748b">→ code_url</text>
+    <rect x="606" y="24" width="150" height="44" rx="9" fill="#fff" stroke="#cbd5e1"/><text x="622" y="44" font-weight="600" fill="#334155">二维码 SVG 弹层</text><text x="622" y="60" fill="#64748b">前端 3s 轮询状态</text>
+    <line x1="146" y1="46" x2="194" y2="46" stroke="#64748b" marker-end="url(#a2)"/>
+    <line x1="346" y1="46" x2="394" y2="46" stroke="#64748b" marker-end="url(#a2)"/>
+    <line x1="556" y1="46" x2="604" y2="46" stroke="#64748b" marker-end="url(#a2)"/>
+  </g>
+  <g>
+    <rect x="16" y="120" width="130" height="44" rx="9" fill="#fefce8" stroke="#fde047"/><text x="30" y="146" font-weight="600" fill="#854d0e">用户扫码支付</text>
+    <rect x="196" y="120" width="220" height="56" rx="9" fill="#fdf2f8" stroke="#f9a8d4"/>
+    <text x="210" y="141" font-weight="600" fill="#9d174d">POST /api/public/pay/wechat/notify</text>
+    <text x="210" y="158" fill="#9d174d">①平台公钥验签(可选强制) ②AES-256-GCM 解密</text>
+    <rect x="466" y="120" width="180" height="56" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+    <text x="480" y="141" font-weight="600" fill="#166534">原子 pending→paid</text>
+    <text x="480" y="158" fill="#166534">重复回调幂等 SUCCESS</text>
+    <rect x="696" y="120" width="168" height="56" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+    <text x="710" y="141" font-weight="600" fill="#166534">fulfill_order 发货</text>
+    <text x="710" y="158" fill="#166534">积分/订阅/邀请奖励</text>
+    <line x1="146" y1="142" x2="194" y2="142" stroke="#64748b" marker-end="url(#a2)"/>
+    <line x1="416" y1="148" x2="464" y2="148" stroke="#64748b" marker-end="url(#a2)"/>
+    <line x1="646" y1="148" x2="694" y2="148" stroke="#64748b" marker-end="url(#a2)"/>
+  </g>
+  <g>
+    <rect x="196" y="222" width="668" height="52" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+    <text x="212" y="243" font-weight="600" fill="#334155">人工通道（兜底）：会员线下转账备注订单号 → 后台「订单」确认收款 → 同一 fulfill_order 发货</text>
+    <text x="212" y="261" fill="#64748b">双通道幂等互斥：谁先把 pending→paid 谁生效，另一通道自动失效，不会重复发货</text>
+  </g>
+  <line x1="130" y1="68" x2="130" y2="118" stroke="#64748b" marker-end="url(#a2)" stroke-dasharray="4 3"/>
+</svg>
+<div class="caption">图 2 · 双轨支付链路：在线扫码自动到账为主，人工确认兜底，二者幂等互斥</div>
+</div>
+<div class="card">
+  <h3 style="margin-top:0">回调验签说明</h3>
+  <ul>
+    <li><b>签名验证</b>：微信回调头 <code>Wechatpay-Timestamp / Nonce / Signature</code>，验签原文为 <code>{ts}\n{nonce}\n{body}\n</code>，用平台公钥做 SHA256withRSA 校验。<b>配置了平台公钥则强制验签</b>，不通过直接拒绝</li>
+    <li><b>密文解密</b>：回调体 <code>resource.ciphertext</code> 用 <b>APIv3 密钥</b>做 AES-256-GCM 解密（nonce 12 字节，associated_data 参与运算）。攻击者没有 APIv3 密钥就无法构造出能解密成功的密文——即使跳过验签，回调依然具备防伪造能力</li>
+    <li><b>应答约定</b>：处理成功返回 <code>{"code":"SUCCESS"}</code>（HTTP 200）；失败返回 500 + <code>{"code":"FAIL"}</code>，微信会按退避策略重试，因此发货必须幂等（本实现通过数据库原子状态转换保证）</li>
+    <li><b>金额校验</b>：回调含 <code>amount.total</code>，与订单 <code>amount_cents</code> 同源生成；如需更严格可加一道比对（后续项）</li>
+  </ul>
+</div>
+
+<!-- ============ 6 API ============ -->
+<h2><span class="no">⑥</span>API 速查表（P0–P3 新增）</h2>
+<div class="card">
+<table>
+  <tr><th style="width:110px">方法/权限</th><th>端点</th><th>说明</th></tr>
+  <tr><td><span class="tag pub">公开</span> <span class="tag post">POST</span></td><td><code>/api/public/members/register</code></td><td>注册（invite_required=on 时必填 invite_code）</td></tr>
+  <tr><td><span class="tag pub">会员</span> <span class="tag get">GET</span></td><td><code>/api/public/members/wallet</code></td><td>余额/流水/签到态/计划到期（planDaysLeft/planExpiring/planExpired）</td></tr>
+  <tr><td><span class="tag pub">会员</span> <span class="tag post">POST</span></td><td><code>/api/public/members/{signin,redeem,purchase-article}</code></td><td>签到 / 兑码 / 积分买断</td></tr>
+  <tr><td><span class="tag pub">会员</span> <span class="tag post">POST</span></td><td><code>/api/public/orders</code></td><td>创建订单；<code>channel: wechat</code> 返回 codeUrl+qrSvg</td></tr>
+  <tr><td><span class="tag pub">会员</span> <span class="tag get">GET</span></td><td><code>/api/public/orders/{orderNo}</code></td><td>本人订单状态（扫码轮询）</td></tr>
+  <tr><td><span class="tag pub">会员</span> <span class="tag get">GET</span></td><td><code>/api/public/members/orders</code></td><td>我的订单（近 50 条）</td></tr>
+  <tr><td><span class="tag pub">公开</span> <span class="tag post">POST</span></td><td><code>/api/public/pay/wechat/notify</code></td><td>微信支付回调（验签→解密→幂等发货）</td></tr>
+  <tr><td><span class="tag pub">管理</span> <span class="tag post">POST</span></td><td><code>/api/admin/orders/{id}/confirm</code></td><td>人工确认收款（content.members.update）</td></tr>
+  <tr><td><span class="tag pub">管理</span> <span class="tag get">GET</span></td><td><code>/api/admin/orders/recon?days=30</code></td><td>对账：日×渠道×状态分组 + 窗口汇总</td></tr>
+  <tr><td><span class="tag pub">管理</span> <span class="tag post">POST</span></td><td><code>/api/admin/orders/close-stale</code></td><td>关闭 24h 未付订单</td></tr>
+  <tr><td><span class="tag pub">管理</span> <span class="tag put">GET/PUT</span></td><td><code>/api/admin/payconfig</code></td><td>微信支付配置（GET 脱敏；PUT 空值不覆盖；site.settings.update）</td></tr>
+  <tr><td><span class="tag pub">管理</span> <span class="tag get">GET</span></td><td><code>/api/admin/stats</code></td><td>看板（新增 community 块：收入/订单/会员/临期列表）</td></tr>
+  <tr><td><span class="tag pub">公开</span> <span class="tag get">GET</span></td><td><code>/t/member</code></td><td>会员中心模板页（主题自适应）</td></tr>
+</table>
+</div>
+
+<!-- ============ 7 验证清单 ============ -->
+<h2><span class="no">⑦</span>功能验证清单</h2>
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">站长（后台 5188 → 8088 API）</h3>
+    <ul class="check">
+      <li>会员页：开启邀请码门控 → 创建邀请码（额度/有效期）</li>
+      <li>文章页：设置 paid_level=2 + 积分价格 → 预览 402 墙</li>
+      <li>订单页：填写微信支付配置 → 角标变「已就绪」</li>
+      <li>订单页：人工订单「确认收款」→ 发货 + 邀请奖励提示</li>
+      <li>订单页：对账卡切换 7/30/90 天；「关闭超时订单」</li>
+      <li>统计看板：社区经营 KPI、收入/新增会员趋势、临期会员表</li>
+      <li>模板页：切换 neon/editorial → 模板列表「会员中心」预览正常</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">会员（公开站）</h3>
+    <ul class="check">
+      <li>邀请注册：开邀请制后无码注册被拒、有码成功</li>
+      <li>/t/member：登录 → 签到 +积分 → 兑码 → 流水更新</li>
+      <li>充值：微信扫码弹二维码（已配置时）→ 支付后自动到账；或人工转账 → 后台确认到账</li>
+      <li>订阅：套餐「微信扫码订阅」→ 到账后计划状态与有效期更新</li>
+      <li>积分买断：/read/{slug} 积分墙 →「用 N 积分解锁」→ 刷新后可读且不重复扣分</li>
+      <li>到期提醒：临期（≤7 天）黄横幅、过期红横幅正确显示</li>
+      <li>主题自适应：切换模板后 /t/member 配色跟随变化</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ 8 上线检查 ============ -->
+<h2><span class="no">⑧</span>上线检查清单</h2>
+<div class="card">
+<ul class="check">
+  <li><b>编译部署</b>：<code>build_sections.cmd</code> 编译通过、8088 重启成功、<code>GET /api/public/site</code> 正常</li>
+  <li><b>数据库</b>：迁移日志无报错；<code>orders / points_ledger / invite_codes / redeem_codes</code> 表存在</li>
+  <li><b>公网地址</b>：<code>PUBLIC_BASE_URL</code> 已设为公网可达域名（HTTPS 建议），回调路径可达</li>
+  <li><b>微信支付</b>：后台配置齐全（角标「已就绪」）；商户平台已开通 Native 产品、绑定 AppID</li>
+  <li><b>小额实付验证</b>：用真实微信扫一笔最低金额订单，确认回调自动到账 + 对账卡渠道显示「微信扫码」</li>
+  <li><b>凭据安全</b>：APIv3 密钥/私钥仅存于服务器 site_settings；不要提交到 git / 分享截图</li>
+  <li><b>兜底通道</b>：收款码图片与人工确认流程已就绪（在线通道故障时可切换）</li>
+  <li><b>站点内容</b>：付费文章 paid_level/价格设置复核；邀请码额度与积分规则（points_signin / points_invite_reward）复核</li>
+  <li><b>备份</b>：cms_live.db 定期备份（含 site_settings 中的支付配置）</li>
+</ul>
+</div>
+
+<!-- ============ 9 后续 ============ -->
+<h2><span class="no">⑨</span>已知限制与后续规划</h2>
+<div class="card">
+<ul>
+  <li><b>回调金额强校验</b>：可在 notify 中比对 <code>amount.total</code> 与订单金额（当前同源生成，风险低）</li>
+  <li><b>平台证书模式</b>：旧微信商户为平台证书（非公钥）模式，需下载证书并自动轮换——当前支持手工粘贴其公钥</li>
+  <li><b>Stripe 正式通道</b>：orders.channel 已预留 stripe，可将 Stripe webhook 映射到 fulfill_order 统一发货</li>
+  <li><b>到期提醒通知化</b>：当前为页面横幅 + 看板列表；可接 webhooks_out / 邮件（notify.rs）做主动推送</li>
+  <li><b>价目表化</b>：积分充值 1 分/积分的定价写死在代码（P1 简化），可升级为可配置价目</li>
+</ul>
+</div>
+
+<p style="text-align:center;color:#a1a1aa;font-size:12px;margin-top:40px">创作者社区系统 P0–P3 · 2026-09-04 · cargo check 0 err · tsc 0 err · vitest 125/125 · build ✅</p>
+</div>
+</body>
+</html>

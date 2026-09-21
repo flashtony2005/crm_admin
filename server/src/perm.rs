@@ -19,6 +19,8 @@ pub const P: &[(&str, &str)] = &[
     ("siteHomePinsCreate", "site.homePins.create"),
     ("siteHomePinsUpdate", "site.homePins.update"),
     ("siteHomePinsDelete", "site.homePins.delete"),
+    // F4：作废旧 token（改密 / 管理员踢下线）—— Owner 专属
+    ("teamUsersUpdate", "team.users.update"),
 ];
 
 /// 角色键
@@ -122,21 +124,6 @@ impl Role {
                 // 编辑器可生产内容与上下文、配置渠道；
                 // 但**站点配置 / 模板 / 主题 / 发布**刻意不授予写权限——
                 // 这些改动面大，必须走审批（纲领 §7）。
-                "domain.content.view",
-                "domain.content.create",
-                "domain.content.update",
-                "domain.content.delete",
-                "domain.context.view",
-                "domain.context.create",
-                "domain.context.update",
-                "domain.context.delete",
-                "domain.channel.view",
-                "domain.channel.create",
-                "domain.channel.update",
-                "domain.site.view",
-                "domain.template.view",
-                "domain.theme.view",
-                "domain.render.view",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -161,13 +148,6 @@ impl Role {
                 // 主页置顶文章：只读
                 "site.homePins.view",
                 // ── Domain Model V1：只读（Viewer 不得改动任何领域数据）──
-                "domain.content.view",
-                "domain.context.view",
-                "domain.channel.view",
-                "domain.site.view",
-                "domain.template.view",
-                "domain.theme.view",
-                "domain.render.view",
             ]
             .iter()
             .map(|s| s.to_string())

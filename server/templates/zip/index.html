@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>可可鸭 · 杂志风</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Noto+Serif+SC:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#f4efe6; --paper-2:#ece4d6; --ink:#211d17; --muted:#6f655a;
+    --accent:#c2410c; --accent-2:#2f6f5b; --rule:#d8cdba;
+    --serif:"Fraunces","Noto Serif SC",Georgia,"Songti SC",serif;
+    --sans:"Inter",-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink)}
+  body{font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.6;
+    background-image:radial-gradient(circle at 18% -10%, #fbf7ef 0%, var(--paper) 42%);}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  /* 刊头 */
+  .masthead{padding:34px 0 18px;border-bottom:1px solid var(--rule);
+    display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .brand{font-family:var(--serif);font-weight:700;font-size:22px;letter-spacing:.04em;
+    display:flex;align-items:baseline;gap:10px}
+  .brand .en{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.32em;
+    text-transform:uppercase;color:var(--muted)}
+  .nav{display:flex;gap:26px;font-size:13.5px;font-weight:500;color:var(--muted)}
+  .nav a{position:relative;padding:4px 0;transition:color .2s}
+  .nav a:hover{color:var(--accent)}
+  .nav a::after{content:"";position:absolute;left:0;bottom:0;width:0;height:2px;
+    background:var(--accent);transition:width .25s}
+  .nav a:hover::after{width:100%}
+  /* 头图 */
+  .hero{padding:64px 0 40px;border-bottom:1px solid var(--rule)}
+  .kicker{font-size:12px;font-weight:600;letter-spacing:.28em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:18px}
+  h1{font-family:var(--serif);font-weight:600;font-size:clamp(40px,6.4vw,76px);
+    line-height:1.04;letter-spacing:-.01em;max-width:14ch}
+  .lead{margin-top:26px;max-width:62ch;font-size:17px;color:var(--muted);line-height:1.85}
+  .cta{display:inline-flex;align-items:center;gap:8px;margin-top:30px;
+    background:var(--ink);color:var(--paper);font-weight:600;font-size:14px;
+    padding:13px 22px;border-radius:999px;transition:transform .2s,background .2s}
+  .cta:hover{background:var(--accent);transform:translateY(-2px)}
+  .cta svg{width:15px;height:15px}
+  /* 数据带 */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);
+    border:1px solid var(--rule);margin:0 -24px}
+  .stat{background:var(--paper);padding:30px 28px}
+  .stat .v{font-family:var(--serif);font-weight:700;font-size:clamp(30px,4vw,46px);
+    line-height:1;color:var(--accent-2)}
+  .stat .l{margin-top:10px;font-size:13px;color:var(--muted)}
+  /* 导读三栏 */
+  .section-h{display:flex;align-items:baseline;gap:14px;margin:56px 0 26px}
+  .section-h .no{font-family:var(--serif);color:var(--rule);font-size:30px;font-weight:700}
+  .section-h h2{font-family:var(--serif);font-weight:600;font-size:26px}
+  .section-h .line{flex:1;height:1px;background:var(--rule)}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:30px}
+  .col .idx{font-family:var(--serif);font-size:14px;font-weight:700;color:var(--accent);
+    letter-spacing:.1em}
+  .col h3{font-family:var(--serif);font-weight:600;font-size:21px;margin:8px 0 10px}
+  .col p{font-size:14.5px;color:var(--muted);line-height:1.8}
+  .col{border-top:3px solid var(--ink);padding-top:16px}
+  /* 页脚 */
+  footer{margin-top:64px;border-top:1px solid var(--rule);padding:30px 0 70px;
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;
+    font-size:13px;color:var(--muted)}
+  footer .links{display:flex;flex-wrap:wrap;gap:20px}
+  footer .links a:hover{color:var(--accent)}
+  /* 角标 */
+  .badge{position:fixed;right:14px;bottom:14px;z-index:50;max-width:240px;
+    background:rgba(33,29,23,.92);color:#f3ece0;border-radius:12px;padding:10px 12px;
+    font-size:11px;line-height:1.5;box-shadow:0 8px 28px rgba(0,0,0,.28);backdrop-filter:blur(6px)}
+  .badge b{color:#ffd9b8}
+  .badge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:#7dd3a8;margin-right:6px;vertical-align:middle}
+  .badge.is-main .dot{background:#ffb27a}
+  .badge .x{float:right;margin-left:10px;cursor:pointer;opacity:.6}
+  .badge .x:hover{opacity:1}
+  @media(max-width:720px){
+    .nav{display:none}.cols{grid-template-columns:1fr;gap:22px}
+    .stats{grid-template-columns:1fr}.stat{border-bottom:1px solid var(--rule)}
+    h1{max-width:100%}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="masthead">
+      <div class="brand"><span id="brand">可可鸭</span><span class="en" id="brandEn">KEKEYA</span></div>
+      <nav class="nav" id="nav"></nav>
+    </header>
+
+    <section class="hero">
+      <div class="kicker" id="kicker">COMMUNITY · GROWTH · IN PUBLIC</div>
+      <h1 id="title">加载中…</h1>
+      <p class="lead" id="lead"></p>
+      <a class="cta" id="cta" href="#" target="_blank" rel="noreferrer">
+        <span id="ctaLabel">了解更多</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+          <path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </section>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="section-h">
+      <span class="no">01</span><h2>我们带来什么</h2><span class="line"></span>
+    </div>
+    <div class="cols" id="cols"></div>
+  </div>
+
+  <footer>
+    <div id="footNote">可可鸭 · Community in Public</div>
+    <div class="links" id="footLinks"></div>
+  </footer>
+
+  <div class="badge" id="badge" style="display:none">
+    <span class="x" id="badgeX">×</span>
+    <div><span class="dot"></span>模板：<b id="bTpl">—</b></div>
+    <div>端口：<b id="bPort">—</b> · <span id="bMain">—</span></div>
+  </div>
+
+<script>
+(function(){
+  var API = new URLSearchParams(location.search).get('api') || '';
+  function get(p){ return API ? (API.replace(/\/$/,'') + p) : p; }
+
+  var FALLBACK = {
+    brand:'可可鸭', brandEn:'KEKEYA', tagline:'Community Growth & Learning in Public',
+    kicker:'COMMUNITY · GROWTH · IN PUBLIC',
+    hero:{ title:'把连接，变成看得见的机会。',
+      bio:'我们在社群里学习、在公开中成长，把每一次交流沉淀为可复用的方法与作品。',
+      ctaLabel:'查看我的 X 实战主页', ctaHref:'https://x.com/KeKeYa88' },
+    stats:[{value:'300+',label:'创作者社群'},{value:'一周',label:'接商单节奏'},{value:'20M+',label:'累计流量'}],
+    pillars:{ items:[
+      {title:'AI 带来新的能力',desc:'用工具放大表达与产出，把重复劳动交给机器。'},
+      {title:'人才带来创造力与判断',desc:'真正稀缺的是审美、品味与对人性的理解。'},
+      {title:'商业让价值真正落地',desc:'可持续的变现，让创作这件事走得长远。'} ] },
+    nav:{ links:[
+      {label:'关于',href:'#about'},{label:'组织',href:'#org'},
+      {label:'文章',href:'#writing'},{label:'实验',href:'#lab'} ] },
+    footer:{ note:'可可鸭 · Community in Public',
+      links:[{label:'X',href:'https://x.com/KeKeYa88'},{label:'GitHub',href:'#'},{label:'邮件',href:'mailto:hi@kekeya.com'}] }
+  };
+
+  function el(id){ return document.getElementById(id); }
+  function setText(id,t){ var e=el(id); if(e&&t!=null) e.textContent=t; }
+  function arr(x){ return Array.isArray(x)?x:[]; }
+
+  function render(home, navLinks, footerLinks, cfg){
+    var brand = home.brand || FALLBACK.brand;
+    var brandEn = home.brandEn || FALLBACK.brandEn;
+    var tagline = home.tagline || FALLBACK.tagline;
+    var hero = home.hero || {};
+    var hTitle = hero.title || FALLBACK.hero.title;
+    var hBio = hero.bio || FALLBACK.hero.bio;
+    var ctaLabel = hero.ctaLabel || FALLBACK.hero.ctaLabel;
+    var ctaHref = hero.ctaHref || FALLBACK.hero.ctaHref;
+    var kicker = hero.kicker || (tagline ? tagline.toUpperCase() : FALLBACK.kicker);
+
+    setText('brand', brand); setText('brandEn', brandEn);
+    setText('kicker', kicker);
+    setText('title', hTitle); setText('lead', hBio);
+    setText('ctaLabel', ctaLabel);
+    var cta = el('cta'); if(cta) cta.href = ctaHref || '#';
+
+    // 导航：nav_links 表优先；home.nav.links 次之；最后回落内置
+    var links = arr(navLinks).length ? navLinks
+      : (home.nav && arr(home.nav.links).length ? home.nav.links : FALLBACK.nav.links);
+    var nav = el('nav');
+    if(nav) nav.innerHTML = links.map(function(l){
+      return '<a href="'+(l.href||'#')+'">'+(l.label||'')+'</a>';
+    }).join('');
+
+    // 数据带
+    var stats = arr(home.stats).length ? home.stats : FALLBACK.stats;
+    var sEl = el('stats');
+    if(sEl) sEl.innerHTML = stats.map(function(s){
+      return '<div class="stat"><div class="v">'+(s.value||'')+'</div><div class="l">'+(s.label||'')+'</div></div>';
+    }).join('');
+
+    // 导读三栏：pillars.items
+    var items = (home.pillars && arr(home.pillars.items).length) ? home.pillars.items
+      : FALLBACK.pillars.items;
+    var cols = el('cols');
+    if(cols) cols.innerHTML = items.map(function(p,i){
+      var idx = ('0'+(i+1)).slice(-2);
+      return '<div class="col"><div class="idx">'+idx+'</div><h3>'+(p.title||'')+
+        '</h3><p>'+(p.desc||p.body||'')+'</p></div>';
+    }).join('');
+
+    // 页脚
+    setText('footNote', (home.footer && home.footer.note) || FALLBACK.footer.note);
+    var fLinks = arr(footerLinks).length ? footerLinks
+      : ((home.footer && arr(home.footer.links).length) ? home.footer.links : FALLBACK.footer.links);
+    var fl = el('footLinks');
+    if(fl) fl.innerHTML = fLinks.map(function(l){
+      return '<a href="'+(l.href||'#')+'" target="_blank" rel="noreferrer">'+(l.label||'')+'</a>';
+    }).join('');
+
+    // 角标
+    if(cfg){
+      var badge = el('badge');
+      setText('bTpl', cfg.homeTemplate || 'coucouya');
+      setText('bPort', cfg.mainPort || '—');
+      var isMain = (cfg.homeTemplate === 'editorial');
+      setText('bMain', isMain ? '主端口 · 已激活' : '非主端口');
+      badge.classList.toggle('is-main', isMain);
+      badge.style.display = 'block';
+      var x = el('badgeX');
+      if(x) x.onclick = function(){ badge.style.display='none'; };
+    }
+  }
+
+  function load(){
+    var site, navLinks=[], footerLinks=[];
+    fetch(get('/api/public/site')).then(function(r){return r.json();}).then(function(j){
+      site = (j&&j.data)||{};
+      var home = site.home || {};
+      return fetch(get('/api/public/nav')).then(function(r){return r.json();}).then(function(n){
+        var d=(n&&n.data)||{};
+        navLinks = d.nav||[]; footerLinks = d.footer||[];
+        render(home, navLinks, footerLinks,
+          { homeTemplate: site.homeTemplate, mainPort: site.mainPort });
+      }).catch(function(){ render(home, navLinks, footerLinks,
+          { homeTemplate: site.homeTemplate, mainPort: site.mainPort }); });
+    }).catch(function(){
+      render(FALLBACK, [], [], null);
+    });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

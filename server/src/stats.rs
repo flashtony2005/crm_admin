@@ -13,6 +13,9 @@ use axum::Json;
 use sea_orm::Value as SqlValue;
 use serde_json::{json, Value};
 
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
 use crate::auth::{ensure, Auth};
 use crate::cmsdb::Row;
 use crate::error::{ok, ApiError, ApiResult};
@@ -74,22 +77,56 @@ pub async fn track(State(st): State<AppState>, Json(body): Json<Value>) -> ApiRe
         .await
         .map_err(|e| ApiError::bad(format!("写入事件失败：{e}")))?;
 
-    // 文章阅读：同步累加 articles.views 缓存计数（便于按文章取总量，无需每次聚合 events）
+    // 文章阅读：views 缓存计数改内存累加（P2：消除每次阅读一条 UPDATE 写放大），
+    // 由 scheduler 每分钟经 flush_views 批量落库；进程重启最多丢一个 tick 窗口的计数。
     if etype == "article_view" && !ref_id.is_empty() {
-        let _ = st
-            .db
-            .execute_statement(sea_orm::Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::Sqlite,
-                "UPDATE articles SET views = views + 1 WHERE id = ? AND tenant_id = ?",
-                vec![
-                    SqlValue::String(Some(ref_id)),
-                    SqlValue::String(Some(st.tenant.clone())),
-                ],
-            ))
-            .await;
+        bump_view(&st.tenant, &ref_id);
     }
 
     Ok((StatusCode::OK, Json(json!({ "ok": true }))).into_response())
+}
+
+// ── views 批处理（P2）：读多写少的缓存计数合并写 ──
+type ViewKey = (String, String); // (tenant_id, article_id)
+
+fn view_board() -> &'static Mutex<HashMap<ViewKey, u64>> {
+    static BOARD: OnceLock<Mutex<HashMap<ViewKey, u64>>> = OnceLock::new();
+    BOARD.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 内存累加一次阅读（events 明细仍即时落库，统计时序不受影响）
+fn bump_view(tenant: &str, article_id: &str) {
+    let mut b = view_board().lock().unwrap();
+    *b.entry((tenant.to_string(), article_id.to_string())).or_insert(0) += 1;
+}
+
+/// scheduler tick 调用：把内存计数批量落库。多实例下各实例各自累加、增量 UPDATE，天然安全。
+pub async fn flush_views(st: &AppState) -> usize {
+    let drained: Vec<(ViewKey, u64)> = {
+        let mut b = view_board().lock().unwrap();
+        b.drain().collect()
+    };
+    let mut n = 0usize;
+    for ((tenant, aid), delta) in drained {
+        if delta == 0 {
+            continue;
+        }
+        let r = st
+            .db
+            .execute(
+                "UPDATE articles SET views = views + ? WHERE id = ? AND tenant_id = ?",
+                vec![
+                    SqlValue::BigInt(Some(delta as i64)),
+                    SqlValue::String(Some(aid)),
+                    SqlValue::String(Some(tenant)),
+                ],
+            )
+            .await;
+        if r.is_ok() {
+            n += 1;
+        }
+    }
+    n
 }
 
 /// GET /api/admin/stats —— 聚合看板指标
@@ -117,7 +154,7 @@ pub async fn stats(State(st): State<AppState>, auth: Auth) -> ApiResult {
              GROUP BY d",
             vec![
                 SqlValue::String(Some(t.clone())),
-                SqlValue::String(Some(since)),
+                SqlValue::String(Some(since.clone())),
             ],
         ))
         .await
@@ -152,6 +189,84 @@ pub async fn stats(State(st): State<AppState>, auth: Auth) -> ApiResult {
         .map(|r| json!({ "title": s(r, "title"), "slug": s(r, "slug"), "views": i(r, "n") }))
         .collect();
 
+    // ---- 社区经营指标（订单 / 收入 / 积分 / 付费会员 / 到期提醒） ----
+    let now = chrono::Utc::now();
+    let now_rfc = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let in7_rfc = (now + chrono::Duration::days(7)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+    let revenue_total = count_sql(&st, &t, "SELECT COALESCE(SUM(amount_cents), 0) AS n FROM orders WHERE tenant_id = ? AND status = 'paid'").await?;
+    let orders_paid = count_sql(&st, &t, "SELECT COUNT(*) AS n FROM orders WHERE tenant_id = ? AND status = 'paid'").await?;
+    let orders_pending = count_sql(&st, &t, "SELECT COUNT(*) AS n FROM orders WHERE tenant_id = ? AND status = 'pending'").await?;
+    let plan_members = count_sql(&st, &t, "SELECT COUNT(*) AS n FROM members WHERE tenant_id = ? AND plan != 'free'").await?;
+    let points_issued = count_sql(&st, &t, "SELECT COALESCE(SUM(delta), 0) AS n FROM points_ledger WHERE tenant_id = ? AND delta > 0").await?;
+    let points_spent = count_sql(&st, &t, "SELECT COALESCE(SUM(-delta), 0) AS n FROM points_ledger WHERE tenant_id = ? AND delta < 0").await?;
+
+    // 近 14 天收入（按支付时间）与新增会员（按注册时间）
+    let paid_rows = st
+        .db
+        .query_all_statement(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT date(paid_at) AS d, COALESCE(SUM(amount_cents), 0) AS n FROM orders \
+             WHERE tenant_id = ? AND status = 'paid' AND paid_at >= ? GROUP BY d",
+            vec![
+                SqlValue::String(Some(t.clone())),
+                SqlValue::String(Some(since.clone())),
+            ],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("统计失败：{e}")))?;
+    let mut paid_by_day: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    for r in &paid_rows {
+        paid_by_day.insert(s(&r, "d"), i(&r, "n"));
+    }
+    let revenue_series: Vec<i64> = days.iter().map(|d| *paid_by_day.get(d).unwrap_or(&0)).collect();
+
+    let mem_rows = st
+        .db
+        .query_all_statement(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT date(created_at) AS d, COUNT(*) AS n FROM members \
+             WHERE tenant_id = ? AND created_at >= ? GROUP BY d",
+            vec![
+                SqlValue::String(Some(t.clone())),
+                SqlValue::String(Some(since.clone())),
+            ],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("统计失败：{e}")))?;
+    let mut mem_by_day: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    for r in &mem_rows {
+        mem_by_day.insert(s(&r, "d"), i(&r, "n"));
+    }
+    let new_members_series: Vec<i64> = days.iter().map(|d| *mem_by_day.get(d).unwrap_or(&0)).collect();
+
+    // 临期/已过期付费会员（7 天内到期 + 已过期，按到期时间升序，最多 12 条）
+    let exp_rows = st
+        .db
+        .query_all_statement(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            "SELECT email, name, plan, plan_expires_at FROM members \
+             WHERE tenant_id = ? AND plan != 'free' AND plan_expires_at != '' AND plan_expires_at <= ? \
+             ORDER BY plan_expires_at ASC LIMIT 12",
+            vec![
+                SqlValue::String(Some(t.clone())),
+                SqlValue::String(Some(in7_rfc)),
+            ],
+        ))
+        .await
+        .map_err(|e| ApiError::bad(format!("统计失败：{e}")))?;
+    let expiring_members: Vec<Value> = exp_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "email": s(r, "email"),
+                "name": s(r, "name"),
+                "plan": s(r, "plan"),
+                "planExpiresAt": s(r, "plan_expires_at"),
+            })
+        })
+        .collect();
+
     ok(json!({
         "totalViews": total_views,
         "totalArticles": total_articles,
@@ -160,6 +275,18 @@ pub async fn stats(State(st): State<AppState>, auth: Auth) -> ApiResult {
         "days": days,
         "viewsSeries": views_series,
         "topArticles": top_articles,
+        "community": {
+            "revenueTotal": revenue_total,
+            "ordersPaid": orders_paid,
+            "ordersPending": orders_pending,
+            "planMembers": plan_members,
+            "pointsIssued": points_issued,
+            "pointsSpent": points_spent,
+            "revenueSeries": revenue_series,
+            "newMembersSeries": new_members_series,
+            "expiringMembers": expiring_members,
+            "now": now_rfc,
+        },
     }))
 }
 

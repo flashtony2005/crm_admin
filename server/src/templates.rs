@@ -125,13 +125,14 @@ fn meta_to_json(m: &TplMeta, active: &str) -> serde_json::Value {
         "note": m.note,
         "createdAt": m.created_at,
         "active": m.slug == active,
-        // 预览地址：upload 类走后端同域 /t/<slug>/，app 类走外部端口
+        // 预览地址：upload 类走后端同域 /t/<slug>（无尾斜杠——axum 通配路由对尾斜杠结尾返回 404），
+        // app 类走外部端口
         "previewUrl": if m.kind == "upload" {
-            format!("/t/{}/", m.slug)
+            format!("/t/{}", m.slug)
         } else if !m.port.is_empty() {
             format!("http://127.0.0.1:{}/", m.port)
         } else {
-            format!("/t/{}/", m.slug)
+            format!("/t/{}", m.slug)
         },
     })
 }
@@ -408,8 +409,26 @@ fn ct_of(path: &str) -> &'static str {
     }
 }
 
+/// 模板 slug 白名单：仅允许小写字母、数字、连字符、下划线，且必须以字母或数字开头。
+///
+/// F5 修复：此前只校验了 `rest`（子路径）的 `starts_with`，slug 本身未做任何校验。
+/// `templates_dir().join("../../etc")` 能顺利通过 `base.exists()` 并读到模板目录
+/// 之外的任意文件 —— 同一份代码里 spa_fallback 做了 `contains("..")` 而 /t/ 没有，
+/// 属于防护遗漏而非有意设计。
+fn slug_ok(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug.len() <= 64
+        && slug
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
+        && slug.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
+}
+
 /// 读取模板目录下某个相对路径的文件（含 index.html 兜底）
 async fn serve_file(slug: &str, rest: &str) -> Response {
+    if !slug_ok(slug) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
     let base = templates_dir().join(slug);
     if !base.exists() {
         return StatusCode::NOT_FOUND.into_response();

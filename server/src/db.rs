@@ -451,6 +451,158 @@ const MIGRATIONS: &[Migration] = &[
         "CREATE INDEX IF NOT EXISTS idx_site_themes_default
             ON site_themes(site_id, is_default)",
         ]},
+    // ── 创作者社区 P0：邀请制注册 + 内容售卖分级 ────────────────────────────
+    // invite_codes：邀请码（额度制，好友凭码注册后 used+1 核销）。
+    // members.invited_by：注册来源（邀请人 member id；非空 = 邀请加入）。
+    // articles.paid_level：售卖分级 0 公开 / 1 订阅会员 / 2 积分买断 / 3 邀请专享，
+    //   优先于旧 visibility 字段；price_points 为积分买断单价（P1 积分商城消费）。
+    // lenient=true：旧库重放时 ALTER 重复列失败属预期，静默忽略保幂等。
+    Migration {
+        version: "0004_community_paywall",
+        name: "invite codes + article paywall levels",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS invite_codes (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            code TEXT NOT NULL, owner_member_id TEXT DEFAULT '',
+            quota INTEGER DEFAULT 1, used INTEGER DEFAULT 0,
+            expires_at TEXT DEFAULT '', enabled INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            UNIQUE(tenant_id, code))",
+        "CREATE INDEX IF NOT EXISTS idx_invite_codes_owner ON invite_codes(tenant_id, owner_member_id)",
+        "ALTER TABLE members ADD COLUMN invited_by TEXT DEFAULT ''",
+        "ALTER TABLE articles ADD COLUMN paid_level INTEGER DEFAULT 0",
+        "ALTER TABLE articles ADD COLUMN price_points INTEGER DEFAULT 0",
+        ]},
+    // ── 创作者社区 P1：积分 / 订单（人工确认收款）/ 兑码 ─────────────────────
+    // points_ledger：积分流水（唯一事实源）。余额 = SUM(delta)；balance_after
+    //   为写入时快照，便于对账。reason ∈ signin/purchase/redeem/recharge/
+    //   invite_reward/adjust；ref_id：purchase=文章id、invite_reward=新会员id、
+    //   recharge/redeem=订单号或兑码id。
+    // orders：收款单一入口。channel 预留 manual/code/wechat（P1 仅人工确认）；
+    //   status pending→paid（确认收款时原子 UPDATE ... WHERE status='pending'
+    //   防重复发货）；biz_type points_recharge 充积分 / plan 开通订阅。
+    // redeem_codes：一次性兑码（kind points=充积分 / plan_days=会员天数）。
+    // members.plan_expires_at：订阅到期时间（空=不限期）；付费墙判定
+    //   plan != 'free' 且（未设过期 或 未到期）。
+    Migration {
+        version: "0005_points_orders",
+        name: "points ledger + orders + redeem codes",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS points_ledger (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            member_id TEXT NOT NULL, delta INTEGER NOT NULL,
+            balance_after INTEGER NOT NULL DEFAULT 0,
+            reason TEXT NOT NULL DEFAULT 'adjust',
+            ref_id TEXT DEFAULT '', note TEXT DEFAULT '',
+            created_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_points_ledger_member ON points_ledger(tenant_id, member_id, created_at)",
+        "CREATE TABLE IF NOT EXISTS orders (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            order_no TEXT NOT NULL, member_id TEXT NOT NULL,
+            biz_type TEXT NOT NULL DEFAULT 'points_recharge',
+            tier_id TEXT DEFAULT '', points INTEGER DEFAULT 0, plan_days INTEGER DEFAULT 0,
+            amount_cents INTEGER DEFAULT 0, channel TEXT DEFAULT 'manual',
+            status TEXT DEFAULT 'pending', ref_no TEXT DEFAULT '',
+            paid_at TEXT DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            UNIQUE(tenant_id, order_no))",
+        "CREATE INDEX IF NOT EXISTS idx_orders_member ON orders(tenant_id, member_id, created_at)",
+        "CREATE TABLE IF NOT EXISTS redeem_codes (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            code TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'points',
+            value INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'unused',
+            used_by TEXT DEFAULT '', used_at TEXT DEFAULT '',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            UNIQUE(tenant_id, code))",
+        "ALTER TABLE members ADD COLUMN plan_expires_at TEXT DEFAULT ''",
+        ]},
+
+    // ── 0006_hardening（F1/F2 配套）────────────────────────────────
+    // 1) 会员邮箱唯一：先清理历史重复（保留同邮箱中 id 最小者），再建部分唯一索引，
+    //    空邮箱不参与（大量会员未填邮箱，纳入会误伤）。
+    // 2) 社区表补索引：订单按状态/渠道筛选、积分流水按会员/原因查重、兑码核销。
+    // 3) order_fulfill_log：发货 outbox。fulfill_order 的每个动作先占位再执行，
+    //    中途失败留痕可重试，杜绝「已扣款未发货」。
+    Migration {
+        version: "0006_hardening",
+        name: "0006_hardening",
+        lenient: true,
+        sqls: &[
+        "DELETE FROM members WHERE email <> '' AND id NOT IN (\
+            SELECT MIN(id) FROM members WHERE email <> '' GROUP BY tenant_id, email)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_members_email ON members(tenant_id, email) WHERE email <> ''",
+        "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(tenant_id, status, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(tenant_id, channel, status)",
+        "CREATE INDEX IF NOT EXISTS idx_ledger_member ON points_ledger(tenant_id, member_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_ledger_reason ON points_ledger(tenant_id, reason, ref_id)",
+        "CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(tenant_id, code)",
+        "CREATE INDEX IF NOT EXISTS idx_redeem_codes_status ON redeem_codes(tenant_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_members_plan_expiry ON members(tenant_id, plan_expires_at)",
+        "CREATE INDEX IF NOT EXISTS idx_members_invited_by ON members(tenant_id, invited_by)",
+        "CREATE TABLE IF NOT EXISTS order_fulfill_log (
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
+            order_id TEXT NOT NULL, order_no TEXT NOT NULL,
+            stage_key TEXT NOT NULL, stage TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            UNIQUE(tenant_id, order_id, stage_key))",
+        "CREATE INDEX IF NOT EXISTS idx_fulfill_pending ON order_fulfill_log(tenant_id, status)",
+        // F4：users.token_version 用于作废旧 token（改密 / 管理员踢下线）
+        "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1",
+        ],
+    },
+    // ── 0007_process_state（G2 配套）──────────────────────────────
+    // 1) login_locks：登录失败计数/锁定落库（原为进程内 Mutex，重启即清、多实例不共享）。
+    // 2) webhook_deliveries.updated_at：投递重试的退避基准（每次尝试刷新）。
+    Migration {
+        version: "0007_process_state",
+        name: "0007_process_state",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS login_locks (\
+            username TEXT PRIMARY KEY, fails INTEGER NOT NULL DEFAULT 0, \
+            locked_until TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)",
+        "ALTER TABLE webhook_deliveries ADD COLUMN updated_at TEXT DEFAULT ''",
+        ],
+    },
+    // ── 0008_audit（P2 配套）────────────────────────────────────
+    // audit_log：/api 写操作审计（谁、何时、对哪个路径、结果状态与耗时）。
+    Migration {
+        version: "0008_audit",
+        name: "0008_audit",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS audit_log (\
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, \
+            user_id TEXT DEFAULT '', username TEXT DEFAULT '', \
+            method TEXT DEFAULT '', path TEXT DEFAULT '', \
+            status INTEGER DEFAULT 0, duration_ms INTEGER DEFAULT 0, \
+            request_id TEXT DEFAULT '', created_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(tenant_id, created_at)",
+        ],
+    },
+    // ── 0009_article_dispatches（域模型收敛：一稿多投下沉）────────────
+    // article_dispatches：一篇文章分发到多个渠道的记录（原域模型 content_channels 的下沉版）。
+    // channel 为渠道标识文本（如 website / x / wechat），不做外键——渠道定义随域模型一并移除。
+    Migration {
+        version: "0009_article_dispatches",
+        name: "0009_article_dispatches",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS article_dispatches (\
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, \
+            article_id TEXT NOT NULL, channel TEXT NOT NULL DEFAULT '', \
+            external_url TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'active', \
+            dispatched_at TEXT DEFAULT '', note TEXT DEFAULT '', \
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_dispatch_unique ON article_dispatches(tenant_id, article_id, channel)",
+        "CREATE INDEX IF NOT EXISTS idx_dispatch_article ON article_dispatches(tenant_id, article_id)",
+        ],
+    },
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。
@@ -478,7 +630,19 @@ async fn run_migrations(db: &CmsDb) {
         }
         for sql in m.sqls {
             if m.lenient {
-                let _ = db.execute_statement(exec(sql)).await;
+                // P2：只吞「已存在/重复」类预期错误（幂等重放）；其他失败大声告警，
+                // 避免「版本已记录、列实际缺失」的结构漂移被静默吞掉。
+                if let Err(e) = db.execute_statement(exec(sql)).await {
+                    let msg = format!("{e}");
+                    let expected =
+                        msg.contains("already exists") || msg.contains("duplicate column");
+                    if !expected {
+                        eprintln!(
+                            "[db] 迁移 {} 非预期失败（已跳过该条，请人工核对）：{msg}\n  sql: {}",
+                            m.version, sql
+                        );
+                    }
+                }
             } else {
                 db.execute_statement(exec(sql)).await.expect("迁移执行失败");
             }
@@ -548,10 +712,10 @@ pub async fn bootstrap(db: &CmsDb) {
             .unwrap_or(0);
         if sec_n == 0 {
             let now = now_iso();
-            let about = r#"{"kicker":"KOSX.ai 社群增长操盘手","tagline":"Community Growth & Learning in Public","hero":{"title":"把连接，变成看得见的机会。","bio":"我是可可鸭，一名在 X 上持续实战的内容创作者。我围绕 AI 工具、Web3 与跨境金融，把复杂信息拆成可以直接使用的方法：单帖最高 120 万浏览，起号一周接到首单商业合作，一个月累计达到 20M+ 流量。\n\n同时，我是 KOSX.ai 社群增长操盘手，也是这个 AI 创造者网络的「第一位实习小子」。我负责 KOSX 的社群运营与增长：运营 300+ 人的「搞钱研究所」创作者社群；从 0 策划并主持「上桌！KOSX」系列 X Space——首期 8 位实战派嘉宾、2.5 小时全程满麦；同时组织线下城市面基局，把线上连接变成真实的握手。\n\n我相信：个人 IP 是这个时代的上桌券，而社群是让同频的人互相看见的引力场。","ctaLabel":"查看我的 X 实战主页","ctaHref":"https://x.com/KeKeYa88"}}"#.to_string();
-            let org = r#"{"affiliation":{"eyebrow":"Current Affiliation / 当前组织","name":"KOSX.ai","logo":"https://coucouya.com/assets/kosx-logo-official.png","desc":"KOSX.ai 是面向 AI-native Builders 的创造者网络：从社群发现人才，以真实项目组织协作，并让成果连接到商业世界。","ctaLabel":"访问 KOSX.ai","ctaHref":"https://kosx.ai/"},"pillars":{"eyebrow":"KOSX.ai 创造者网络 / 把线上连接变成真实的见面","title":"把 AI 时代的创造者，组织成真正能做成事的网络。","items":[{"no":"01","title":"AI 带来新的能力"},{"no":"02","title":"人才带来创造力与判断"},{"no":"03","title":"商业让价值真正落地"},{"no":"04","title":"资本与资源让成果持续生长"}]}}"#.to_string();
-            let lab = r#"{"writing":{"eyebrow":"Selected Writing / 代表文章","title":"在 X 上的实战手册","desc":"这里记录我在 AI 工具、Web3 与跨境金融领域的实战研究：从支付、外币卡到海外手机卡与 U 卡，把复杂门槛拆成可以直接使用的步骤。","ctaLabel":"了解更多我的内容","ctaHref":"https://x.com/KeKeYa88"},"series":{"eyebrow":"From 0 to 1 / 持续实验","title":"从 0 到 1","desc":"如何用 AI 工作流创造个人 IP","items":[{"no":"01","title":"治愈图文","desc":"用轻松温柔的图文，记录生活、工具与成长。","href":"https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzcwNzM3NjY2Mg%3D%3D#wechat_redirect"},{"no":"02","title":"书评","desc":"把阅读、思考与创作者视角放进一支支短内容里。","href":"https://weixin.qq.com/sph/AAmgiDIFxb"},{"no":"03","title":"建设中","desc":"小红书和抖音个人 IP 正在建设中。","coming":true}]}}"#.to_string();
-            let web3 = r#"{"web3":{"title":"探索 Web3","desc":"把我正在使用与合作的 Web3 产品入口集中在这里。先看清产品类型、复制邀请码，再前往官方页面。","disclaimer":"以下链接包含邀请关系；你通过链接注册时，我可能获得平台奖励，但不会增加你的注册费用。","items":[{"name":"Bitget Wallet","desc":"Bitget Wallet 支持多链资产管理、交易与 Web3 应用探索；私钥由你自己掌握，请离线保管助记词。","inviteCode":"JtTDj8Se","ctaLabel":"前往官方注册链接","ctaHref":"https://web3.bitget.com/share/25AasN?inviteCode=JtTDj8Se"}]}}"#.to_string();
+            let about = r#"{"kicker":"Demo 创作者","tagline":"Build in Public","hero":{"title":"把内容，变成可持续的事业。","bio":"这是一份演示用的创作者简介：在此介绍你的创作方向、代表成绩与正在经营的业务。安装后可在后台「设置 → 站点外观 → 首页区块」中替换为你的真实内容。\n\n支持多段文本：讲清楚你是谁、做什么、为什么值得关注。","ctaLabel":"查看我的主页","ctaHref":""}}"#.to_string();
+            let org = r#"{"affiliation":{"eyebrow":"Current Affiliation / 当前组织","name":"Demo Network","logo":"","desc":"在此填写你当前所属的组织或网络：它是什么、你扮演的角色、以及它如何与你的创作产生协同。","ctaLabel":"访问组织主页","ctaHref":""},"pillars":{"eyebrow":"为什么关注我 / 把关注变成价值","title":"四个维度展示你的独特价值。","items":[{"no":"01","title":"专业能力"},{"no":"02","title":"内容产出"},{"no":"03","title":"社群连接"},{"no":"04","title":"商业转化"}]}}"#.to_string();
+            let lab = r#"{"writing":{"eyebrow":"Selected Writing / 代表文章","title":"我的实战手册","desc":"在此汇总你的代表作品与系列文章：选一个你最有发言权的领域，把复杂门槛拆成可以直接使用的步骤。","ctaLabel":"了解更多我的内容","ctaHref":""},"series":{"eyebrow":"From 0 to 1 / 持续实验","title":"从 0 到 1","desc":"记录你正在进行的实验与项目","items":[{"no":"01","title":"实验一","desc":"正在进行的第一个项目简述。","coming":true},{"no":"02","title":"实验二","desc":"正在进行的第二个项目简述。","coming":true},{"no":"03","title":"建设中","desc":"更多实验筹备中。","coming":true}]}}"#.to_string();
+            let web3 = r#"{"web3":{"title":"探索 Web3","desc":"把你正在使用与合作的 Web3 产品入口集中在这里。先看清产品类型、复制邀请码，再前往官方页面。","disclaimer":"以下链接包含邀请关系；访客通过链接注册时，你可能获得平台奖励，但不会增加其注册费用。","items":[{"name":"Demo Wallet","desc":"示例产品：描述该钱包或平台的核心能力与适用人群；提醒用户自行离线保管助记词。","inviteCode":"DEMO1234","ctaLabel":"前往官方页面","ctaHref":""}]}}"#.to_string();
             let rows: Vec<(&str, &str, &str, String, i64)> = vec![
                 ("about", "关于", "", about, 1),
                 ("org", "组织", "", org, 2),

@@ -9,23 +9,25 @@ use axum::{
 };
 use serde_json::json;
 use std::path::PathBuf;
-use tower_http::cors::CorsLayer;
+use axum::http::{HeaderValue, Method};
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
 mod ai;
-mod api;
+mod audit;
 mod cmsdb;
 mod auth;
 mod automation;
 mod db;
 // Domain Model V1 的 SeaORM entity 层（12 张核心表，见 db.rs 的 0003 迁移）。
 // Entity 只做持久化映射；业务规则属 domain 层，HTTP 契约属 api 层。
-mod entity;
 mod error;
 mod llm;
 mod notify;
 mod oauth;
 mod perm;
+mod points;
+mod wechat_pay;
 mod public_api;
 mod public_forms;
 mod resources;
@@ -154,6 +156,23 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/public/members/login", post(members::login))
         .route("/api/public/members/me", get(members::me).post(members::update_me))
         .route("/api/public/members/plans", get(members::plans))
+        // 创作者社区 P1：积分钱包 / 签到 / 兑码 / 积分买断 / 订单（人工确认收款）
+        .route("/api/public/members/wallet", get(points::wallet))
+        .route("/api/public/members/orders", get(points::my_orders))
+        .route("/api/public/orders/{order_no}", get(points::order_status))
+        .route("/api/public/pay/wechat/notify", post(wechat_pay::notify))
+        .route("/api/admin/orders/recon", get(points::orders_recon))
+        .route("/api/admin/orders/close-stale", post(points::orders_close_stale))
+        .route("/api/admin/orders/fulfill-pending", get(points::orders_fulfill_pending))
+        .route("/api/admin/users/{id}/revoke-sessions", post(auth::revoke_sessions))
+        .route("/api/admin/orders/retry-fulfill", post(points::orders_retry_fulfill))
+        .route("/api/admin/payconfig", get(wechat_pay::pay_config_get).put(wechat_pay::pay_config_put))
+        .route("/api/admin/audit", get(audit::list))
+        .route("/api/public/members/signin", post(points::signin))
+        .route("/api/public/members/redeem", post(points::redeem))
+        .route("/api/public/members/purchase-article", post(points::purchase_article))
+        .route("/api/public/orders", post(points::create_order))
+        .route("/api/admin/orders/{id}/confirm", post(points::confirm_order))
         // 评论（公开列表/发布 + Admin 审核）
         .route("/api/public/comments", get(comments::public_list).post(comments::public_create))
         .route("/api/comments", get(comments::admin_list))
@@ -211,128 +230,51 @@ pub fn build_router(st: AppState) -> Router {
         .route("/t/{slug}/{*rest}", get(templates::serve_one))
         .route("/t/active", get(templates::serve_active_index))
         .route("/t/active/{*rest}", get(templates::serve_active))
-        // ── Domain Model V1（Agent-first 领域模型）──────────────────────────
-        // 与旧 CMS 路由（/api/{table}）并存互不干扰；旧表不在本轮重构范围。
-        // Content：业务事实 + Context / Channel 两个关系维度
-        .route(
-            "/api/v1/content",
-            get(api::content::list).post(api::content::create),
-        )
-        .route(
-            "/api/v1/content/{id}",
-            get(api::content::get_one)
-                .patch(api::content::update)
-                .delete(api::content::remove),
-        )
-        .route(
-            "/api/v1/content/{id}/contexts",
-            get(api::content::list_contexts).post(api::content::attach_context),
-        )
-        .route(
-            "/api/v1/content/{id}/contexts/{context_id}",
-            delete(api::content::detach_context),
-        )
-        .route("/api/v1/content/{id}/channels", get(api::content::list_channels))
-        .route(
-            "/api/v1/content/{id}/channels/{channel_id}/publish",
-            post(api::content::publish_to_channel),
-        )
-        .route(
-            "/api/v1/content/{id}/channels/{channel_id}",
-            delete(api::content::unpublish_from_channel),
-        )
-        // Context：Agent 的语义上下文
-        .route(
-            "/api/v1/contexts",
-            get(api::contexts::list).post(api::contexts::create),
-        )
-        .route(
-            "/api/v1/contexts/{id}",
-            get(api::contexts::get_one)
-                .patch(api::contexts::update)
-                .delete(api::contexts::remove),
-        )
-        .route("/api/v1/contexts/{id}/contents", get(api::contexts::contents))
-        // Channel：分发出口
-        .route(
-            "/api/v1/channels",
-            get(api::channels::list).post(api::channels::create),
-        )
-        .route(
-            "/api/v1/channels/{id}",
-            get(api::channels::get_one)
-                .patch(api::channels::update)
-                .delete(api::channels::remove),
-        )
-        .route("/api/v1/channels/{id}/contents", get(api::channels::contents))
-        // Site：呈现载体 + 模板路由绑定 + 主题绑定
-        .route("/api/v1/sites", get(api::sites::list).post(api::sites::create))
-        .route(
-            "/api/v1/sites/{id}",
-            get(api::sites::get_one)
-                .patch(api::sites::update)
-                .delete(api::sites::remove),
-        )
-        .route(
-            "/api/v1/sites/{id}/templates",
-            get(api::sites::list_templates)
-                .post(api::sites::bind_template)
-                .delete(api::sites::unbind_template),
-        )
-        .route(
-            "/api/v1/sites/{id}/themes",
-            get(api::sites::list_themes)
-                .post(api::sites::bind_theme)
-                .delete(api::sites::unbind_theme),
-        )
-        // Render Contract：外部 Renderer 消费的与前端无关的呈现契约
-        .route("/api/v1/sites/{id}/render", get(api::render::render))
-        // Template：怎么组合
-        .route(
-            "/api/v1/templates",
-            get(api::templates::list).post(api::templates::create),
-        )
-        .route(
-            "/api/v1/templates/{id}",
-            get(api::templates::get_one)
-                .patch(api::templates::update)
-                .delete(api::templates::remove),
-        )
-        .route(
-            "/api/v1/templates/{id}/versions",
-            get(api::templates::list_versions).post(api::templates::create_version),
-        )
-        .route(
-            "/api/v1/templates/{id}/versions/{version}",
-            get(api::templates::get_version),
-        )
-        // Theme：怎么呈现
-        .route(
-            "/api/v1/themes",
-            get(api::themes::list).post(api::themes::create),
-        )
-        .route(
-            "/api/v1/themes/{id}",
-            get(api::themes::get_one)
-                .patch(api::themes::update)
-                .delete(api::themes::remove),
-        )
-        .route(
-            "/api/v1/themes/{id}/versions",
-            get(api::themes::list_versions).post(api::themes::create_version),
-        )
-        .route(
-            "/api/v1/themes/{id}/versions/{version}",
-            get(api::themes::get_version),
-        )
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，
         // 放宽到 20MB（仍可被 Nginx/反代层再做最终限制）。
         // 生产态内置静态服务：未匹配到 /api、/uploads、SEO 等路由时，
         // 由 spa_fallback 提供 web/dist 静态文件，缺失的导航路径回退到 index.html。
         .fallback(get(spa_fallback))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024))
-        .layer(CorsLayer::very_permissive())
+        .layer(cors_layer())
+        .layer(axum::middleware::from_fn_with_state(st.clone(), audit::middleware))
         .with_state(st)
+}
+
+/// CORS 策略（P2 收紧，替代一刀切 very_permissive）：
+/// - CORS_ORIGINS 配置了白名单（逗号分隔）→ 仅放行这些来源；
+/// - 未配置且 CMS_ENV=production → 不放开跨域（后台与公开站点均同源伺服）；
+/// - 未配置且开发模式 → 保持宽松，便于本地 5188 等前端联调。
+fn cors_layer() -> CorsLayer {
+    match std::env::var("CORS_ORIGINS") {
+        Ok(list) if !list.trim().is_empty() => {
+            let origins: Vec<HeaderValue> = list
+                .split(',')
+                .filter_map(|s| s.trim().parse::<HeaderValue>().ok())
+                .collect();
+            if origins.is_empty() {
+                return CorsLayer::new();
+            }
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers([
+                    header::AUTHORIZATION,
+                    header::CONTENT_TYPE,
+                    header::ACCEPT,
+                    header::ORIGIN,
+                ])
+        }
+        _ if std::env::var("CMS_ENV").as_deref() == Ok("production") => CorsLayer::new(),
+        _ => CorsLayer::very_permissive(),
+    }
 }
 
 /// 最小化 .env 加载：仅把「当前进程环境中尚不存在」的变量注入（不覆盖容器/系统注入）。

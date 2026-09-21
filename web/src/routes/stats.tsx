@@ -17,6 +17,18 @@ interface StatsData {
   days: string[]
   viewsSeries: number[]
   topArticles: { title: string; slug: string; views: number }[]
+  community?: {
+    revenueTotal: number
+    ordersPaid: number
+    ordersPending: number
+    planMembers: number
+    pointsIssued: number
+    pointsSpent: number
+    revenueSeries: number[]
+    newMembersSeries: number[]
+    expiringMembers: { email: string; name: string; plan: string; planExpiresAt: string }[]
+    now: string
+  }
 }
 
 function EyeIcon() {
@@ -45,6 +57,36 @@ function CommentIcon() {
   return (
     <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z" />
+    </svg>
+  )
+}
+function MoneyIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.5 8.5h-4a1.75 1.75 0 0 0 0 3.5h3a1.75 1.75 0 0 1 0 3.5h-4M12 6.5v11" />
+    </svg>
+  )
+}
+function OrderIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 2 4 6v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4zM4 6h16M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  )
+}
+function ClockIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  )
+}
+function GemIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3h12l4 6-10 12L2 9z M2 9h20M9 3l3 6 3-6M12 21 9 9M12 21l3-12" />
     </svg>
   )
 }
@@ -144,6 +186,98 @@ function StatsPage() {
           )}
         </Card>
       </div>
+
+      {/* 社区经营（订单/收入/积分/会员） */}
+      {data.community && (
+        <>
+          <h3 className="mt-8 mb-1 text-base font-semibold">{t('stats.communityTitle')}</h3>
+          <p className="mb-4 text-xs text-default-400">{t('stats.communitySubtitle')}</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title={t('stats.revenueTotal')}
+              value={`¥${(data.community.revenueTotal / 100).toFixed(2)}`}
+              icon={<MoneyIcon />}
+              spark={data.community.revenueSeries}
+              sparkColor="#059669"
+            />
+            <StatCard title={t('stats.ordersPaid')} value={data.community.ordersPaid} icon={<OrderIcon />} />
+            <StatCard title={t('stats.ordersPending')} value={data.community.ordersPending} icon={<ClockIcon />} />
+            <StatCard title={t('stats.planMembers')} value={data.community.planMembers} icon={<GemIcon />} />
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="p-5">
+              <h3 className="mb-4 text-base font-semibold">{t('stats.revenueTrend')}</h3>
+              <AreaChart
+                data={data.community.revenueSeries}
+                labels={data.days.map((d) => d.slice(5))}
+                height={200}
+                color="#059669"
+              />
+              <p className="mt-3 text-xs text-default-400">
+                {t('stats.pointsIssued')} {data.community.pointsIssued} · {t('stats.pointsSpent')}{' '}
+                {data.community.pointsSpent}
+              </p>
+            </Card>
+            <Card className="p-5">
+              <h3 className="mb-4 text-base font-semibold">{t('stats.newMembersTrend')}</h3>
+              <AreaChart
+                data={data.community.newMembersSeries}
+                labels={data.days.map((d) => d.slice(5))}
+                height={200}
+                color="#2563EB"
+              />
+            </Card>
+          </div>
+
+          {/* 到期提醒：临期/已过期付费会员 */}
+          <Card className="mt-6 p-5">
+            <h3 className="mb-4 text-base font-semibold">{t('stats.expiringTitle')}</h3>
+            {data.community.expiringMembers.length === 0 ? (
+              <p className="text-sm text-default-400">{t('stats.expiringEmpty')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-default-400 border-b border-default-200 text-left text-xs">
+                      <th className="py-2 pr-4 font-medium">{t('stats.memberCol')}</th>
+                      <th className="py-2 pr-4 font-medium">{t('stats.planCol')}</th>
+                      <th className="py-2 pr-4 font-medium">{t('stats.expiresCol')}</th>
+                      <th className="py-2 font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.community.expiringMembers.map((m, i) => {
+                      const expired = new Date(m.planExpiresAt).getTime() < new Date(data.community!.now).getTime()
+                      return (
+                        <tr key={i} className="border-b border-default-100 last:border-b-0">
+                          <td className="py-2 pr-4">
+                            <span className="font-medium">{m.name || m.email}</span>
+                            {m.name && m.email ? <span className="text-default-400 ml-2 text-xs">{m.email}</span> : null}
+                          </td>
+                          <td className="py-2 pr-4">{m.plan}</td>
+                          <td className="py-2 pr-4 tabular-nums">{m.planExpiresAt.slice(0, 10)}</td>
+                          <td className="py-2">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                expired
+                                  ? 'bg-danger-100 text-danger-600'
+                                  : 'bg-warning-100 text-warning-600'
+                              }`}
+                            >
+                              {expired ? t('stats.expired') : t('stats.expiring')}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
     </PageContainer>
   )
 }

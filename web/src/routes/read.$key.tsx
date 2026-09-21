@@ -15,7 +15,7 @@ import { themeCssVars } from '../themes/siteThemes'
 import type { SiteTheme } from '../themes/site-theme-types'
 import { useSeo } from '@/components/Seo'
 import { sanitizeHtml } from '../utils/sanitize'
-import { getMemberToken } from '../api/cms'
+import { communityApi, getMemberToken } from '../api/cms'
 import { buildSrcset } from '../utils/imgSrcset'
 
 interface SiteArticle {
@@ -42,6 +42,10 @@ interface LockInfo {
   visibility: string
   message: string
   preview?: SiteArticle
+  /** 门槛类型：login 登录会员 / subscription 订阅 / points 积分买断 / invite 邀请专享 */
+  reason?: string
+  paidLevel?: number
+  pricePoints?: number
 }
 
 function firstImg(html?: string | null): string | null {
@@ -82,6 +86,9 @@ function ReadPage() {
           ok?: boolean
           locked?: boolean
           visibility?: string
+          reason?: string
+          paidLevel?: number
+          pricePoints?: number
           error?: string
           preview?: SiteArticle
           data?: SiteArticle
@@ -95,6 +102,9 @@ function ReadPage() {
             visibility: body.visibility || 'members',
             message: body.error || '该内容需要解锁',
             preview: body.preview,
+            reason: body.reason,
+            paidLevel: body.paidLevel,
+            pricePoints: body.pricePoints,
           })
           setPhase('locked')
           // 预览已展示：仍记为一次阅读事件（便于统计热门内容）
@@ -266,10 +276,21 @@ function ReadPage() {
   )
 }
 
-/** 付费墙解锁区块：展示免费摘要预览 + 登录/订阅 CTA */
+/** 付费墙解锁区块：展示免费摘要预览 + 登录/订阅 CTA（按 reason 区分文案） */
 function UnlockBlock({ lock, theme }: { lock: LockInfo; theme: SiteTheme }) {
   const p = lock.preview
-  const isPaid = lock.visibility === 'paid'
+  const [buying, setBuying] = useState(false)
+  const [buyMsg, setBuyMsg] = useState('')
+  const reason = lock.reason || (lock.visibility === 'paid' ? 'subscription' : 'login')
+  const badge =
+    reason === 'subscription'
+      ? { icon: '💎', label: '付费会员专享' }
+      : reason === 'points'
+        ? { icon: '🎫', label: '积分解锁' }
+        : reason === 'invite'
+          ? { icon: '✉️', label: '邀请会员专享' }
+          : { icon: '🔒', label: '会员专享' }
+  const cta = reason === 'subscription' ? '订阅解锁' : reason === 'points' ? '了解会员与积分' : '登录 / 注册会员'
   const cover = p?.featured_image || (p ? firstImg(p.content) : null)
   const title = p?.meta_title || p?.title || '会员专享内容'
   const teaser = p?.meta_description || excerpt(p ?? { summary: '' })
@@ -287,11 +308,12 @@ function UnlockBlock({ lock, theme }: { lock: LockInfo; theme: SiteTheme }) {
         <div className="mt-8 rounded-3xl p-8 shadow-sm" style={{ border: `1px solid ${theme.vars.border}`, background: theme.vars.surface }}>
           <div className="flex items-center gap-3">
             <span className="grid place-items-center w-12 h-12 rounded-2xl text-2xl" style={{ background: theme.vars.surfaceAlt }}>
-              {isPaid ? '💎' : '🔒'}
+              {badge.icon}
             </span>
             <div>
               <p className="text-xs font-medium tracking-wide uppercase" style={{ color: theme.vars.accent }}>
-                {isPaid ? '付费会员专享' : '会员专享'}
+                {badge.label}
+                {reason === 'points' && Number(lock.pricePoints) > 0 ? ` · ${lock.pricePoints} 积分` : ''}
               </p>
               <h1 className="text-2xl font-extrabold leading-tight mt-0.5">{title}</h1>
             </div>
@@ -319,7 +341,7 @@ function UnlockBlock({ lock, theme }: { lock: LockInfo; theme: SiteTheme }) {
               className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition"
               style={{ background: theme.vars.accent, color: theme.vars.accentText }}
             >
-              {isPaid ? '订阅解锁' : '登录 / 注册会员'}
+              {cta}
             </Link>
             <Link
               to="/site"
@@ -333,6 +355,50 @@ function UnlockBlock({ lock, theme }: { lock: LockInfo; theme: SiteTheme }) {
           <p className="mt-4 text-xs" style={{ color: theme.vars.muted }}>
             已有会员？登录后刷新本页即可自动解锁。
           </p>
+
+          {reason === 'points' && (
+            <div className="mt-4">
+              {getMemberToken() ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={buying}
+                    onClick={() => {
+                      const aid = p?.id
+                      if (!aid) return
+                      setBuying(true)
+                      setBuyMsg('')
+                      communityApi
+                        .purchaseArticle(aid)
+                        .then((r) => {
+                          if (r.alreadyOwned) {
+                            window.location.reload()
+                          } else {
+                            setBuyMsg(`解锁成功，已扣除 ${r.spent} 积分，刷新后阅读全文…`)
+                            setTimeout(() => window.location.reload(), 1200)
+                          }
+                        })
+                        .catch((e) => {
+                          setBuyMsg(e instanceof Error ? e.message : '解锁失败')
+                        })
+                        .finally(() => setBuying(false))
+                    }}
+                    className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:opacity-60"
+                    style={{ border: `1px solid ${theme.vars.accent}`, color: theme.vars.accent }}
+                  >
+                    {buying ? '解锁中…' : `用 ${lock.pricePoints ?? 0} 积分解锁全文`}
+                  </button>
+                  {buyMsg && (
+                    <p className="mt-2 text-xs" style={{ color: theme.vars.muted }}>{buyMsg}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs" style={{ color: theme.vars.muted }}>
+                  积分单价 {lock.pricePoints ?? 0} · 登录会员后即可用积分解锁
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

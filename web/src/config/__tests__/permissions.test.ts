@@ -39,9 +39,10 @@ describe('config/permissions 权限码表与矩阵', () => {
     expect(permMatches(['content.articles.*'], 'content.articlesX.create')).toBe(false)
   })
 
-  it('权限码命名规范：两到三段点分', () => {
+  it('权限码命名规范：两到三段点分（段内允许小写字母/数字/camelCase）', () => {
     for (const code of Object.values(P)) {
-      expect(code).toMatch(/^[a-z]+(\.[a-z]+){1,2}$/)
+      // 例：content.articles.view / i18n.view / site.homePins.view
+      expect(code).toMatch(/^[a-z][a-z0-9]*(\.[A-Za-z0-9]+){1,2}$/)
     }
   })
 })

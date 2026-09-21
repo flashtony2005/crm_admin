@@ -17,6 +17,12 @@ export function httpCollection<T extends { id: string }>(resource: string): Crud
       return body.data ?? []
     },
 
+    async listPaged(page: number, pageSize: number): Promise<{ items: T[]; total: number }> {
+      const qs = `?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(pageSize)}`
+      const body = await apiList<T>(`${base}${qs}`)
+      return { items: body.data ?? [], total: body.total ?? 0 }
+    },
+
     async get(id: string): Promise<T | undefined> {
       try {
         return await api<T>(`${base}/${id}`)

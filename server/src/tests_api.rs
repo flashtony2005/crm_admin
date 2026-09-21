@@ -146,3 +146,169 @@ async fn public_form_submit_creates_lead() {
     let (_, f2) = call(app.clone(), "GET", &format!("/api/forms/{fid}"), None, Some(&o)).await;
     let _ = f2;
 }
+
+// ── P2：资金链路测试 ──
+
+async fn register_member(app: &axum::Router, email: &str) -> String {
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({ "email": email, "password": "member1234", "name": "测试会员" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "注册应成功：{b}");
+    b["data"]["token"].as_str().unwrap().to_string()
+}
+
+#[tokio::test]
+async fn points_purchase_atomic_idempotent_and_no_negative() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    // 两篇积分解锁文章：价 100 与 1000
+    let (_, a1) = call(app.clone(), "POST", "/api/articles",
+        Some(json!({"title":"付费文A","status":"published","paidLevel":2,"pricePoints":100})), Some(&o)).await;
+    let id1 = a1["data"]["id"].as_str().unwrap().to_string();
+    let (_, a2) = call(app.clone(), "POST", "/api/articles",
+        Some(json!({"title":"付费文B","status":"published","paidLevel":2,"pricePoints":1000})), Some(&o)).await;
+    let id2 = a2["data"]["id"].as_str().unwrap().to_string();
+
+    let m = register_member(&app, "buyer@test.dev").await;
+
+    // 造一枚 500 积分兑码并核销 → 余额 500
+    let (_, rc) = call(app.clone(), "POST", "/api/redeem_codes",
+        Some(json!({"code":"PTS500","kind":"points","value":500,"status":"unused"})), Some(&o)).await;
+    assert_eq!(rc["data"]["code"], "PTS500", "{rc}");
+    let (s, b) = call(app.clone(), "POST", "/api/public/members/redeem",
+        Some(json!({"code":"PTS500"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["balance"], 500);
+
+    // 买 A：-100 → 400
+    let (s, b) = call(app.clone(), "POST", "/api/public/members/purchase-article",
+        Some(json!({"article_id": id1})), Some(&m)).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["balance"], 400);
+
+    // 重复购买：幂等 alreadyOwned
+    let (s, b) = call(app.clone(), "POST", "/api/public/members/purchase-article",
+        Some(json!({"article_id": id1})), Some(&m)).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["alreadyOwned"], true);
+
+    // 余额不足：400，且余额保持 400（不得为负）
+    let (s, b) = call(app.clone(), "POST", "/api/public/members/purchase-article",
+        Some(json!({"article_id": id2})), Some(&m)).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{b}");
+    let (_, w) = call(app.clone(), "GET", "/api/public/members/wallet", None, Some(&m)).await;
+    assert_eq!(w["data"]["balance"], 400, "{w}");
+}
+
+#[tokio::test]
+async fn order_confirm_idempotent_and_invite_reward_once() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    // 邀请人 A 注册，为其造一枚个人邀请码
+    let a_tok = register_member(&app, "a@test.dev").await;
+    let (_, me) = call(app.clone(), "GET", "/api/public/members/me", None, Some(&a_tok)).await;
+    let a_id = me["data"]["member"]["id"].as_str().unwrap().to_string();
+    let (s, ic) = call(app.clone(), "POST", "/api/invite_codes",
+        Some(json!({"code":"INV-A","quota":10,"ownerMemberId":a_id,"enabled":true})), Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{ic}");
+
+    // B 用邀请码注册 → B.invited_by = A
+    let (s, rb) = call(app.clone(), "POST", "/api/public/members/register",
+        Some(json!({"email":"b@test.dev","password":"member1234","name":"被邀请人","invite_code":"INV-A"})), None).await;
+    assert_eq!(s, StatusCode::OK, "{rb}");
+    let b_tok = rb["data"]["token"].as_str().unwrap().to_string();
+
+    // B 创建充值订单（100 积分 = 100 分）
+    let (s, ord) = call(app.clone(), "POST", "/api/public/orders",
+        Some(json!({"biz_type":"points_recharge","points":100,"channel":"manual"})), Some(&b_tok)).await;
+    assert_eq!(s, StatusCode::OK, "{ord}");
+    let order_no = ord["data"]["orderNo"].as_str().unwrap().to_string();
+    // 订单响应不含 id，经网关列表反查
+    let (_, orders) = call(app.clone(), "GET", "/api/orders", None, Some(&o)).await;
+    let hit = orders["data"].as_array().unwrap().iter()
+        .find(|r| r["orderNo"] == order_no).unwrap().clone();
+    let oid = hit["id"].as_str().unwrap().to_string();
+
+    // 首次确认：发货 + 邀请奖励
+    let (s, b) = call(app.clone(), "POST", &format!("/api/admin/orders/{oid}/confirm"), None, Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["inviteReward"]["points"], 100, "{b}");
+
+    // B 余额 = 100（充值到账）；A 余额 = 100（邀请奖励）
+    let (_, wb) = call(app.clone(), "GET", "/api/public/members/wallet", None, Some(&b_tok)).await;
+    assert_eq!(wb["data"]["balance"], 100, "{wb}");
+    let (_, wa) = call(app.clone(), "GET", "/api/public/members/wallet", None, Some(&a_tok)).await;
+    assert_eq!(wa["data"]["balance"], 100, "{wa}");
+
+    // 重复确认：400（原子防重），A 余额不变
+    let (s, b) = call(app.clone(), "POST", &format!("/api/admin/orders/{oid}/confirm"), None, Some(&o)).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{b}");
+    let (_, wa2) = call(app.clone(), "GET", "/api/public/members/wallet", None, Some(&a_tok)).await;
+    assert_eq!(wa2["data"]["balance"], 100, "{wa2}");
+}
+
+#[tokio::test]
+async fn redeem_code_single_use() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+    let m = register_member(&app, "redeemer@test.dev").await;
+
+    let (s, _) = call(app.clone(), "POST", "/api/redeem_codes",
+        Some(json!({"code":"ONE50","kind":"points","value":50,"status":"unused"})), Some(&o)).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, b) = call(app.clone(), "POST", "/api/public/members/redeem",
+        Some(json!({"code":"ONE50"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["balance"], 50);
+    // 第二次兑换：已核销 → 400
+    let (s, b) = call(app.clone(), "POST", "/api/public/members/redeem",
+        Some(json!({"code":"ONE50"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{b}");
+}
+
+// ── P2：审计与 request-id 测试 ──
+
+#[tokio::test]
+async fn audit_log_and_request_id() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    // 响应头携带 X-Request-Id（GET 也带）
+    let req = Request::builder()
+        .method("GET")
+        .uri("/api/user/me")
+        .header(header::AUTHORIZATION, format!("Bearer {o}"))
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert!(resp.headers().get("x-request-id").is_some(), "响应应带 X-Request-Id");
+
+    // 写操作 → 审计留痕
+    let (_, art) = call(app.clone(), "POST", "/api/articles", Some(json!({"title":"审计文"})), Some(&o)).await;
+    let aid = art["data"]["id"].as_str().unwrap().to_string();
+    let (s, _) = call(app.clone(), "DELETE", &format!("/api/articles/{aid}"), None, Some(&o)).await;
+    assert_eq!(s, StatusCode::OK);
+
+    let (s, al) = call(app.clone(), "GET", "/api/admin/audit", None, Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{al}");
+    let paths: Vec<String> = al["data"].as_array().unwrap().iter()
+        .map(|r| r["path"].as_str().unwrap().to_string()).collect();
+    assert!(paths.iter().any(|p| p == "/api/articles"), "应审计到 POST /api/articles：{paths:?}");
+    assert!(al["total"].as_u64().unwrap() >= 3, "登录+建文+删文至少 3 条：{al}");
+
+    // 非 Owner 不可读审计
+    let e = login(&app, "editor").await;
+    let (s, _) = call(app.clone(), "GET", "/api/admin/audit", None, Some(&e)).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+}

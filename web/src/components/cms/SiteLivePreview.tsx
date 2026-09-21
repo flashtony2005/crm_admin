@@ -89,11 +89,13 @@ export function SiteLivePreview() {
   }
 
   const cur = tpls.find((x) => x.slug === selected)
+  // 后端 previewUrl 可能是 /t/<slug>/（尾斜杠），axum 通配路由对尾斜杠结尾返回 404，故统一去掉
+  const stripSlash = (u: string) => u.replace(/\/+$/, '')
   // app 类（coucouya / fastshot）带编辑桥 → 挂 cmsEdit；upload 类仅预览
   const src = cur
     ? cur.kind === 'app'
-      ? `${cur.previewUrl}?cmsEdit=1`
-      : cur.previewUrl
+      ? `${stripSlash(cur.previewUrl)}?cmsEdit=1`
+      : stripSlash(cur.previewUrl)
     : ''
 
   return (

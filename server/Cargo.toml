@@ -27,6 +27,11 @@ sha2 = "0.10"
 hex = "0.4"
 # 首页模板上传：zip 包解包（仅需 deflate 解压标准 zip）
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# P2 微信支付 API v3（Native 扫码）：RSA-SHA256 签名/验签 + AES-256-GCM 回调解密 + 二维码
+rsa = { version = "0.9", features = ["sha2"] }
+aes-gcm = "0.10"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+base64 = "0.22"
 
 [profile.dev]
 opt-level = 0

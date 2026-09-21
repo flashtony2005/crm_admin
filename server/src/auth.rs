@@ -4,14 +4,13 @@
 
 use argon2::{password_hash::{PasswordHash, PasswordHasher, SaltString}, Argon2, PasswordVerifier};
 use rand_core::OsRng;
-use axum::{extract::{FromRequestParts, State}, Json};
+use axum::{
+    extract::{FromRef, FromRequestParts, Path, State},
+    Json,
+};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::Deserialize;
 use serde_json::json;
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
-
 use crate::{
     error::{ok, ApiError, ApiResult},
     perm,
@@ -24,6 +23,10 @@ pub struct Claims {
     pub username: String,
     pub role: String,     // owner | editor | viewer
     pub tenant: String,   // tenant_id
+    /// 令牌版本号：与 users.token_version 比对，用于「改密/踢下线」后作废旧 token。
+    /// 带 serde(default) 保证存量 token（无此字段）仍能解析，不会把已登录用户全踢掉。
+    #[serde(default)]
+    pub tv: i64,
     pub exp: u64,
 }
 
@@ -43,34 +46,71 @@ pub fn assert_jwt_secret() {
     }
 }
 
-// ── A4 登录限速：同用户名连续失败 5 次 → 锁定 15 分钟（内存态，重启即清）──
-const MAX_FAILS: u32 = 5;
-const LOCK_DURATION: Duration = Duration::from_secs(15 * 60);
+// ── G2 登录限速落库：同用户名连续失败 5 次 → 锁定 15 分钟。
+// 原为进程内 Mutex（重启即清、多实例不共享），现持久化到 login_locks 表；
+// UPSERT 原子完成「计数+1 或触发锁定」，无读改写竞态。──
+const MAX_FAILS: i64 = 5;
+const LOCK_MINS: i64 = 15;
 
-fn fail_board() -> &'static Mutex<HashMap<String, (u32, Option<Instant>)>> {
-    static BOARD: OnceLock<Mutex<HashMap<String, (u32, Option<Instant>)>>> = OnceLock::new();
-    BOARD.get_or_init(|| Mutex::new(HashMap::new()))
+fn sval_str(s: String) -> sea_orm::Value {
+    sea_orm::Value::String(Some(s))
 }
 
-fn login_locked(username: &str) -> bool {
-    let board = fail_board().lock().unwrap();
-    match board.get(username) {
-        Some((_, Some(until))) if *until > Instant::now() => true,
-        _ => false,
-    }
+async fn login_locked(st: &AppState, username: &str) -> bool {
+    let now = crate::db::now_iso();
+    // 顺带清理已过期的锁（登录低频，无性能顾虑）
+    let _ = st
+        .db
+        .execute(
+            "DELETE FROM login_locks WHERE locked_until <> '' AND locked_until <= ?",
+            vec![sval_str(now.clone())],
+        )
+        .await;
+    st.db
+        .query_one(
+            "SELECT 1 AS hit FROM login_locks WHERE username = ? AND locked_until > ?",
+            vec![sval_str(username.to_string()), sval_str(now)],
+        )
+        .await
+        .ok()
+        .flatten()
+        .is_some()
 }
 
-fn record_fail(username: &str) {
-    let mut board = fail_board().lock().unwrap();
-    let e = board.entry(username.to_string()).or_insert((0, None));
-    e.0 += 1;
-    if e.0 >= MAX_FAILS {
-        *e = (0, Some(Instant::now() + LOCK_DURATION)); // 计数清零并锁定
-    }
+async fn record_fail(st: &AppState, username: &str) {
+    let now = crate::db::now_iso();
+    let lock_until = (chrono::Utc::now() + chrono::Duration::minutes(LOCK_MINS))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    // DO UPDATE 中引用原行值：fails+1 达阈值 → 计数清零并落锁定截止时间
+    let _ = st
+        .db
+        .execute(
+            "INSERT INTO login_locks (username, fails, locked_until, updated_at) \
+             VALUES (?, 1, '', ?) \
+             ON CONFLICT(username) DO UPDATE SET \
+               fails = CASE WHEN login_locks.fails + 1 >= ? THEN 0 ELSE login_locks.fails + 1 END, \
+               locked_until = CASE WHEN login_locks.fails + 1 >= ? THEN ? ELSE login_locks.locked_until END, \
+               updated_at = ?",
+            vec![
+                sval_str(username.to_string()),
+                sval_str(now.clone()),
+                sea_orm::Value::BigInt(Some(MAX_FAILS)),
+                sea_orm::Value::BigInt(Some(MAX_FAILS)),
+                sval_str(lock_until),
+                sval_str(now),
+            ],
+        )
+        .await;
 }
 
-fn clear_fails(username: &str) {
-    fail_board().lock().unwrap().remove(username);
+async fn clear_fails(st: &AppState, username: &str) {
+    let _ = st
+        .db
+        .execute(
+            "DELETE FROM login_locks WHERE username = ?",
+            vec![sval_str(username.to_string())],
+        )
+        .await;
 }
 
 pub fn sign(claims: &Claims) -> Result<String, ApiError> {
@@ -97,13 +137,14 @@ pub struct Auth(pub Claims);
 
 impl<S> FromRequestParts<S> for Auth
 where
-    S: Send + Sync,
+    S: Send + Sync + Clone + 'static,
+    AppState: axum::extract::FromRef<S>,
 {
     type Rejection = ApiError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        _state: &S,
+        state: &S,
     ) -> Result<Self, Self::Rejection> {
         let token = parts
             .headers
@@ -112,6 +153,24 @@ where
             .and_then(|v| v.strip_prefix("Bearer "))
             .ok_or_else(|| ApiError::unauthorized("未登录"))?;
         let claims = verify(token).ok_or_else(|| ApiError::unauthorized("登录已过期"))?;
+
+        // F4 修复：此前 Auth 只验签不查库，导致：
+        //   (a) 管理员被停用后，手上 token 在剩余有效期内（最长 7 天）仍是全权限；
+        //   (b) 用户改密后，旧设备 token 依然可用。
+        // 现按请求回查 users：停用立即失效，token_version 被 bump 后立即失效。
+        // 权限仍由 role 实时推导（不入库），保留原有「改角色即时生效」的设计。
+        let st = AppState::from_ref(state);
+        match sqlx_user_by_id(&st, &claims.sub).await? {
+            Some(u) => {
+                if u.status != 1 {
+                    return Err(ApiError::unauthorized("账号已被停用"));
+                }
+                if u.token_version > claims.tv {
+                    return Err(ApiError::unauthorized("登录已失效，请重新登录"));
+                }
+            }
+            None => return Err(ApiError::unauthorized("账号不存在或已删除")),
+        }
         Ok(Auth(claims))
     }
 }
@@ -139,12 +198,12 @@ pub async fn login(
     Json(req): Json<LoginReq>,
 ) -> ApiResult {
     // A4：锁定中的账号即使密码正确也拒绝
-    if login_locked(&req.username) {
+    if login_locked(&st, &req.username).await {
         return Err(ApiError::rate_limited("尝试次数过多，请 15 分钟后再试"));
     }
     let row = sqlx_user_by_username(&st, &req.username).await?;
     let Some(user) = row else {
-        record_fail(&req.username);
+        record_fail(&st, &req.username).await;
         return Err(ApiError::unauthorized("用户名或密码错误"));
     };
     if user.status != 1 {
@@ -156,16 +215,17 @@ pub async fn login(
         .verify_password(req.password.as_bytes(), &hash)
         .is_ok();
     if !valid {
-        record_fail(&req.username);
+        record_fail(&st, &req.username).await;
         return Err(ApiError::unauthorized("用户名或密码错误"));
     }
-    clear_fails(&req.username);
+    clear_fails(&st, &req.username).await;
     let now = now_secs();
     let claims = Claims {
         sub: user.id.clone(),
         username: user.username.clone(),
         role: user.role.clone(),
         tenant: user.tenant_id.clone(),
+        tv: user.token_version,
         exp: now + JWT_DAYS * 86400,
     };
     let token = sign(&claims)?;
@@ -217,7 +277,9 @@ pub async fn change_password(
     st.db
         .execute_statement(sea_orm::Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::Sqlite,
-            "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?",
+            // token_version +1：改密后其它设备/旧 token 立即失效
+            "UPDATE users SET password_hash = ?, must_change_password = 0, \
+             token_version = COALESCE(token_version, 1) + 1, updated_at = ? WHERE id = ?",
             vec![
                 sea_orm::Value::String(Some(hash_password(&req.new_password))),
                 sea_orm::Value::String(Some(crate::db::now_iso())),
@@ -316,6 +378,7 @@ pub struct UserRow {
     pub role: String,
     pub tenant_id: String,
     pub status: i64,
+    pub token_version: i64,
     pub must_change_password: i64,
     pub created_at: String,
     pub updated_at: String,
@@ -327,18 +390,27 @@ impl UserRow {
     }
 }
 
-async fn sqlx_user_by_username(st: &AppState, username: &str) -> Result<Option<UserRow>, ApiError> {
-    use sea_orm::Statement;
+/// 用户查询：按列名取（username 或 id）
+///
+/// F4 修复：原实现手工拼接 SQL 并用 `replace('\'', "''")` 转义单引号，是全代码库
+/// 唯一的非参数化查询——依赖手写转义正确性，一旦漏掉某个入参即 SQL 注入。
+/// 改为绑定参数，由驱动处理转义。
+async fn sqlx_user_by(
+    st: &AppState,
+    column: &str,
+    value: &str,
+) -> Result<Option<UserRow>, ApiError> {
+    let sql = format!(
+        "SELECT id, username, nickname, email, password_hash, role, tenant_id, status, \
+         COALESCE(token_version, 1) AS token_version, must_change_password, created_at, updated_at \
+         FROM users WHERE {column} = ? LIMIT 1"
+    );
     let res = st
         .db
-        .query_one_statement(Statement::from_string(
-            sea_orm::DatabaseBackend::Sqlite,
-            format!(
-                "SELECT id, username, nickname, email, password_hash, role, tenant_id, status, must_change_password, created_at, updated_at \
-                 FROM users WHERE username = '{}' LIMIT 1",
-                username.replace('\'', "''")
-            ),
-        ))
+        .query_one(
+            &sql,
+            vec![sea_orm::Value::String(Some(value.to_string()))],
+        )
         .await
         .map_err(|e| ApiError::bad(format!("查询用户失败：{e}")))?;
     let Some(r) = res else { return Ok(None) };
@@ -351,10 +423,20 @@ async fn sqlx_user_by_username(st: &AppState, username: &str) -> Result<Option<U
         role: r.try_get("", "role").map_err(internal)?,
         tenant_id: r.try_get("", "tenant_id").map_err(internal)?,
         status: r.try_get::<i64>("", "status").map_err(internal)?,
+        token_version: r.try_get::<i64>("", "token_version").unwrap_or(1),
         must_change_password: r.try_get::<i64>("", "must_change_password").unwrap_or(0),
         created_at: r.try_get("", "created_at").map_err(internal)?,
         updated_at: r.try_get("", "updated_at").map_err(internal)?,
     }))
+}
+
+async fn sqlx_user_by_username(st: &AppState, username: &str) -> Result<Option<UserRow>, ApiError> {
+    sqlx_user_by(st, "username", username).await
+}
+
+/// 按 id 查用户（Auth 提取器逐请求校验状态用）
+async fn sqlx_user_by_id(st: &AppState, id: &str) -> Result<Option<UserRow>, ApiError> {
+    sqlx_user_by(st, "id", id).await
 }
 
 fn internal(e: impl std::fmt::Display) -> ApiError {
@@ -375,4 +457,33 @@ pub fn hash_password(pw: &str) -> String {
         .hash_password(pw.as_bytes(), &salt)
         .expect("argon2 hash")
         .to_string()
+}
+
+/// POST /api/admin/users/{id}/revoke-sessions —— 让该用户的全部已签发 token 立即失效
+///
+/// F4 配套：管理员被停用/离职、或用户怀疑会话泄露时，无需等 JWT 自然过期（最长 7 天），
+/// 直接 bump token_version 即可踢下线。Auth 提取器逐请求比对版本号。
+pub async fn revoke_sessions(
+    State(st): State<AppState>,
+    auth: Auth,
+    Path(id): Path<String>,
+) -> ApiResult {
+    ensure(&auth, "team.users.update")?;
+    let n = st
+        .db
+        .execute(
+            "UPDATE users SET token_version = COALESCE(token_version, 1) + 1, updated_at = ? \
+             WHERE id = ? AND tenant_id = ?",
+            vec![
+                sea_orm::Value::String(Some(crate::db::now_iso())),
+                sea_orm::Value::String(Some(id)),
+                sea_orm::Value::String(Some(st.tenant.clone())),
+            ],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("更新失败：{e}")))?;
+    if n == 0 {
+        return Err(ApiError::not_found("用户不存在"));
+    }
+    ok(json!({ "revoked": true }))
 }

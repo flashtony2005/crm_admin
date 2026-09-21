@@ -57,6 +57,19 @@ const FORM_FIELDS: FormFieldDef[] = [
     ],
     defaultValue: 'public',
   },
+  {
+    key: 'paidLevel',
+    label: '售卖分级（优先于可见性）',
+    type: 'select',
+    options: [
+      { value: '0', label: '0 · 不启用（按上方可见性）' },
+      { value: '1', label: '1 · 订阅会员专享' },
+      { value: '2', label: '2 · 积分买断（待积分商城开放）' },
+      { value: '3', label: '3 · 邀请会员专享' },
+    ],
+    defaultValue: '0',
+  },
+  { key: 'pricePoints', label: '积分解锁单价', type: 'text', placeholder: '仅售卖分级=2 时生效，如 200（积分）' },
 ]
 
 function ArticlesPage() {
@@ -103,6 +116,8 @@ function ArticlesPage() {
       canonicalUrl: String(values.canonicalUrl ?? '').trim(),
       status: values.status as Article['status'],
       visibility: String(values.visibility ?? 'public').trim(),
+      paidLevel: Number(values.paidLevel ?? 0) || 0,
+      pricePoints: Number(values.pricePoints ?? 0) || 0,
     }
     if (editing) await t.update.mutateAsync({ id: editing.id, patch })
     else await t.create.mutateAsync({ ...patch, slug: '', views: 0, author: '我' })
@@ -163,6 +178,16 @@ function ArticlesPage() {
       id: 'visibility',
       header: '可见性',
       render: (r) => {
+        const lv = Number(r.paidLevel ?? 0)
+        if (lv > 0) {
+          const map: Record<number, { label: string; cls: string }> = {
+            1: { label: '订阅', cls: 'bg-amber-50 text-amber-600' },
+            2: { label: '积分', cls: 'bg-violet-50 text-violet-600' },
+            3: { label: '邀请', cls: 'bg-rose-50 text-rose-600' },
+          }
+          const m = map[lv] || map[1]
+          return <span className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${m.cls}`}>{m.label}</span>
+        }
         const v = r.visibility || 'public'
         const map: Record<string, { label: string; cls: string }> = {
           public: { label: '公开', cls: 'bg-slate-100 text-slate-600' },

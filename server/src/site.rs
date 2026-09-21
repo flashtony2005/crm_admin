@@ -43,6 +43,11 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("home_template", "coucouya"),
     // 主端口：上线后对外提供服务的端口；测试端口可并存多个
     ("main_port", "5199"),
+    // 注册门槛：off=开放注册；on=仅凭有效邀请码注册（创作者社区私域开关）
+    ("member_invite_required", "off"),
+    // 积分规则：每日签到奖励 / 邀请奖励（好友首次付费开通后发给邀请人）
+    ("points_signin", "10"),
+    ("points_invite_reward", "100"),
 ];
 
 /// GET /api/public/site —— 公开站点配置（免认证）
@@ -96,6 +101,12 @@ pub async fn site(State(st): State<AppState>) -> ApiResult {
             "homeTheme": home_theme,
             "homeTemplate": home_template,
             "mainPort": main_port,
+            "memberInviteRequired": map
+                .get("member_invite_required")
+                .cloned()
+                .unwrap_or_else(|| "off".into()),
+            "pointsSignin": map.get("points_signin").cloned().unwrap_or_else(|| "10".into()),
+            "pointsInviteReward": map.get("points_invite_reward").cloned().unwrap_or_else(|| "100".into()),
             "home": home,
         }
     })).into_response())
@@ -114,6 +125,7 @@ pub async fn update_site(
     // （coucouya）的独立风格键，与本后台自身 theme 解耦。
     let mut pairs: Vec<(String, String)> = Vec::new();
     // home_template / main_port：首页模板（coucouya | fastshot）与对外主端口。
+    // member_invite_required：注册邀请制开关（off | on）。
     for k in [
         "theme",
         "template",
@@ -122,6 +134,9 @@ pub async fn update_site(
         "home_theme",
         "home_template",
         "main_port",
+        "member_invite_required",
+        "points_signin",
+        "points_invite_reward",
     ] {
         if let Some(v) = body.get(k).and_then(|x| x.as_str()) {
             pairs.push((k.to_string(), v.to_string()));

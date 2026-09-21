@@ -82,19 +82,82 @@ fn row_json(r: &Row, with_content: bool) -> Value {
 }
 
 /// 付费墙拦截：返回 HTTP 402 + 结构化 `locked` 体（含可见元数据预览，不含正文），
-/// 供前端渲染「解锁」区块。`visibility` 标明门槛类型（members / paid）。
-fn locked(visibility: &str, message: impl Into<String>, preview: Value) -> ApiResult {
+/// 供前端渲染「解锁」区块。`reason` 标明具体门槛：
+/// login（需登录会员）/ subscription（需付费订阅）/ points（积分买断）/ invite（邀请会员专享）。
+fn locked(reason: &str, message: impl Into<String>, preview: Value, paid_level: i64, price_points: i64) -> ApiResult {
     Ok((
         StatusCode::PAYMENT_REQUIRED,
         Json(json!({
             "ok": false,
             "locked": true,
-            "visibility": visibility,
+            "reason": reason,
+            "paidLevel": paid_level,
+            "pricePoints": price_points,
             "error": message.into(),
             "preview": preview,
         })),
     )
         .into_response())
+}
+
+/// 会员门槛查询行：订阅档位 + 有效期 + 邀请来源
+struct MemberGate {
+    plan: String,
+    plan_expires_at: String,
+    invited_by: String,
+}
+
+impl MemberGate {
+    /// 订阅有效：plan != 'free' 且（未设到期 或 未到期）
+    fn subscribed(&self) -> bool {
+        if self.plan == "free" {
+            return false;
+        }
+        if self.plan_expires_at.is_empty() {
+            return true;
+        }
+        match chrono::DateTime::parse_from_rfc3339(&self.plan_expires_at) {
+            Ok(exp) => exp.with_timezone(&chrono::Utc) > chrono::Utc::now(),
+            Err(_) => true, // 解析失败视为不限期（旧数据兼容）
+        }
+    }
+}
+
+async fn member_gate_row(st: &AppState, member_id: &str) -> Result<Option<MemberGate>, ApiError> {
+    let r = st
+        .db
+        .query_one(
+            "SELECT plan, plan_expires_at, invited_by FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
+            vec![
+                SqlValue::String(Some(member_id.to_string())),
+                SqlValue::String(Some(st.tenant.clone())),
+            ],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    Ok(r.map(|x| MemberGate {
+        plan: x.try_get("", "plan").unwrap_or_else(|_| "free".into()),
+        plan_expires_at: x.try_get("", "plan_expires_at").unwrap_or_default(),
+        invited_by: x.try_get("", "invited_by").unwrap_or_default(),
+    }))
+}
+
+/// 积分买断判定：points_ledger 存在 reason='purchase' AND ref_id=文章id 的流水
+async fn owns_article(st: &AppState, member_id: &str, article_id: &str) -> bool {
+    st.db
+        .query_one(
+            "SELECT id FROM points_ledger WHERE tenant_id = ? AND member_id = ? \
+             AND reason = 'purchase' AND ref_id = ? LIMIT 1",
+            vec![
+                SqlValue::String(Some(st.tenant.clone())),
+                SqlValue::String(Some(member_id.to_string())),
+                SqlValue::String(Some(article_id.to_string())),
+            ],
+        )
+        .await
+        .ok()
+        .flatten()
+        .is_some()
 }
 
 /// GET /api/public/articles —— 已发布文章列表（不含正文；可选 ?tag= / ?locale= / ?featured=1 / ?limit= 过滤）
@@ -115,7 +178,7 @@ pub async fn articles(
     let mut sql = String::from(
         "SELECT id, title, slug, summary, author, tags, featured_image, \
          published_at, meta_title, meta_description, locale, visibility, featured, scheduled_at, \
-         canonical_url, updated_at FROM articles \
+         canonical_url, paid_level, price_points, updated_at FROM articles \
          WHERE tenant_id = ? AND status = 'published'",
     );
     let mut args = vec![SqlValue::String(Some(st.tenant.clone()))];
@@ -146,7 +209,13 @@ pub async fn articles(
 }
 
 /// GET /api/public/articles/{id} —— 单篇详情（含正文；id 或 slug 均可解析）
-/// 含可见性门槛：visibility='members' 需会员令牌；'paid' 需已订阅会员。
+///
+/// 付费墙判定（paid_level 优先于旧 visibility 字段）：
+/// - paid_level 0：回落 visibility —— public 全文；members 需会员登录；paid 需付费订阅
+/// - paid_level 1（订阅会员）：member.plan != 'free' 放行
+/// - paid_level 2（积分买断）：P0 结构就位，P1 积分商城上线后接购买记录
+/// - paid_level 3（邀请专享）：member.invited_by 非空（凭邀请码注册的会员）放行
+/// 管理端角色（owner/editor/viewer）始终可预览。
 pub async fn article_detail(
     State(st): State<AppState>,
     headers: HeaderMap,
@@ -154,7 +223,7 @@ pub async fn article_detail(
 ) -> ApiResult {
     let sql = "SELECT id, title, slug, summary, author, tags, featured_image, \
                published_at, meta_title, meta_description, updated_at, content, visibility, locale, \
-               featured, scheduled_at, canonical_url FROM articles \
+               featured, scheduled_at, canonical_url, paid_level, price_points FROM articles \
                WHERE tenant_id = ? AND status = 'published' AND (id = ? OR slug = ?) LIMIT 1";
     let rows = st
         .db
@@ -172,39 +241,60 @@ pub async fn article_detail(
         return Err(ApiError::not_found("文章不存在或未发布"));
     };
     let visibility: String = r.try_get("", "visibility").unwrap_or_else(|_| "public".into());
-    if visibility != "public" {
-        // 解析可选会员令牌（Bearer header，与管理员 auth_token 区分）
-        let token = headers
-            .get(axum::http::header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "));
-        let claims = token.and_then(|t| crate::auth::verify(t));
-        // 会员（role=member）或管理员（role=admin，作者预览自有内容）可越过会员门槛
-        let role_ok = claims.as_ref().map(|c| c.role == "member" || c.role == "admin").unwrap_or(false);
-        if !role_ok {
-            return locked(&visibility, "该内容需要会员登录后访问", row_json(r, false));
-        }
-        if visibility == "paid" {
-            // 付费门槛：管理员可预览；会员需已订阅（plan != free）
-            let is_admin = claims.as_ref().map(|c| c.role == "admin").unwrap_or(false);
-            if !is_admin {
-                let m = st
-                    .db
-                    .query_one(
-                        "SELECT plan FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
-                        vec![
-                            SqlValue::String(Some(claims.as_ref().unwrap().sub.clone())),
-                            SqlValue::String(Some(st.tenant.clone())),
-                        ],
-                    )
-                    .await
-                    .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
-                let plan: String = m
-                    .and_then(|x| x.try_get::<String>("", "plan").ok())
-                    .unwrap_or_else(|| "free".into());
-                if plan == "free" {
-                    return locked(&visibility, "该内容需要付费会员订阅才能解锁", row_json(r, false));
-                }
+    let paid_level: i64 = r.try_get::<i64>("", "paid_level").unwrap_or(0);
+    let price_points: i64 = r.try_get::<i64>("", "price_points").unwrap_or(0);
+
+    // 解析可选 Bearer 令牌（管理员 JWT 与会员 JWT 同钥但 role 不同）
+    let token = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+    let claims = token.and_then(|t| crate::auth::verify(t));
+    // 管理端角色直接放行（作者预览自有内容）
+    let is_staff = claims
+        .as_ref()
+        .map(|c| matches!(c.role.as_str(), "owner" | "editor" | "viewer"))
+        .unwrap_or(false);
+
+    if !is_staff {
+        // 门槛归一：(Some(reason) 表示需要拦截判定)
+        let gate: Option<(&str, String)> = if paid_level > 0 {
+            Some(match paid_level {
+                1 => ("subscription", "该内容需要付费会员订阅才能解锁".into()),
+                2 => ("points", "该内容需积分解锁（积分商城即将开放）".into()),
+                3 => ("invite", "该内容仅限邀请加入的会员访问".into()),
+                _ => ("login", "该内容需要会员登录后访问".into()),
+            })
+        } else if visibility == "paid" {
+            Some(("subscription", "该内容需要付费会员订阅才能解锁".into()))
+        } else if visibility == "members" {
+            Some(("login", "该内容需要会员登录后访问".into()))
+        } else {
+            None
+        };
+
+        if let Some((reason, message)) = gate {
+            // 仅 role=member 的令牌参与权益判定
+            let member = match claims.as_ref() {
+                Some(c) if c.role == "member" => member_gate_row(&st, &c.sub).await?,
+                _ => None,
+            };
+            let entitled = match reason {
+                "subscription" => member.as_ref().map(|m| m.subscribed()).unwrap_or(false),
+                // 积分买断：points_ledger 有该文购买流水即放行（购买走
+                // POST /api/public/members/purchase-article，原子扣减）
+                "points" => match (&claims, member.as_ref()) {
+                    (Some(c), _) if c.role == "member" => {
+                        let aid = r.try_get::<String>("", "id").unwrap_or_default();
+                        owns_article(&st, &c.sub, &aid).await
+                    }
+                    _ => false,
+                },
+                "invite" => member.as_ref().map(|m| !m.invited_by.is_empty()).unwrap_or(false),
+                _ => member.is_some(),
+            };
+            if !entitled {
+                return locked(reason, message, row_json(r, false), paid_level, price_points);
             }
         }
     }

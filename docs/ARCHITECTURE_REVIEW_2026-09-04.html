@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>admin 项目架构深度评审 · 2026-09-04</title>
+<style>
+:root{
+  --bg:#f7f8fa; --panel:#ffffff; --line:#e3e6ec; --line2:#eef0f4;
+  --text:#15181d; --muted:#6b7280; --faint:#9aa1ad;
+  --red:#c8382f; --red-bg:#fdf2f1; --amber:#a86a12; --amber-bg:#fdf7ec;
+  --blue:#1e5eb8; --blue-bg:#f0f5fc; --green:#1f7a45; --green-bg:#f0f8f3;
+  --purple:#6b3fa0; --purple-bg:#f6f2fb;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:29px;letter-spacing:-.02em;margin:0 0 6px;font-weight:700}
+.sub{color:var(--muted);font-size:14px;margin-bottom:4px}
+h2{font-size:20px;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line);font-weight:650;letter-spacing:-.01em}
+h3{font-size:15.5px;margin:26px 0 9px;font-weight:650}
+p{margin:9px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f4;padding:1px 5px;border-radius:4px;color:#2b3038}
+pre{background:#1b1f26;color:#dfe3ea;padding:13px 15px;border-radius:8px;overflow-x:auto;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.65;margin:10px 0}
+pre .c{color:#7d8796}
+pre .k{color:#7fb2f0}
+pre .s{color:#9ad4a0}
+pre .w{color:#e8b567}
+
+/* 摘要 */
+.hero{background:linear-gradient(135deg,#ffffff 0%,#f4f7fb 100%);border:1px solid var(--line);
+  border-radius:12px;padding:22px 24px;margin:22px 0 8px}
+.verdict{font-size:15px;line-height:1.85;margin:0}
+.verdict b{color:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:18px 0 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:13px 14px}
+.kpi .n{font-size:23px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.kpi .l{font-size:11.5px;color:var(--muted);margin-top:3px}
+.kpi.r .n{color:var(--red)} .kpi.a .n{color:var(--amber)} .kpi.b .n{color:var(--blue)} .kpi.g .n{color:var(--green)}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th{background:#f3f5f8;text-align:left;padding:9px 12px;font-weight:600;font-size:12.5px;
+  color:#3d4450;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted);white-space:nowrap}
+
+/* 标签 */
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:650;
+  letter-spacing:.02em;white-space:nowrap}
+.t-p0{background:var(--red-bg);color:var(--red);border:1px solid #f3d3d0}
+.t-p1{background:var(--amber-bg);color:var(--amber);border:1px solid #f0dfc0}
+.t-p2{background:var(--blue-bg);color:var(--blue);border:1px solid #cfdff5}
+.t-ok{background:var(--green-bg);color:var(--green);border:1px solid #c9e5d5}
+
+/* 问题块 */
+.issue{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+  border-radius:9px;padding:14px 17px;margin:11px 0}
+.issue.p0{border-left-color:var(--red)}
+.issue.p1{border-left-color:#d9a03a}
+.issue.p2{border-left-color:var(--blue)}
+.issue .hd{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:5px}
+.issue .ttl{font-size:14.5px;font-weight:650}
+.issue .loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:var(--faint)}
+.issue .why{margin:6px 0 0;font-size:13px;color:#3a4150}
+.issue .why b{color:var(--text)}
+.issue ul{margin:6px 0 0;padding-left:19px;font-size:13px;color:#3a4150}
+.issue li{margin:3px 0}
+
+.note{background:var(--blue-bg);border:1px solid #cfdff5;border-radius:8px;padding:11px 15px;margin:13px 0;font-size:13px;color:#24406e}
+.note.warn{background:var(--amber-bg);border-color:#f0dfc0;color:#6b4708}
+.good{background:var(--green-bg);border:1px solid #c9e5d5;border-radius:8px;padding:11px 15px;margin:13px 0;font-size:13px;color:#175534}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:13px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px 16px}
+.card h4{margin:0 0 8px;font-size:13.5px;font-weight:650}
+.card ul{margin:0;padding-left:18px;font-size:12.8px;color:#3a4150}
+.card li{margin:4px 0}
+
+.road{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.road .col{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px 15px}
+.road .col .ph{font-size:12px;font-weight:700;letter-spacing:.04em;margin-bottom:3px}
+.road .col .pt{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.road .col ul{margin:0;padding-left:17px;font-size:12.5px;color:#3a4150}
+.road .col li{margin:5px 0}
+.r1{border-top:3px solid var(--red)} .r1 .ph{color:var(--red)}
+.r2{border-top:3px solid #d9a03a} .r2 .ph{color:var(--amber)}
+.r3{border-top:3px solid var(--blue)} .r3 .ph{color:var(--blue)}
+
+figure{margin:18px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+figcaption{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+svg{display:block;max-width:100%;height:auto;margin:0 auto}
+footer{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--faint)}
+@media(max-width:820px){.kpis,.grid2,.road{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>admin 项目 · 架构深度评审</h1>
+<div class="sub">评审范围：cms-server 后端 33 模块 / 9,517 行 · 前端 141 文件 / 22,955 行 · 迁移 0001–0005 · 45 个路由页</div>
+<div class="sub">评审日期：2026-09-04（P0–P3 社区系统全部落地后的整体回看）</div>
+
+<div class="hero">
+<p class="verdict">
+<b>结论：这是一套「功能完整度远超工程成熟度」的系统。</b>
+产品闭环（内容 → 付费墙 → 积分/订阅 → 双轨收款 → 会员中心 → 看板）已经跑通，
+但底层缺三件东西 —— <b>事务、分页、租户边界</b>。
+这三者同时缺失，决定了它当前的准确定位是<b>「单实例、单租户、数据量可控的个人创作者站」</b>，
+而不是可横向扩展的 SaaS 或严格资金合规的交易平台。
+好消息是：问题都集中在<b>数据访问层（CmsDb）这一个收敛点</b>上，补事务与分页的改造面比想象中小。
+</p>
+<div class="kpis">
+  <div class="kpi r"><div class="n">4</div><div class="l">P0 架构级阻断项</div></div>
+  <div class="kpi a"><div class="n">8</div><div class="l">P1 安全 / 数据正确性</div></div>
+  <div class="kpi b"><div class="n">8</div><div class="l">P2 工程与可维护性</div></div>
+  <div class="kpi g"><div class="n">1</div><div class="l">核心收敛点：CmsDb</div></div>
+</div>
+</div>
+
+<!-- ══════════ 架构现状 ══════════ -->
+<h2>一、架构现状</h2>
+
+<figure>
+<svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,PingFang SC,sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 z" fill="#9aa1ad"/>
+    </marker>
+  </defs>
+
+  <!-- 接入层 -->
+  <text x="16" y="26" font-size="12" font-weight="700" fill="#6b7280">接入层</text>
+  <rect x="16" y="34" width="868" height="52" rx="7" fill="#f0f5fc" stroke="#cfdff5"/>
+  <rect x="30" y="45" width="120" height="30" rx="5" fill="#fff" stroke="#cfdff5"/>
+  <text x="90" y="64" font-size="11.5" text-anchor="middle" fill="#1e5eb8">SPA fallback</text>
+  <rect x="158" y="45" width="120" height="30" rx="5" fill="#fff" stroke="#cfdff5"/>
+  <text x="218" y="64" font-size="11.5" text-anchor="middle" fill="#1e5eb8">/t/{slug} 模板静态</text>
+  <rect x="286" y="45" width="110" height="30" rx="5" fill="#fff" stroke="#cfdff5"/>
+  <text x="341" y="64" font-size="11.5" text-anchor="middle" fill="#1e5eb8">/uploads 静态</text>
+  <rect x="404" y="45" width="110" height="30" rx="5" fill="#fff" stroke="#cfdff5"/>
+  <text x="459" y="64" font-size="11.5" text-anchor="middle" fill="#1e5eb8">REST 公开 API</text>
+  <rect x="522" y="45" width="100" height="30" rx="5" fill="#fff" stroke="#cfdff5"/>
+  <text x="572" y="64" font-size="11.5" text-anchor="middle" fill="#1e5eb8">GraphQL 只读</text>
+  <rect x="630" y="45" width="110" height="30" rx="5" fill="#fff" stroke="#cfdff5"/>
+  <text x="685" y="64" font-size="11.5" text-anchor="middle" fill="#1e5eb8">SEO / sitemap</text>
+  <rect x="748" y="45" width="122" height="30" rx="5" fill="#fdf2f1" stroke="#f3d3d0"/>
+  <text x="809" y="64" font-size="11.5" text-anchor="middle" fill="#c8382f">CORS 全开 ⚠</text>
+
+  <path d="M450,86 L450,104" stroke="#9aa1ad" stroke-width="1.3" marker-end="url(#ar)"/>
+
+  <!-- 鉴权层 -->
+  <text x="16" y="122" font-size="12" font-weight="700" fill="#6b7280">鉴权层</text>
+  <rect x="16" y="130" width="868" height="46" rx="7" fill="#f6f2fb" stroke="#e0d2f0"/>
+  <rect x="30" y="140" width="180" height="26" rx="5" fill="#fff" stroke="#e0d2f0"/>
+  <text x="120" y="157" font-size="11.5" text-anchor="middle" fill="#6b3fa0">JWT · role=owner/editor/viewer</text>
+  <rect x="218" y="140" width="180" height="26" rx="5" fill="#fff" stroke="#e0d2f0"/>
+  <text x="308" y="157" font-size="11.5" text-anchor="middle" fill="#6b3fa0">JWT · role=member（同密钥）</text>
+  <rect x="406" y="140" width="150" height="26" rx="5" fill="#fff" stroke="#e0d2f0"/>
+  <text x="481" y="157" font-size="11.5" text-anchor="middle" fill="#6b3fa0">perm.rs 角色矩阵</text>
+  <rect x="564" y="140" width="150" height="26" rx="5" fill="#fdf2f1" stroke="#f3d3d0"/>
+  <text x="639" y="157" font-size="11.5" text-anchor="middle" fill="#c8382f">无撤销 / 不查状态 ⚠</text>
+  <rect x="722" y="140" width="148" height="26" rx="5" fill="#fdf7ec" stroke="#f0dfc0"/>
+  <text x="796" y="157" font-size="11.5" text-anchor="middle" fill="#a86a12">限速内存态 ⚠</text>
+
+  <path d="M450,176 L450,194" stroke="#9aa1ad" stroke-width="1.3" marker-end="url(#ar)"/>
+
+  <!-- 业务层 -->
+  <text x="16" y="212" font-size="12" font-weight="700" fill="#6b7280">业务层（两套并存）</text>
+  <rect x="16" y="220" width="560" height="72" rx="7" fill="#f0f8f3" stroke="#c9e5d5"/>
+  <text x="30" y="238" font-size="11" font-weight="650" fill="#1f7a45">旧网关 /api/{table} —— 24 张表泛型 CRUD（前端 45 页全走这里）</text>
+  <rect x="30" y="246" width="124" height="20" rx="4" fill="#fff" stroke="#c9e5d5"/>
+  <text x="92" y="260" font-size="10.5" text-anchor="middle" fill="#3a4150">articles/pages/tags</text>
+  <rect x="160" y="246" width="110" height="20" rx="4" fill="#fff" stroke="#c9e5d5"/>
+  <text x="215" y="260" font-size="10.5" text-anchor="middle" fill="#3a4150">members/orders</text>
+  <rect x="276" y="246" width="128" height="20" rx="4" fill="#fff" stroke="#c9e5d5"/>
+  <text x="340" y="260" font-size="10.5" text-anchor="middle" fill="#3a4150">points/invite/redeem</text>
+  <rect x="410" y="246" width="150" height="20" rx="4" fill="#fff" stroke="#c9e5d5"/>
+  <text x="485" y="260" font-size="10.5" text-anchor="middle" fill="#3a4150">comments/newsletter/tiers</text>
+  <rect x="30" y="270" width="150" height="14" rx="3" fill="#fdf7ec" stroke="#f0dfc0"/>
+  <text x="105" y="280" font-size="9.5" text-anchor="middle" fill="#a86a12">list 无 LIMIT ⚠</text>
+  <rect x="188" y="270" width="150" height="14" rx="3" fill="#fdf7ec" stroke="#f0dfc0"/>
+  <text x="263" y="280" font-size="9.5" text-anchor="middle" fill="#a86a12">update 无乐观锁 ⚠</text>
+  <rect x="346" y="270" width="196" height="14" rx="3" fill="#fdf7ec" stroke="#f0dfc0"/>
+  <text x="444" y="280" font-size="9.5" text-anchor="middle" fill="#a86a12">Secret 列可回写覆盖 ⚠</text>
+
+  <rect x="588" y="220" width="296" height="72" rx="7" fill="#f7f8fa" stroke="#dfe3ea"/>
+  <text x="602" y="238" font-size="11" font-weight="650" fill="#6b7280">新域模型 /api/v1/* —— Domain Model V1</text>
+  <rect x="602" y="246" width="128" height="20" rx="4" fill="#fff" stroke="#dfe3ea"/>
+  <text x="666" y="260" font-size="10.5" text-anchor="middle" fill="#6b7280">Content / Context</text>
+  <rect x="736" y="246" width="134" height="20" rx="4" fill="#fff" stroke="#dfe3ea"/>
+  <text x="803" y="260" font-size="10.5" text-anchor="middle" fill="#6b7280">Channel / Site</text>
+  <rect x="602" y="270" width="268" height="14" rx="3" fill="#f3f5f8" stroke="#dfe3ea"/>
+  <text x="736" y="280" font-size="9.5" text-anchor="middle" fill="#9aa1ad">前端 0 页面接入 · 无迁移路径 · 事实上的死代码</text>
+
+  <path d="M450,292 L450,310" stroke="#9aa1ad" stroke-width="1.3" marker-end="url(#ar)"/>
+
+  <!-- 数据层 -->
+  <text x="16" y="328" font-size="12" font-weight="700" fill="#6b7280">数据层</text>
+  <rect x="16" y="336" width="868" height="52" rx="7" fill="#fdf2f1" stroke="#f3d3d0"/>
+  <text x="30" y="356" font-size="11.5" font-weight="650" fill="#c8382f">CmsDb（唯一数据访问出口）</text>
+  <rect x="196" y="345" width="120" height="32" rx="5" fill="#fff" stroke="#f3d3d0"/>
+  <text x="256" y="366" font-size="11" text-anchor="middle" fill="#3a4150">execute</text>
+  <rect x="324" y="345" width="120" height="32" rx="5" fill="#fff" stroke="#f3d3d0"/>
+  <text x="384" y="366" font-size="11" text-anchor="middle" fill="#3a4150">query_one</text>
+  <rect x="452" y="345" width="120" height="32" rx="5" fill="#fff" stroke="#f3d3d0"/>
+  <text x="512" y="366" font-size="11" text-anchor="middle" fill="#3a4150">query_all</text>
+  <rect x="580" y="345" width="140" height="32" rx="5" fill="#fdf2f1" stroke="#c8382f" stroke-dasharray="4 3"/>
+  <text x="650" y="360" font-size="11.5" text-anchor="middle" fill="#c8382f" font-weight="700">begin / commit</text>
+  <text x="650" y="373" font-size="9" text-anchor="middle" fill="#c8382f">不存在 —— P0 根因</text>
+  <rect x="732" y="345" width="138" height="32" rx="5" fill="#fff" stroke="#f3d3d0"/>
+  <text x="801" y="360" font-size="11" text-anchor="middle" fill="#3a4150">SQLite（sea-orm）</text>
+  <text x="801" y="373" font-size="9" text-anchor="middle" fill="#9aa1ad">无 WAL / 无 busy_timeout</text>
+</svg>
+<figcaption>图 1 · 分层架构与问题分布 —— 红框为缺陷位置；所有数据缺陷最终都汇聚到 CmsDb 这一个出口</figcaption>
+</figure>
+
+<div class="grid2">
+  <div class="card">
+    <h4>✅ 做对的地方（值得保持）</h4>
+    <ul>
+      <li><b>数据访问层抽象做得好</b>：<code>CmsDb</code> 把 SQLite / Turso 差异收敛在 393 行内，业务代码零感知 —— 这正是让"补事务"改造面可控的原因</li>
+      <li><b>权限后端权威化</b>：<code>ensure()</code> 逐请求校验，前端只是 UX 镜像，不存在"前端绕过"类漏洞</li>
+      <li><b>泛型网关白名单制</b>：表与列编译期写死，拒绝动态建模，SQL 注入面基本封死（除 auth.rs 一处）</li>
+      <li><b>幂等设计意识强</b>：兑码、邀请核销、订单确认都用 <code>UPDATE ... WHERE status='pending'</code> + 影响行数判定，并发双击安全</li>
+      <li><b>积分流水为单一事实源</b>：<code>balance = SUM(delta)</code> + <code>balance_after</code> 快照，模型选择正确</li>
+      <li><b>模板热插拔</b>：zip 上传 → 目录 → <code>/t/{slug}</code> 静态伺服，换主题不重编译，这个设计很实用</li>
+      <li><b>邀请奖励延迟到账</b>（好友首次付费才发），正确规避了刷奖经济学</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>⚠️ 结构性短板</h4>
+    <ul>
+      <li><b>无事务原语</b>：CmsDb 三方法之外没有 begin/commit，所有跨表一致性靠"乐观锁 + 顺序执行"硬扛</li>
+      <li><b>无分页契约</b>：list 全量返回，<code>total = items.len()</code> 语义错误</li>
+      <li><b>单租户硬编码</b>：<code>main.rs:388 → tenant: "t_demo".into()</code>，无租户解析入口</li>
+      <li><b>进程内状态</b>：限速 / 调度器 / webhook 投递全在内存，无外部协调</li>
+      <li><b>两套模型并存</b>：<code>/api/{table}</code> 与 <code>/api/v1/*</code> 无迁移计划，v1 无消费者</li>
+      <li><b>无审计、无 request-id、无结构化日志</b>：支付链路出问题无法追溯</li>
+      <li><b>测试集中在前端纯函数</b>：资金链路（积分/订单/回调）后端测试覆盖为 0</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ══════════ P0 ══════════ -->
+<h2>二、P0 · 架构级阻断项（4 项）</h2>
+<p style="color:var(--muted);font-size:13px">这 4 项不是"优化建议"，而是决定了系统<b>能否安全承载真实资金</b>与<b>能否规模化</b>的结构性缺口。</p>
+
+<div class="issue p0">
+  <div class="hd"><span class="tag t-p0">P0-1</span><span class="ttl">数据层没有事务能力 —— 资金链路无法保证一致性</span>
+    <span class="loc">cmsdb.rs:213 / points.rs:68,301 / resources.rs</span></div>
+  <p class="why"><b>现象：</b><code>CmsDb</code> 只暴露 <code>execute</code> / <code>query_one</code> / <code>query_all</code>，<b>没有 begin / commit / rollback</b>。所有"原子操作"实际是三条独立语句的顺序执行。</p>
+  <pre><span class="c">// points.rs add_ledger —— 典型的 read-then-write，无锁无事务</span>
+<span class="k">let</span> bal = balance(st, member_id).<span class="k">await</span>? + delta;   <span class="c">// ① SELECT SUM(delta)</span>
+st.db.execute(<span class="s">"INSERT INTO points_ledger ..."</span>, ...).<span class="k">await</span>?; <span class="c">// ② INSERT</span>
+<span class="c">// ① 与 ② 之间任何并发写入 → balance_after 快照错乱</span></pre>
+  <ul>
+    <li><b>漏发货风险</b>：<code>confirm_order</code> 先把订单改 paid，再调 <code>fulfill_order</code> 发货。若发货中途 DB 抖动或进程重启 → <b>用户付了钱、订单已 paid、积分没到账</b>。没有补偿任务、没有重试队列、对账页只能人工发现。</li>
+    <li><b>余额可为负</b>：<code>purchase_article</code> 先查余额再扣减（TOCTOU）。并发发起两笔购买，两次检查都通过 → 超额消费。</li>
+    <li><b>流水不可信</b>：<code>balance_after</code> 是并发不安全计算出来的，一旦错乱，对账功能（P2 刚做）本身就失去意义。</li>
+    <li><b>重复注册</b>：<code>members</code> 表 email 无 UNIQUE 约束，注册是"SELECT 查重 + INSERT"，并发可插入同邮箱两个账号。</li>
+    <li><b>雪上加霜</b>：本地 SQLite 未开 WAL、未设 <code>busy_timeout</code>（全代码库 0 处配置），默认 <code>journal_mode=delete</code>，加上 audit log 的 <code>tokio::spawn</code> 异步写 + scheduler 每分钟扫描，写并发极易撞 <code>SQLITE_BUSY</code>。</li>
+  </ul>
+  <p class="why"><b>为什么这是收敛点（好消息）：</b>所有数据访问都过 <code>CmsDb</code>。给 <code>CmsDb</code> 加 <code>transaction()</code>（SQLite 走 sea-orm 原生事务；Turso 用 <code>/v2/pipeline</code> 的 <code>transaction: "write"</code> 多语句请求体），再把 <code>fulfill_order</code> / <code>add_ledger</code> / <code>purchase_article</code> 三个函数包进事务，<b>约 200 行改动即可解决 P0-1 的 80%</b>。</p>
+</div>
+
+<div class="issue p0">
+  <div class="hd"><span class="tag t-p0">P0-2</span><span class="ttl">单租户是"形似神不似" —— 无法演进为多租户 SaaS</span>
+    <span class="loc">main.rs:388</span></div>
+  <p class="why"><b>现象：</b><code>let st = AppState { db, tenant: "t_demo".into() }</code>。全部 SQL 都带 <code>tenant_id = ?</code> 过滤，形式上具备隔离能力，但 <b>租户 ID 无法从请求解析</b>，无租户注册、无租户级配额、无计费边界。</p>
+  <ul>
+    <li>改造真多租户需要：加租户解析中间件（域名 / 子域 / Header）→ 把 <code>st.tenant</code> 换成请求上下文 → 校验所有 33 个模块的查询构造 → 补租户管理 API。<b>工作量接近重写接入层</b>。</li>
+    <li>现状下正确的产品定位是：<b>一次部署服务一个站点</b>。想运营多个独立站点 = 部署多套实例（进程 + DB 各一份）。这其实是可接受的选择，但必须<b>明确承认</b>，不要在后续需求里误以为"改个字段就支持多租户"。</li>
+  </ul>
+</div>
+
+<div class="issue p0">
+  <div class="hd"><span class="tag t-p0">P0-3</span><span class="ttl">无分页 + 聚合全表扫描 —— 数据量增长必然雪崩</span>
+    <span class="loc">resources.rs:465 / points.rs:54</span></div>
+  <p class="why"><b>现象：</b><code>list</code> 拼出的 SQL 是 <code>SELECT ... ORDER BY updated_at DESC</code>，<b>没有 LIMIT</b>；返回的 <code>total = items.len()</code> 是当页长度而非总数 —— <b>分页语义本身就是错的</b>，前端若按 total 做分页器必然出错。</p>
+  <pre><span class="c">// resources.rs list —— 全表返回</span>
+<span class="k">let</span> sql = format!(<span class="s">"SELECT ... FROM {} WHERE {} ORDER BY updated_at DESC"</span>, d.table, where_clauses.join(<span class="s">" AND "</span>));
+<span class="k">let</span> total = items.len();  <span class="c">// ← 这是"返回了多少条"，不是"总共有多少条"</span></pre>
+  <ul>
+    <li><b>前端 45 个页面全部全量加载</b>，无虚拟滚动兜底。<code>points_ledger</code>、<code>orders</code>、<code>members</code> 随时间单调增长，会员中心每次打开都拉全量流水。</li>
+    <li><b><code>balance()</code> 每次 <code>SUM(delta)</code></b>：钱包页刷新 = 全表聚合。虽有 <code>idx_points_ledger_member</code> 索引，但仍是 O(该会员流水数)，且高频。</li>
+    <li><b>无搜索能力</b>：list 只支持白名单列等值过滤，无 LIKE / 全文索引。文章上千后后台找内容只能靠翻页。</li>
+    <li>社区三张核心表（points_ledger / orders / invite_codes）索引是<b>补齐的</b>，这点做得对；缺的是 <code>members.email</code> 唯一索引与文章全文检索。</li>
+  </ul>
+</div>
+
+<div class="issue p0">
+  <div class="hd"><span class="tag t-p0">P0-4</span><span class="ttl">进程内状态 + 无分布式协调 —— 不能跑多实例</span>
+    <span class="loc">auth.rs:50 / scheduler.rs:24 / webhooks_out.rs:113</span></div>
+  <ul>
+    <li><b>登录限速</b>在 <code>Mutex&lt;HashMap&gt;</code>（auth.rs:50）：重启即清空，多实例各算各的，5 次锁定形同虚设。</li>
+    <li><b>scheduler</b> 是 <code>tokio::spawn</code> 死循环（scheduler.rs:24）：起两个实例 → 定时发布触发两次、事件广播两遍。虽然有 <code>last_run_at</code> 去重，但两个实例同时读到"未运行"就会并发通过。</li>
+    <li><b>webhook 投递</b> fire-and-forget：进程重启即丢失（deliveries 表记录了失败但无重投机制）。</li>
+    <li><b>无 session 撤销表</b>：JWT 签发后 7 天内无法失效（详见 P1-5）。</li>
+    <li><b>结论</b>：当前只能单实例部署。要水平扩展需要引入 Redis（或 DB 锁表）承载限速 / 调度锁 / 会话黑名单 / 重试队列。</li>
+  </ul>
+</div>
+
+<!-- ══════════ P1 ══════════ -->
+<h2>三、P1 · 安全与数据正确性（8 项）</h2>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-5</span><span class="ttl">JWT 无法撤销 + 停用账号不校验 —— 离职管理员 7 天内仍有全权限</span>
+    <span class="loc">auth.rs:96-117, 233</span></div>
+  <p class="why"><code>Auth</code> extractor 只验签名、<b>不查库</b>；<code>me()</code> 也没校验 <code>user.status != 1</code>（登录时才校验）。后果：<b>管理员被停用 / 改密码后，手上旧 token 在 7 天内依然可以调用全部管理 API</b>。无 refresh token、无 jti、无黑名单。</p>
+  <p class="why"><b>最小修复</b>：<code>Auth</code> 提取器中补一次 <code>users</code> 查库校验 status（改密码场景加 <code>token_version</code> 字段比对）。成本极低，收益极高。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-6</span><span class="ttl">auth.rs 手工拼 SQL —— 与安全基线不一致</span>
+    <span class="loc">auth.rs:336-341</span></div>
+  <pre><span class="c">// 全库唯一一处字符串拼接 SQL，靠人肉转义</span>
+format!(<span class="s">"SELECT ... FROM users WHERE username = '{}' LIMIT 1"</span>,
+        username.replace(<span class="s">'\''</span>, <span class="s">"''"</span>))</pre>
+  <p class="why">其余所有查询都参数化了，只有这里没有。单引号转义对 SQLite 基本有效，但这是<b>"靠人肉保证安全"</b> —— 任何后续修改（换 DB 后端、加字段、改字符集）都可能引入注入。应在 P0-1 改造时一并参数化。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-7</span><span class="ttl">模板静态服务路径穿越 —— 可读取源码与配置文件</span>
+    <span class="loc">templates.rs:414-427</span></div>
+  <pre><span class="k">let</span> base = templates_dir().join(slug);        <span class="c">// slug 直接来自 URL，无字符白名单</span>
+<span class="k">let</span> target = base.join(rel);
+<span class="k">if</span> target != base && !target.starts_with(&base) { <span class="c">// 字符串前缀判断，非 canonicalize</span>
+    <span class="k">return</span> StatusCode::BAD_REQUEST.into_response();
+}</pre>
+  <p class="why"><code>spa_fallback</code>（main.rs:86）明确做了 <code>path.contains("..")</code> 检查，而 <code>/t/</code> 路由<b>没有</b> —— 防护不一致说明是遗漏而非设计。slug 未限制为 <code>[a-z0-9_-]</code>，编码穿越（<code>%2e%2e%2f</code>）可能读到 <code>server/src/</code>、<code>.env</code>、<code>Cargo.toml</code>。</p>
+  <p class="why"><b>修复</b>：slug 加正则白名单 + <code>canonicalize()</code> 后校验前缀，两行代码。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-8</span><span class="ttl">出站 Webhook SSRF —— 可打内网与云元数据</span>
+    <span class="loc">webhooks_out.rs:113, 146-165</span></div>
+  <p class="why"><code>deliver_once</code> 向用户配置的任意 URL 发 POST：无 IP 段黑名单（可打 <code>169.254.169.254</code> 云元数据、<code>127.0.0.1</code> 内网服务）、无 DNS rebinding 防护、<code>reqwest::Client::new()</code> <b>无超时</b>（慢速响应可耗尽连接资源）、3 次重试无退避。签名只验证来源，不防 SSRF。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-9</span><span class="ttl">SVG 上传 → 存储型 XSS（可窃取 admin token）</span>
+    <span class="loc">upload.rs:62-69 + main.rs:205</span></div>
+  <p class="why"><code>ext_of</code> 允许 <code>image/svg+xml</code>，文件以 <code>/uploads/xxx.svg</code> <b>同源</b>提供。SVG 可内嵌 <code>&lt;script&gt;</code>，同源访问能读取 localStorage 中的 admin JWT → <b>提权到 owner</b>。</p>
+  <p class="why"><b>修复</b>：SVG 以 <code>Content-Type: text/plain</code> + <code>Content-Security-Policy: default-src 'none'</code> + <code>Content-Disposition: attachment</code> 返回，或直接禁用 SVG 上传。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-10</span><span class="ttl">Secret 列会被"configured"字符串静默覆盖</span>
+    <span class="loc">resources.rs:427-430 vs 560-567</span></div>
+  <p class="why">读出时 Secret 列返回 <code>"configured"</code> 占位（安全设计正确），但 <code>update</code> <b>不做过滤</b> —— 前端编辑 integrations / webhooks 后保存，会把真实密钥覆盖成字符串 <code>"configured"</code>，<b>集成静默失效且不可逆</b>。这是"读时脱敏、写时未解耦"的经典缺陷。</p>
+  <p class="why"><b>修复</b>：<code>update</code> 中遇到 Secret 列且值为 <code>"configured"</code> 时跳过该列。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-11</span><span class="ttl">微信回调未校验金额，验签可被降级</span>
+    <span class="loc">wechat_pay.rs notify</span></div>
+  <p class="why">回调只取 <code>out_trade_no</code>，<b>未比对 <code>amount.total</code> 与订单 <code>amount_cents</code></b>。且平台公钥未配置时验签被跳过，安全边界退化为"仅依赖 AES-256-GCM 解密"（需攻击者拿不到 APIv3 密钥）。合规做法是<b>金额必须强校验</b>，这是支付回调的硬性要求。</p>
+</div>
+
+<div class="issue p1">
+  <div class="hd"><span class="tag t-p1">P1-12</span><span class="ttl">Turso 模式下所有价格字段被静默写为 NULL</span>
+    <span class="loc">cmsdb.rs:255-266</span></div>
+  <pre><span class="k">fn</span> to_param(v: &SqlValue) -> serde_json::Value {
+    <span class="k">match</span> v {
+        V::String(Some(s))   => json!({<span class="s">"type"</span>:<span class="s">"text"</span>,   <span class="s">"value"</span>: s}),
+        V::BigInt(Some(n))   => json!({<span class="s">"type"</span>:<span class="s">"integer"</span>,<span class="s">"value"</span>: n}),
+        V::Decimal(Some(d))  => json!({<span class="s">"type"</span>:<span class="s">"real"</span>,    <span class="s">"value"</span>: d}),
+        V::Float(Some(f))    => json!({<span class="s">"type"</span>:<span class="s">"real"</span>,    <span class="s">"value"</span>: f}),
+        <span class="w">V::Double  ← 缺失！</span>
+        _                    => json!({<span class="s">"type"</span>:<span class="s">"null"</span>,    <span class="s">"value"</span>: null}),
+    }
+}</pre>
+  <p class="why">而 <code>Col::Real</code>（<code>products.price</code>、<code>tiers.price_monthly</code>、<code>tiers.price_yearly</code> 共 4 处）用的正是 <code>SqlValue::Double</code>。<b>本地 SQLite 走 sea-orm 原生不受影响；一旦切 Turso，所有价格静默变 NULL 且不报错。</b>这是"两套后端行为不一致"的典型代价——也说明 Turso 分支<b>从未被真实验证过</b>。</p>
+  <p class="why"><b>更重要的推论</b>：Turso 后端目前处于"能编译但未经生产验证"状态。P0-1 的事务改造、Double 修复之后，还需要<b>针对 Turso 跑一遍完整回归</b>才能宣称支持。</p>
+</div>
+
+<!-- ══════════ P2 ══════════ -->
+<h2>四、P2 · 工程与可维护性（8 项）</h2>
+
+<table>
+<tr><th style="width:76px">级别</th><th style="width:190px">问题</th><th>说明与影响</th></tr>
+<tr><td><span class="tag t-p2">P2-13</span></td><td><b>双模型并存，无迁移路径</b></td>
+<td>旧 <code>/api/{table}</code>（24 表泛型 CRUD）与新 <code>/api/v1/*</code>（Content/Context/Channel/Site/Template/Theme + SeaORM entity）功能重叠。前端 45 个页面<b>全部走旧网关</b>，v1 无任何消费者、无双写、无影子读。它是"未来架构"的占位，但在没有迁移计划的前提下，长期是净负担（每次 schema 变更要同时想两套）。<b>建议：要么定一个明确切换窗口，要么果断砍掉</b>。</td></tr>
+<tr><td><span class="tag t-p2">P2-14</span></td><td><b>迁移无事务 + lenient 吞错</b></td>
+<td><code>run_migrations</code> 逐条执行，<code>lenient=true</code> 的 ALTER 失败被 <code>let _ =</code> 吞掉，<b>但版本仍标记完成</b> → 缺列后永不自愈，症状延迟到运行时报"列不存在"，根因极难追溯。建议：lenient 仅容忍"列已存在"这一种错误，其他错误照常失败。</td></tr>
+<tr><td><span class="tag t-p2">P2-15</span></td><td><b>CORS <code>very_permissive()</code></b></td>
+<td>生产放开所有 Origin + 凭据（main.rs:349）。同域部署本就不需要 CORS，应收敛为显式白名单或直接关闭。</td></tr>
+<tr><td><span class="tag t-p2">P2-16</span></td><td><b>无审计 / 无 request-id / 无结构化日志</b></td>
+<td>除 <code>ai_audit_log</code> 外，支付确认、订单改价、会员数据变更<b>均无操作审计</b>。资金类问题无法回答"谁在什么时候改了什么"。同时无 request-id，分布式排障无从下手。</td></tr>
+<tr><td><span class="tag t-p2">P2-17</span></td><td><b>种子数据硬编码个人业务内容</b></td>
+<td><code>db.rs</code> bootstrap 内联了 KOSX.ai / 可可鸭 / Bitget 邀请码等<b>真实个人信息与推广链接</b>（db.rs:618-621）。部署给第三方会直接带出去，既是隐私风险也是品牌耦合。应抽到配置文件或迁移到"站点初始化向导"。</td></tr>
+<tr><td><span class="tag t-p2">P2-18</span></td><td><b>零缓存层</b></td>
+<td>公开内容每次请求打 DB，无 ETag / Cache-Control；<code>articles.views</code> 每次 track 都写库（热门文章写放大 + 撞锁）。建议 views 走内存计数批量落盘，公开内容加 HTTP 缓存头。</td></tr>
+<tr><td><span class="tag t-p2">P2-19</span></td><td><b>业务规则散落，支付模型二元化</b></td>
+<td>订阅状态分散在 <code>members.plan</code> / <code>plan_expires_at</code> / <code>tiers</code> / <code>points.extend_plan</code> 四处；支付有 Stripe（subscriptions.rs，仅 test mode）与微信（orders 表）两套，<b>状态模型不统一</b>，对账需同时理解两条链路。</td></tr>
+<tr><td><span class="tag t-p2">P2-20</span></td><td><b>资金链路测试覆盖为 0</b></td>
+<td>后端仅 1 个集成测试文件（148 行）+ cmsdb 2 个单测；前端 20 个测试文件集中在 config / 纯函数。<b>积分、订单、回调验签、付费墙这些最需要测试的地方，一行测试都没有</b>。P0-1 的并发缺陷正是这类测试本该捕获的。</td></tr>
+</table>
+
+<!-- ══════════ 场景矩阵 ══════════ -->
+<h2>五、支持的场景（能力矩阵）</h2>
+<p style="color:var(--muted);font-size:13px">基于代码实际能力而非设计意图评估。✅ = 开箱可用　⚠️ = 能用但有明确约束　❌ = 需要较大改造</p>
+
+<h3>✅ 强项场景 —— 这套系统真正的主场</h3>
+<div class="grid2">
+<div class="card">
+<h4>内容 publishing</h4>
+<ul>
+<li>文章 / 页面 / 标签 / 媒体库全流程</li>
+<li>SEO 完整：sitemap.xml、RSS、robots.txt</li>
+<li>定时发布（scheduler 提升到 published）</li>
+<li>多语言 i18n 端点</li>
+<li>首页区块（4 块独立资源表，富 JSON body）</li>
+<li>导航 / 页脚 / 主页置顶可后台配置</li>
+</ul>
+</div>
+<div class="card">
+<h4>创作者变现闭环</h4>
+<ul>
+<li><b>4 级付费墙</b>：公开 / 订阅 / 积分买断 / 邀请专享（paid_level 0-3）</li>
+<li>会员注册（邀请码门可开关）、签到、积分流水、兑码核销</li>
+<li><b>双轨收款</b>：微信扫码自动到账 + 人工确认兜底</li>
+<li>邀请奖励（延迟到好友首单，防刷设计正确）</li>
+<li>订单对账（按日 × 渠道 × 状态）+ 超时关单</li>
+<li>会员中心模板页（跟随 active 主题自适应）</li>
+</ul>
+</div>
+</div>
+<div class="grid2">
+<div class="card">
+<h4>主题与前端灵活性</h4>
+<ul>
+<li>模板 zip 上传 → 目录 → <code>/t/{slug}</code> 静态伺服，<b>换主题不重编译</b></li>
+<li><code>/t/active</code> 自动跟随当前激活模板</li>
+<li>模板页同源调 API，无需 CORS</li>
+<li>Headless 消费：REST 公开 API + GraphQL 只读 + 出站 Webhook（带签名）</li>
+</ul>
+</div>
+<div class="card">
+<h4>运营与 AI 工具</h4>
+<ul>
+<li>评论审核、邮件订阅 + SMTP 群发、公开表单收集</li>
+<li>数据看板（流量 / 内容 / 社区经营三块，含收入趋势、临期会员）</li>
+<li>LLM chat、AI 能力调用 + 审批裁决流（Policy→Action→Audit 闭环）</li>
+<li>自动化工作流（cron 表达式触发）+ OAuth 集成管理</li>
+</ul>
+</div>
+</div>
+
+<h3>⚠️ 能用但有明确约束</h3>
+<table>
+<tr><th style="width:170px">场景</th><th style="width:78px">评级</th><th>约束条件</th></tr>
+<tr><td><b>多站点运营</b></td><td><span class="tag t-p1">⚠️</span></td>
+<td>模板层支持多套皮肤 + <code>home_template</code> 路由，但<b>底层数据只有一份</b>（单租户）。多个独立站点 = 部署多套实例。同模板下不能做"一个后台管 N 个站"。</td></tr>
+<tr><td><b>订阅自动续费</b></td><td><span class="tag t-p1">⚠️</span></td>
+<td>有到期字段、有到期提醒（7 天临期 + 已过期），但<b>无周期扣款</b>：微信 Native 是一次性支付（需另接"签约代扣 / 先享后付"），Stripe 订阅能力只在 test mode。现状只能人工续费。</td></tr>
+<tr><td><b>电商 / 实物商品</b></td><td><span class="tag t-p1">⚠️</span></td>
+<td><code>products</code> 表只有 name / price / description / status 四列。无 SKU、无库存、无购物车、无物流、无优惠码。适合"商品展示"，不适合"在线交易"。</td></tr>
+<tr><td><b>团队协作</b></td><td><span class="tag t-p1">⚠️</span></td>
+<td>只有 owner / editor / viewer 三个<b>编译期硬编码</b>角色（<code>perm.rs</code> 枚举），不能自定义角色、不能配权限组、不能做字段级权限。注释里写的"Phase 3 落 role_permission 表"尚未实现。</td></tr>
+<tr><td><b>多渠道分发</b></td><td><span class="tag t-p1">⚠️</span></td>
+<td>v1 的 Channel 模型（<code>publish_to_channel</code> / <code>unpublish</code>）已实现，但<b>无前端页面、无实际渲染器</b>，只是 API 层能力。需要外部 Renderer 消费 <code>/api/v1/sites/{id}/render</code> 契约。</td></tr>
+<tr><td><b>中大型内容量</b></td><td><span class="tag t-p1">⚠️</span></td>
+<td>无分页、无搜索。文章 &lt; 1000 篇、会员 &lt; 5000 流畅；再往上后台列表会明显变慢（全量加载 + 客户端渲染）。</td></tr>
+</table>
+
+<h3>❌ 不适合 —— 需要结构性改造</h3>
+<table>
+<tr><th style="width:170px">场景</th><th>为什么不行 / 需要什么</th></tr>
+<tr><td><b>真 SaaS 多租户</b></td><td>P0-2。租户解析、自助开通、租户级配额与计费全部缺失。改造量≈重写接入层。</td></tr>
+<tr><td><b>水平扩展 / 高并发</b></td><td>P0-4 + P2-18。内存态限速、无分布式锁、无缓存、无队列、单机 SQLite 无 WAL。需要引入 Redis + 连接池调优 + 缓存层。</td></tr>
+<tr><td><b>严格资金合规</b></td><td>P0-1 + P1-11 + P2-16。无事务、无不可变账本、无审计日志、回调未校验金额。金融级要求下这四项都是硬伤。</td></tr>
+<tr><td><b>大型内容社区</b></td><td>P0-3。无分页、无全文搜索、无 CDN 失效策略、无读写分离。</td></tr>
+<tr><td><b>需要 SLA 的生产支付</b></td><td>P0-1 衍生。无幂等补偿、无对账自动修复、无监控告警、无死信队列。漏发货只能人工发现。</td></tr>
+</table>
+
+<!-- ══════════ 路线图 ══════════ -->
+<h2>六、修复路线图</h2>
+<div class="road">
+  <div class="col r1">
+    <div class="ph">第一梯队 · 上线前必须</div>
+    <div class="pt">没有这些，不建议承载真实资金</div>
+    <ul>
+      <li><b>CmsDb 加事务</b>，包住 <code>fulfill_order</code> / <code>add_ledger</code> / <code>purchase_article</code>（约 200 行）</li>
+      <li><b>JWT 状态校验</b>：Auth extractor 查库校验 status + token_version</li>
+      <li><b>模板 slug 白名单</b> + canonicalize（2 行）</li>
+      <li><b>Secret 列跳过</b> <code>"configured"</code> 回写（3 行）</li>
+      <li><b>Turso Double 补映射</b> + Turso 全链路回归</li>
+      <li><b>回调金额强校验</b></li>
+      <li>SQLite 开 WAL + busy_timeout</li>
+    </ul>
+  </div>
+  <div class="col r2">
+    <div class="ph">第二梯队 · 规模化前</div>
+    <div class="pt">数据量或并发上来之前完成</div>
+    <ul>
+      <li><b>list 加分页</b>（limit/offset 或 cursor）+ 修正 total 语义</li>
+      <li>前端表格接分页 + 大列表虚拟滚动</li>
+      <li>补 <code>members.email</code> UNIQUE、文章全文检索</li>
+      <li>公开内容 HTTP 缓存头 + views 批量落盘</li>
+      <li>限速 / 调度锁外置（Redis 或 DB 锁表）</li>
+      <li>操作审计日志 + request-id 中间件</li>
+      <li>Webhook SSRF 防护 + 超时 + 退避重试</li>
+      <li>SVG 上传安全响应头</li>
+    </ul>
+  </div>
+  <div class="col r3">
+    <div class="ph">第三梯队 · 架构收敛</div>
+    <div class="pt">让系统从"能用"变成"好养"</div>
+    <ul>
+      <li><b>v1 域模型做决策</b>：定切换窗口或砍掉</li>
+      <li>统一支付状态模型（Stripe + 微信 → 同一张 orders）</li>
+      <li>种子数据外置（去掉个人业务信息）</li>
+      <li>资金链路补集成测试（并发核销 / 重复回调 / 余额边界）</li>
+      <li>多租户：明确承认单站点定位，或立项改造</li>
+    </ul>
+  </div>
+</div>
+
+<figure>
+<svg viewBox="0 0 880 210" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,PingFang SC,sans-serif">
+  <text x="20" y="24" font-size="13" font-weight="700" fill="#15181d">改造收益 / 成本比（建议按此顺序投入）</text>
+
+  <!-- 条形图 -->
+  <g font-size="11.5">
+    <!-- 1 -->
+    <text x="20" y="56" fill="#3a4150">CmsDb 事务</text>
+    <rect x="150" y="45" width="560" height="18" rx="4" fill="#f3f5f8"/>
+    <rect x="150" y="45" width="552" height="18" rx="4" fill="#c8382f"/>
+    <text x="716" y="59" font-size="10.5" fill="#c8382f" font-weight="700">收益极高 · 成本中 · 收敛点</text>
+
+    <!-- 2 -->
+    <text x="20" y="84" fill="#3a4150">JWT 状态校验</text>
+    <rect x="150" y="73" width="560" height="18" rx="4" fill="#f3f5f8"/>
+    <rect x="150" y="73" width="540" height="18" rx="4" fill="#c8382f"/>
+    <text x="716" y="87" font-size="10.5" fill="#c8382f" font-weight="700">收益极高 · 成本极低</text>
+
+    <!-- 3 -->
+    <text x="20" y="112" fill="#3a4150">路径穿越 / Secret / Double</text>
+    <rect x="150" y="101" width="560" height="18" rx="4" fill="#f3f5f8"/>
+    <rect x="150" y="101" width="530" height="18" rx="4" fill="#c8382f"/>
+    <text x="716" y="115" font-size="10.5" fill="#c8382f" font-weight="700">收益高 · 成本极低（合计 ~10 行）</text>
+
+    <!-- 4 -->
+    <text x="20" y="140" fill="#3a4150">分页 + 索引</text>
+    <rect x="150" y="129" width="560" height="18" rx="4" fill="#f3f5f8"/>
+    <rect x="150" y="129" width="400" height="18" rx="4" fill="#d9a03a"/>
+    <text x="716" y="143" font-size="10.5" fill="#a86a12" font-weight="700">收益高 · 成本中高（前后端联动）</text>
+
+    <!-- 5 -->
+    <text x="20" y="168" fill="#3a4150">v1 模型决策</text>
+    <rect x="150" y="157" width="560" height="18" rx="4" fill="#f3f5f8"/>
+    <rect x="150" y="157" width="320" height="18" rx="4" fill="#1e5eb8"/>
+    <text x="716" y="171" font-size="10.5" fill="#1e5eb8" font-weight="700">收益中（减负担）· 成本中</text>
+
+    <!-- 6 -->
+    <text x="20" y="196" fill="#3a4150">多租户改造</text>
+    <rect x="150" y="185" width="560" height="18" rx="4" fill="#f3f5f8"/>
+    <rect x="150" y="185" width="130" height="18" rx="4" fill="#9aa1ad"/>
+    <text x="716" y="199" font-size="10.5" fill="#6b7280" font-weight="700">收益取决于定位 · 成本极高 → 建议先明确不做</text>
+  </g>
+</svg>
+<figcaption>图 2 · 修复优先级矩阵 —— 前三条形（红色）合计约 250 行改动，可消除绝大部分真实风险</figcaption>
+</figure>
+
+<!-- ══════════ 结论 ══════════ -->
+<h2>七、一句话结论</h2>
+<div class="note warn">
+<b>架构本身没有方向性错误</b>——分层清晰、数据访问收敛、权限后端权威、幂等意识到位，这些都是正确的选择。
+真正的问题是<b>"功能跑得比底座快"</b>：P0–P3 三个月堆出了完整的商业闭环，但数据层还停留在"能读写就行"的阶段。
+</div>
+
+<div class="good">
+<b>最值得做的一件事</b>：给 <code>CmsDb</code> 补事务能力，然后把 <code>fulfill_order</code> / <code>add_ledger</code> / <code>purchase_article</code> 三个函数包进去。
+这一个改动（约 200 行）能同时解决 P0-1 的漏发货、余额变负、流水错乱、重复注册四个问题，
+也是从"演示可用"走向"可承载真实交易"的分水岭。
+</div>
+
+<div class="note">
+<b>最需要想清楚的一件事</b>：这套系统的定位是<b>「单实例 · 单站点 · 数据量可控的创作者站」</b>。
+在这个定位内，它的功能完整度是超出平均水平的（付费墙 4 级 + 双轨支付 + 积分经济 + 模板热插拔，很多商业 CMS 都没有）。
+但只要想跨出这个圈——多租户、高并发、严格资金合规——就不是"改一改"能解决的，需要立项重做底座。
+<b>建议明确承认这个边界，而不是在后续需求里反复试探。</b>
+</div>
+
+<footer>
+评审方法：源码级走查（33 个 Rust 模块逐文件阅读 + 关键路径交叉验证），非运行态压测。<br>
+本文标注的所有行号基于 2026-09-04 工作区状态（P0–P3 全部落地、未编译）。<br>
+未覆盖：前端组件实现细节、第三方依赖 CVE、实际并发压测、Turso 后端真实联调。
+</footer>
+
+</div>
+</body>
+</html>
