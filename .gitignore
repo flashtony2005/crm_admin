@@ -22,9 +22,12 @@ server/tgt_*/
 *.db-shm
 *.sqlite
 *.sqlite3
-# 注：cms.db / cms_live.db 已移出版本控制（2026-08-31）。运行时由 server/src/db.rs 的
-# CREATE TABLE IF NOT EXISTS 在首次启动时自动建表；本地运行库不入库，避免业务数据泄漏与二进制冲突。
-# 如需在空仓库复现结构：启动后端即自动生成，或 `cp server/cms_live.db server/cms.db`。
+# 例外：cms.db / cms_live.db 为**测试数据集**，2026-09-21 起重新纳入版本控制，
+# 便于在新机器 / 空仓库直接复现完整测试数据，无需重新造数。
+!server/cms.db
+!server/cms_live.db
+# 注意：`*.db-wal` / `*.db-shm` 仍保持忽略 —— 它们是 SQLite 运行时文件，入库会导致库状态不一致。
+# 结构变更仍由 server/src/db.rs 的版本化迁移保证，换机器首次启动会自动补齐。
 
 # ── 上传文件（运行时产物，不入库） ──
 server/uploads/
