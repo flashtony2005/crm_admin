@@ -15,6 +15,7 @@ use tower_http::services::ServeDir;
 
 mod ai;
 mod audit;
+mod agent_layer;
 mod cmsdb;
 mod auth;
 mod automation;
@@ -27,6 +28,7 @@ mod notify;
 mod oauth;
 mod perm;
 mod points;
+mod presets;
 mod wechat_pay;
 mod public_api;
 mod public_forms;
@@ -54,7 +56,9 @@ use error::{ok, ApiResult};
 use state::AppState;
 
 /// 生产态静态资源（web/dist 经 deploy 复制到 ./dist-app）的 SPA history 回退。
-/// 仅对「无扩展名」或文件不存在的导航请求返回 index.html；带扩展名的缺失文件返回 404。
+/// 判定顺序：① 命中真实文件 → 直接返回；② 缺失但属**资源型**扩展名
+/// （`.js`/`.css`/`.ico` …，见 `templates::looks_like_asset`）→ 404；
+/// ③ 其余（导航路径，含 `/author/john.doe` 这类带点的）→ 回退 index.html。
 fn static_dir() -> PathBuf {
     std::env::var("STATIC_DIR")
         .map(PathBuf::from)
@@ -86,14 +90,40 @@ async fn spa_fallback(uri: Uri) -> Response {
     if path.contains("..") {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let dir = static_dir();
-    // 带扩展名且文件真实存在 → 直接返回静态文件（/assets/*、favicon.ico 等）
-    if path.contains('.') {
-        let rel = path.trim_start_matches('/');
-        let file = dir.join(rel);
-        if let Ok(bytes) = tokio::fs::read(&file).await {
-            return ([(header::CONTENT_TYPE, content_type_for(path))], bytes).into_response();
+    // 模板主页的**尾斜杠归一化**。
+    //
+    // 为什么放在这里：axum/matchit 把 `/t/<slug>` 与 `/t/<slug>/` 当成两条不同
+    // 路径，只有前者注册了 handler，于是 `/t/coucouya/` 落到兜底并 404 ——
+    // 而「主页地址会不会带尾斜杠」由用户输入决定，不能靠碰运气。sitemap 与
+    // RSS 发布的地址也不该是死链。
+    //
+    // 只处理「恰好一个非空段的 /t/xxx/」这一种形状，其它一律照旧走 SPA 逻辑：
+    // 不做通用尾斜杠剥离，避免影响后台路由（如 `/content/articles/`）。
+    // 用 302 而非 301：模板可切换，别让浏览器永久记住。
+    if path.starts_with("/t/") && path.len() > 4 && path.ends_with('/') {
+        let seg = &path[3..path.len() - 1];
+        if !seg.is_empty() && !seg.contains('/') && seg != "active" {
+            if let Ok(v) = HeaderValue::from_str(&format!("/t/{seg}")) {
+                return (StatusCode::FOUND, [(header::LOCATION, v)]).into_response();
+            }
         }
+    }
+    let dir = static_dir();
+    let rel = path.trim_start_matches('/');
+    // 命中真实文件 → 直接返回静态文件（/assets/*、favicon.ico 等）
+    let file = dir.join(rel);
+    if let Ok(bytes) = tokio::fs::read(&file).await {
+        return ([(header::CONTENT_TYPE, content_type_for(path))], bytes).into_response();
+    }
+    // 缺失的**资源型**路径必须 404：用 HTML 冒充 JS/CSS 会让浏览器报
+    // “Refused to execute script … MIME type ('text/html')”，把一次干净的
+    // 404 变成难定位的脚本错误（换构建后浏览器缓存着旧哈希资源时必现）。
+    //
+    // 判定复用 templates::looks_like_asset 的扩展名白名单，而非早先的
+    // `path.contains('.')` —— 后者会把带点的**导航**路径也判成资源，例如后台
+    // 唯一带参数的公开路由 `/author/john.doe` 直接 404，SPA 拿不到兜底。
+    // 先试文件、再判扩展名、最后回退 index.html，三步下来两种诉求都能满足。
+    if templates::looks_like_asset(rel) {
         return StatusCode::NOT_FOUND.into_response();
     }
     // 导航类请求 → 返回 SPA 入口 index.html（client-side routing 兜底）
@@ -145,6 +175,9 @@ pub fn build_router(st: AppState) -> Router {
         // 站点级设置（主题/模板/品牌）：免认证只读，供公开站点套用
         .route("/api/public/site", get(site::site))
         // 首页区块（独立 CMS 资源表）：免认证只读，供公开站点（coucouya 等）消费
+        // 主页首屏聚合：一次返回 site / sections / nav / footer / pins / articles，
+        // 免去公开站点首屏并发打 5 个端点（子块失败单独降级，不影响整页）
+        .route("/api/public/home", get(public_api::home))
         .route("/api/public/sections", get(public_api::sections))
         // 导航/页脚链接 与 主页置顶文章（nav_links / home_pins 表）：免认证只读
         .route("/api/public/nav", get(public_api::nav))
@@ -203,6 +236,12 @@ pub fn build_router(st: AppState) -> Router {
         .route("/sitemap.xml", get(seo::sitemap))
         .route("/rss.xml", get(seo::rss))
         .route("/robots.txt", get(seo::robots))
+        // ── Agent Layer（免认证，全部由 DB 派生；见 agent_layer.rs）──
+        // 让站点对机器「可发现 / 可理解 / 可调用」：语言模型说明书、
+        // Agent Manifest、以及公开页的服务期头注（后者接在 /t/* 伺服链路上）。
+        .route("/llms.txt", get(agent_layer::llms_txt))
+        .route("/ai/product", get(agent_layer::ai_product))
+        .route("/agent.json", get(agent_layer::agent_manifest))
         // 文件上传（需 content.media.upload 权限）：multipart → uploads/ 目录
         .route("/api/upload", post(upload::upload))
         // 静态资源：上传的文件公开可读（/uploads/*）

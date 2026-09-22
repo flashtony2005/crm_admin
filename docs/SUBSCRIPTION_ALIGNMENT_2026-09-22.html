@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>订阅/SaaS 架构对齐分析 — admin 项目（2026-09-22）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+  --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+  --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+  --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+  --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:25px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+  color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:8px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+.meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+.lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+  border-radius:10px;padding:16px 20px;margin:16px 0}
+.lead b{font-weight:600}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+.mcard .v{font-size:21px;font-weight:600;letter-spacing:-.3px}
+.mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.t-red{background:var(--redbg);color:var(--red)}
+.t-amber{background:var(--amberbg);color:var(--amber)}
+.t-green{background:var(--greenbg);color:var(--green)}
+.t-blue{background:var(--bluebg);color:var(--blue)}
+.t-purple{background:var(--purplebg);color:var(--purple)}
+.t-gray{background:var(--graybg);color:var(--tx2)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+th{background:#fafbfc;text-align:left;font-weight:600;font-size:12.5px;color:var(--tx2);
+  padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid #f0f1f4;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+ul{margin:8px 0;padding-left:20px}
+li{margin:5px 0}
+.def{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0;margin:12px 0;overflow:hidden}
+.def .hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+.def .hd .sev{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+.def .hd .ttl{font-weight:600;font-size:14px}
+.def .bd{padding:14px 18px}
+.def .bd .loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);
+  background:#f5f6f8;display:inline-block;padding:2px 7px;border-radius:4px;margin:2px 0}
+.fix{background:var(--greenbg);border:1px solid #cbe7d8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.fix b{color:var(--green)}
+.bar{height:9px;border-radius:5px;background:#eceef1;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;border-radius:5px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--tx2);margin:8px 0 4px}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.step{display:flex;gap:14px;margin:0 0 4px}
+.step .rail{width:26px;display:flex;flex-direction:column;align-items:center;flex:none}
+.step .rail b{width:26px;height:26px;border-radius:50%;background:var(--tx);color:#fff;font-size:12px;
+  font-weight:600;display:flex;align-items:center;justify-content:center}
+.step .rail i{flex:1;width:1px;background:var(--line2);display:block;margin:4px 0}
+.step:last-child .rail i{display:none}
+.step .body{padding-bottom:18px;flex:1}
+.step .body h4{margin:3px 0 6px;font-size:14px;font-weight:600}
+.small{font-size:12.5px;color:var(--tx2)}
+.foot{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--tx3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>现有项目与「Rust SaaS 订阅架构」方案的对齐分析</h1>
+<div class="meta">对象：<code>F:\project\admin</code>（admin CMS + CouCouYa 主页）　·　比对基准：《Axum + SQLx + PostgreSQL + Rauthy + Stripe 托管收银台》方案（核验日 2026-09-21）　·　分析日 2026-09-22　·　结论基于源码实测，非文档推断</div>
+
+<div class="lead">
+<b>一句话结论：</b>这份方案有两个层次——<b>「订阅可靠性语义」</b>与<b>「具体技术栈选型」</b>。前者你<b>必须在对齐清单里补齐</b>，后者<b>大部分不该对齐</b>：方案写给的是一个 1–3 人出海工具站，而当前项目是私有化交付、单实例、国内微信生态为主的创作者变现站，把 Rauthy / PostgreSQL / Askama 搬进来会与既有交付形态直接冲突。<br><br>
+<b>更重要的发现：</b>真正卡住你的不是"缺什么功能"，而是现网已有 <b>1 个资损级越权洞 + 1 条近乎裸奔的 Stripe 链路</b>；同时同项目里的<b>微信支付链路反而比 Stripe 链路成熟一个数量级</b>，方案要求的 outbox、指数退避、原子幂等、金额校验，你在微信侧和出站 Webhook 侧其实已经做完了。
+</div>
+
+<h2><span class="num">1</span>对齐判定总览</h2>
+
+<p>把方案拆成 16 个可判定条目逐条比对源码，结果是：真正需要补的只有 5 项，且集中在「订阅状态与权益建模」上。</p>
+
+<div class="grid g4" style="margin:16px 0">
+  <div class="mcard"><div class="k">已对齐 / 达标</div><div class="v" style="color:var(--green)">6 项</div><div class="s">无需改动，勿重复投入</div></div>
+  <div class="mcard"><div class="k">必须补齐</div><div class="v" style="color:var(--amber)">5 项</div><div class="s">影响收钱正确性</div></div>
+  <div class="mcard"><div class="k">不建议对齐</div><div class="v" style="color:var(--tx2)">5 项</div><div class="s">与私有化定位冲突</div></div>
+  <div class="mcard"><div class="k">现网高危缺陷</div><div class="v" style="color:var(--red)">4 条</div><div class="s">其中 1 条资损级</div></div>
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:#1c7a4a"></i>已达标</span>
+  <span><i class="dot" style="background:#a8670a"></i>需补齐</span>
+  <span><i class="dot" style="background:#c0392b"></i>高危缺陷</span>
+  <span><i class="dot" style="background:#8b929e"></i>不建议对齐</span>
+</div>
+
+<h3>方案条目 × 现状 × 判定</h3>
+<table>
+<thead><tr><th style="width:20%">方案推荐</th><th style="width:34%">项目现状（源码实测）</th><th style="width:12%">判定</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>Axum + Tokio + tower-http</td><td class="mono">axum 0.8 / tokio 1 / tower-http 0.6</td><td><span class="tag t-green">已对齐</span></td><td>版本甚至比方案示例更新</td></tr>
+<tr><td>SQLx</td><td class="mono">sea-orm 2.0（feature <code>sqlx-sqlite</code>）</td><td><span class="tag t-green">已对齐</span></td><td>底层就是 sqlx；为对齐而换 ORM 无收益</td></tr>
+<tr><td>后台任务持久化 + 退避重试</td><td class="mono">webhook_deliveries（pending/attempts/last_error）+ 1/2/4/8 分钟退避 + 每分钟 tick 接管</td><td><span class="tag t-green">已对齐</span></td><td>方案第 3 节 6 条里，第 2/4 条基本达成</td></tr>
+<tr><td>幂等：重复通知不重复发货</td><td class="mono">orders <code>UPDATE … WHERE status='pending'</code> 原子判定 + order_fulfill_log UNIQUE(tenant,order,stage)</td><td><span class="tag t-green">已对齐</span></td><td><b>微信侧</b>已达成；Stripe 侧未达成（见 §3-3）</td></tr>
+<tr><td>创建请求幂等 + 服务端白名单定价</td><td class="mono">create_order 服务端按 tier/积分算金额，前端不传价格；金额回调二次校验（F5）</td><td><span class="tag t-green">已对齐</span></td><td>定价权在服务端，符合方案要求</td></tr>
+<tr><td>封禁用户即撤销会话</td><td class="mono">auth.rs 管理员侧逐请求回查 users.status + token_version</td><td><span class="tag t-green">已对齐</span></td><td><b>仅管理员侧</b>；会员侧缺失（见 §3-4）</td></tr>
+
+<tr><td>Stripe Checkout + Customer Portal</td><td class="mono">Checkout 有（subscriptions.rs，仅月付、无幂等键、无事件落库）；Portal 无</td><td><span class="tag t-amber">需补齐</span></td><td>收银台有了，但只是"能跳转"，不是"能对账"</td></tr>
+<tr><td>Webhook 事件持久化 + Event ID 去重</td><td class="mono">无 webhook_events 表；Stripe 分支用 <code>.ok()</code> 吞错后仍返 2xx</td><td><span class="tag t-amber">需补齐</span></td><td>方案称"不可以留到用户多了再做"，同意</td></tr>
+<tr><td>订阅独立状态机</td><td class="mono">无 subscriptions 表；状态 = <code>members.plan</code> + <code>plan_expires_at</code> 两字段</td><td><span class="tag t-amber">需补齐</span></td><td>无法表达"期末取消"与"宽限期"（见 §4）</td></tr>
+<tr><td>权益独立定义（entitlements）</td><td class="mono">判定硬编码 <code>plan != 'free'</code>；tiers.features JSON 不参与判定</td><td><span class="tag t-amber">需补齐</span></td><td>正是方案反对的"到处判断一个字段"</td></tr>
+<tr><td>定期对账 + 可恢复</td><td class="mono">有 <code>/api/admin/orders/recon</code> 但仅人工触发；scheduler tick 里无订阅对账</td><td><span class="tag t-amber">需补齐</span></td><td>有工具、缺调度</td></tr>
+
+<tr><td>Rauthy / OIDC 外挂身份服务</td><td class="mono">自建双轨 JWT（管理员 7 天 / 会员 30 天）+ argon2</td><td><span class="tag t-gray">不建议</span></td><td>私有化交付要多部署一套服务+独立库+独立认证域名，运维成本翻倍</td></tr>
+<tr><td>PostgreSQL</td><td class="mono">SQLite + Turso shim 双后端，exec_tx 事务体系已成型</td><td><span class="tag t-gray">不建议</span></td><td>换库=重写 cmsdb 层与全部参数绑定，风险远高于收益</td></tr>
+<tr><td>Askama 服务端模板</td><td class="mono">React SPA + <code>/t/{slug}</code> 产物托管 + 1 内核 × 10 风格 × 5 预设</td><td><span class="tag t-gray">不建议</span></td><td>已有更完整的公开页方案，重写等于把 50 组版式重建</td></tr>
+<tr><td>tower-sessions + PG Store</td><td class="mono">无服务端会话表</td><td><span class="tag t-gray">不建议</span></td><td>真正的缺口是"会员 token 不可撤销"，加张表解决不了，改一次回查即可</td></tr>
+<tr><td>私有对象存储</td><td class="mono">本地 <code>UPLOAD_DIR/uploads/</code> 落盘 + 缩略图</td><td><span class="tag t-gray">暂不需要</span></td><td>单机私有化部署下本地盘合理；若要出海/多实例再迁</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">2</span>先看清家底：钱相关资产盘点</h2>
+
+<div class="grid g3">
+  <div class="mcard"><div class="k">涉钱数据表</div><div class="v">12 张</div><div class="s">members / tiers / orders / points_ledger / redeem_codes / order_fulfill_log / invite_codes / webhook_subscriptions / webhook_deliveries …</div></div>
+  <div class="mcard"><div class="k">后端模块</div><div class="v">33 个</div><div class="s">subscriptions.rs 178 行 · points.rs 最大 · wechat_pay.rs 完整 APIv3</div></div>
+  <div class="mcard"><div class="k">数据库迁移</div><div class="v">0001–0009</div><div class="s">0004 付费墙 / 0005 订单+积分 / 0006 hardening</div></div>
+</div>
+
+<h3>两条收款链路的成熟度差了一个数量级</h3>
+<p class="small">这是本次分析最值得注意的结构性事实：你为国内主渠道（微信）建了完整的资金安全体系，但 Stripe 那条路几乎是 demo 骨架。对齐工作应当"先把 Stripe 拉到微信的水平"，而不是"整体换架构"。</p>
+
+<table>
+<thead><tr><th style="width:26%">能力</th><th style="width:37%">微信支付（wechat_pay.rs）</th><th style="width:37%">Stripe（subscriptions.rs）</th></tr></thead>
+<tbody>
+<tr><td>回调验真</td><td>APIv3 AES-256-GCM 解密 + 可选平台公钥验签</td><td>HMAC-SHA256 验签（常量时间比较）</td></tr>
+<tr><td>金额校验</td><td><span class="tag t-green">有</span> 比对 order.amount_cents（F5 修复）</td><td><span class="tag t-red">无</span> 只看 client_reference_id</td></tr>
+<tr><td>幂等</td><td><span class="tag t-green">有</span> 原子条件写 + outbox 阶段去重</td><td><span class="tag t-red">无</span> 直接 UPDATE，重复事件重复执行</td></tr>
+<tr><td>事件落库</td><td>无独立事件表（但订单状态机可追溯）</td><td><span class="tag t-red">无</span> 处理完即丢，无法重放</td></tr>
+<tr><td>失败返回</td><td><span class="tag t-green">正确</span> 失败返 500 → 微信重试</td><td><span class="tag t-red">错误</span> DB 写失败仍返 2xx → 事件永久丢失</td></tr>
+<tr><td>事件覆盖</td><td>trade_state 分支（REFUND/CLOSED 不误改）</td><td><span class="tag t-amber">仅 1 个</span> 只处理 checkout.session.completed</td></tr>
+<tr><td>周期支持</td><td>不适用（一次性订单 + plan_days）</td><td><span class="tag t-amber">仅月付</span> interval 参数收了但未使用</td></tr>
+<tr><td>测试模式风险</td><td>未配置即报错，不发货</td><td><span class="tag t-red">危险</span> 未配置直接白送会员</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">3</span>P0：现在就存在的缺陷（不是"缺功能"）</h2>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--redbg);color:var(--red)">P0 资损</span><span class="ttl">任何注册会员可自助把套餐改成 pro，零成本解锁全部订阅内容</span></div>
+  <div class="bd">
+    <p>会员自助资料接口把 <code>plan</code> 当成可写字段，而付费墙判定只读这个字段：</p>
+    <div class="loc">main.rs:171　POST /api/public/members/me → members::update_me</div><br>
+    <div class="loc">members.rs:252-272　MemberUpdate { name, plan } — 客户端传 plan 即写入 members.plan</div><br>
+    <div class="loc">public_api.rs:112-124　subscribed() = plan != 'free' &amp;&amp; (plan_expires_at 为空 → 视为有效)</div>
+    <p style="margin-top:12px">链路完整成立：注册（默认开放，<code>member_invite_required=off</code>）→ <code>POST /api/public/members/me {"plan":"pro"}</code> → <code>paid_level=1</code> 文章全文解锁。<b>且 plan_expires_at 为空被当作不限期</b>，等于永久会员。</p>
+    <p class="small">诚实说明：分析时 8088 未运行，未做端到端实测；以上为源码路径推演，建议你本机起服务后一条 curl 复核。</p>
+    <div class="fix"><b>修法：</b>从 <code>MemberUpdate</code> 删掉 <code>plan</code> 字段，<code>update_me</code> 只允许改 name。plan 的唯一合法写入口 = 订单确认发货 / 兑码核销 / 后台改。顺带把「plan_expires_at 解析失败视为不限期」改成拒绝（安全默认）。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--redbg);color:var(--red)">P0 资损</span><span class="ttl">Stripe 未配置时会静默发放会员</span></div>
+  <div class="bd">
+    <div class="loc">subscriptions.rs:98-107　match STRIPE_SECRET_KEY → 缺失或 tier 无 price_id 时进入 else 分支</div>
+    <p style="margin-top:10px">该分支直接把 <code>members.plan</code> 置为 tier_slug 并 <code>status=1</code>，然后返回一个 <code>?demo=1</code> 的成功页。生产环境漏配一个环境变量，任何登录用户点一下"购买"就白拿会员——这正是方案中"<b>支付成功页不能直接授予权益</b>"的反面案例。</p>
+    <div class="fix"><b>修法：</b>改为「未配置即拒绝（返回明确错误）」，演示模式必须由显式 <code>STRIPE_DEMO_MODE=1</code> 且 <code>CMS_ENV != production</code> 同时满足才生效。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--redbg);color:var(--red)">P0 丢单</span><span class="ttl">Stripe Webhook 处理失败仍返回 2xx，事件无痕丢失</span></div>
+  <div class="bd">
+    <div class="loc">subscriptions.rs:112-141　stripe_webhook</div>
+    <ul>
+      <li>事件<b>不落库</b>：没有 event_id 去重，Stripe 按官方策略重发时会被重复执行；</li>
+      <li>DB 更新用 <code>.ok()</code> 吞掉错误，仍返回 <code>{"received": true}</code> → Stripe 认为投递成功，<b>不再重试</b>，用户付了钱但系统永远不知道；</li>
+      <li>只处理 <code>checkout.session.completed</code>：续费成功、续费失败（invoice.payment_failed）、取消、退款全部无人处理；</li>
+      <li>验签无时间戳容差（未校验 <code>t=</code> 与当前时间差），存在重放窗口。</li>
+    </ul>
+    <div class="fix"><b>修法（照微信链路的成熟做法对齐）：</b>① 先建 <code>webhook_events(event_id UNIQUE, type, payload, status, attempts)</code>；② INSERT 冲突即视为已处理，直接返 2xx；③ 入库成功才返 2xx，处理失败返 5xx 交给上游重试；④ 补 subscription.updated/deleted、invoice.payment_succeeded/failed 分支；⑤ 验签加 5 分钟时间容差。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--redbg);color:var(--red)">P0 越权</span><span class="ttl">会员 Token 无法撤销：封禁后仍可用最长 30 天</span></div>
+  <div class="bd">
+    <div class="loc">members.rs:24-45　MemberAuth 提取器只验签，不回查 members.status</div><br>
+    <div class="loc">members.rs:55　会员 token exp = now + 30 天，且 tv 固定为 0（不参与版本校验）</div>
+    <p style="margin-top:12px">管理员侧已经修过这个问题（auth.rs:157-171 逐请求回查 users.status 与 token_version），会员侧没有对应实现。后果：封禁违规会员、改密、踢下线后，旧 token 在其有效期内依然能读付费内容和改资料，方案中"封禁用户时同时撤销业务 Session"未达成。</p>
+    <div class="fix"><b>修法：</b>在 MemberAuth 里照抄管理员侧做法——查 <code>SELECT status, plan, plan_expires_at FROM members WHERE id=?</code>，<code>status != 1</code> 直接 401。顺带把 plan 判定也一并带进来，避免每次请求二次查库。</div>
+  </div>
+</div>
+
+<h2><span class="num">4</span>P1：订阅语义缺口（方案的核心内容）</h2>
+
+<p>这一层不是"有 bug"，而是<b>表达能力不足</b>——现有数据结构无法承载方案要求的订阅生命周期政策。</p>
+
+<div class="card">
+<h3 style="margin-top:0">缺口 1：没有 subscriptions 表，订阅状态退化成两个字段</h3>
+<p>现状：<code>members.plan</code>（字符串）+ <code>members.plan_expires_at</code>（时间戳），辅以 <code>orders.biz_type='plan' + plan_days</code>。缺失：Stripe Subscription ID、Price ID、计费周期（月/年）、<code>cancel_at_period_end</code>、订阅状态（active / past_due / canceled / incomplete）、当前周期起止、last_synced_at。</p>
+<p><b>直接后果两条政策无法表达：</b></p>
+<ul>
+  <li><b>「到期取消，已付费周期继续有效」</b>——plan_expires_at 只是个时间点，无法区分"用户主动取消但期末到期"和"正常到期"；</li>
+  <li><b>「续费失败进宽限期，宽限期结束降级」</b>——没有任何字段记录 past_due 与宽限截止时间。</li>
+</ul>
+</div>
+
+<h2><span class="num">5</span>已经达标的，别重复投入</h2>
+
+<div class="grid g2">
+  <div class="card" style="margin:0">
+    <h3 style="margin-top:0">资金安全机制</h3>
+    <ul style="margin-bottom:0">
+      <li>订单状态机原子确认（<code>WHERE status='pending'</code>），并发/双击只成功一次</li>
+      <li><code>order_fulfill_log</code> 发货 outbox，UNIQUE 阶段键，杜绝"已扣款未发货"</li>
+      <li>points_ledger 单一事实源 + balance_after 快照，可对账</li>
+      <li>回调金额二次校验（F5）</li>
+    </ul>
+  </div>
+  <div class="card" style="margin:0">
+    <h3 style="margin-top:0">工程与安全</h3>
+    <ul style="margin-bottom:0">
+      <li>出站 Webhook：outbox + HMAC 签名 + 指数退避 + 进程重启接管</li>
+      <li>登录限速落库（5 次 / 15 分钟），跨重启生效</li>
+      <li>/api 写操作审计日志 + X-Request-Id</li>
+      <li>付费墙 402 结构化响应（reason 区分 login/subscription/points/invite）</li>
+      <li>公开页 SEO 完整：sitemap / rss / robots + 多语言端点</li>
+      <li>真实 SMTP 事务邮件通道（lettre）已就绪</li>
+    </ul>
+  </div>
+</div>
+
+<h2><span class="num">6</span>建议的落地顺序</h2>
+
+<p>按"能否安全收到钱"排序，而不是按技术优雅度排序。整个方案不需要改架构，都是同一套 Axum + SQLite 体系内的增量。</p>
+
+<div class="card">
+<div class="step">
+  <div class="rail"><b>0</b><i></i></div>
+  <div class="body">
+    <h4>止血（半天，不改架构）</h4>
+    <p class="small" style="margin:0">删掉 <code>update_me</code> 的 plan 入参 → 会员 Token 回查 status → Stripe 测试模式改为拒绝 → Stripe webhook 改为"先落库、成功才返 2xx、失败返 5xx" → 验签加时间容差。<b>做完这一步，现网的资损与丢单风险即消除。</b></p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>1</b><i></i></div>
+  <div class="body">
+    <h4>订阅状态机（迁移 0010）</h4>
+    <p class="small" style="margin:0">新增 4 张表：<code>subscriptions</code> / <code>billing_operations</code>(幂等键) / <code>webhook_events</code> / <code>entitlements</code>。付费墙判定从 <code>plan != 'free'</code> 改为查 entitlements；<code>plan_expires_at</code> 改由 <code>subscriptions.current_period_end</code> 驱动，明确区分 canceled（期末）/ past_due（宽限）。保留 members 上的字段做兼容回填。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>2</b><i></i></div>
+  <div class="body">
+    <h4>闭环与运维</h4>
+    <p class="small" style="margin:0">scheduler 每分钟 tick 增加：每日订阅对账、stale pending 订单自动关闭、宽限期到期降级（现在这些都是人工端点）。后台增加订阅列表、事件重放入口、对账结果视图。会员自助页增加取消续费 / 恢复续费 / 账单记录。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>3</b></div>
+  <div class="body">
+    <h4>体验补齐（可选）</h4>
+    <p class="small" style="margin:0">让 <code>interval</code> 真正生效（年付，tiers.price_yearly 目前是死字段）；Stripe Customer Portal 或国内等价的自助账单页；退款/争议独立状态。</p>
+  </div>
+</div>
+</div>
+
+<h3>验收标准（照方案 §7 的场景清单，按现状逐条标状态）</h3>
+<table>
+<thead><tr><th style="width:46%">验收场景</th><th style="width:14%">现状</th><th>差距</th></tr></thead>
+<tbody>
+<tr><td>正常购买月付</td><td><span class="tag t-amber">部分</span></td><td>Stripe 侧可跳转，但没有可靠的落库确认</td></tr>
+<tr><td>正常购买年付</td><td><span class="tag t-red">不可用</span></td><td>代码只取 price_monthly，interval 未实现</td></tr>
+<tr><td>首次付款失败，不开通权益</td><td><span class="tag t-red">不满足</span></td><td>无 invoice.payment_failed 处理</td></tr>
+<tr><td>重复点击购买，不重复创建订阅</td><td><span class="tag t-red">不满足</span></td><td>Checkout 无幂等键，可生成多个 Session</td></tr>
+<tr><td>Webhook 重复发送，不重复处理</td><td><span class="tag t-red">不满足</span></td><td>无事件去重表（微信侧已满足）</td></tr>
+<tr><td>Webhook 乱序，不回退旧状态</td><td><span class="tag t-red">不满足</span></td><td>无版本/时间戳保护，无重新拉取 Stripe 当前态</td></tr>
+<tr><td>取消续费后，本期权益仍有效</td><td><span class="tag t-red">无法表达</span></td><td>缺 cancel_at_period_end 与周期字段</td></tr>
+<tr><td>续费失败、补款后权益正确变化</td><td><span class="tag t-red">无法表达</span></td><td>缺 past_due / 宽限期模型</td></tr>
+<tr><td>服务重启后未完成事件继续处理</td><td><span class="tag t-green">满足</span></td><td>outbox + scheduler 已具备（微信/出站链路）</td></tr>
+<tr><td>用户不能访问他人的账单入口与订阅信息</td><td><span class="tag t-amber">部分</span></td><td>查询按 auth.0.sub 过滤；但 plan 可自改（§3-1）</td></tr>
+<tr><td>本地状态异常时可通过对账修复</td><td><span class="tag t-amber">部分</span></td><td>有 recon 端点，但无定时调度、无订阅维度</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">7</span>什么情况下才需要动方案里的"技术栈部分"</h2>
+
+<p>如果你的目标是<b>把当前项目变成出海产品</b>（面向海外用户直接收款），那么上面被判定"不建议对齐"的条目里，有 3 条会重新变成必要条件——但顺序仍在订阅状态机之后。</p>
+
+<table>
+<thead><tr><th style="width:22%">触发条件</th><th style="width:30%">届时才需要做</th><th>理由</th></tr></thead>
+<tbody>
+<tr><td>Stripe 成为主收款渠道</td><td class="mono">§6 阶段 1 的订阅状态机（前置条件）</td><td>没有状态机就直接出海 = 系统性资损，不是体验问题</td></tr>
+<tr><td>多币种 / 面向多市场</td><td class="mono">orders 增加 currency 字段（当前只有 amount_cents，无币种）</td><td>金额无币种在跨市场场景会直接算错账</td></tr>
+<tr><td>海外 SEO / 多语言落地页</td><td class="mono">公开页多语言 URL + hreflang（articles.locale 已有，输出缺）</td><td>方案 §7 的获客要求；当前 i18n 只覆盖接口文案</td></tr>
+<tr><td>收款主体与税务资格</td><td class="mono">非代码问题：主体/银行账户/Stripe 可用性，或评估 Paddle 类 MoR</td><td>方案说得很对——这是写支付代码之前的前置确认</td></tr>
+<tr><td>客户要求企业 SSO / 多组织</td><td class="mono">此时才考虑引入 OIDC IdP（先做多租户改造）</td><td>Rauthy/Keycloak 的价值只在"多产品共用身份"时成立</td></tr>
+</tbody>
+</table>
+
+<div class="lead" style="border-left-color:#1c7a4a">
+<b>总结：</b>方案里"真正决定可行性的，不是技术栈里 Rust 的比例，而是登录和权限边界清楚、支付与权益能够恢复一致、数据能恢复、产品确实有销售资格"这句话是对的——而且这句话里的四项，<b>没有一项需要换语言、换数据库或外挂 IdP</b>。当前项目该做的是：先补掉 P0（4 条，工作量以小时计），再把订阅状态与权益从 members 的两个字段升级成独立模型（迁移 0010，4 张表）。技术栈部分保持现状即可。
+</div>
+
+<div class="foot">
+分析依据：<code>server/src/</code> 全量模块（33 个 .rs）、<code>server/src/db.rs</code> 迁移 0001–0009、<code>server/Cargo.toml</code>、<code>server/src/main.rs</code> 路由表；未做运行时实测（分析时 8088/8081/5188/5199 均未监听）。<br>
+对应关系：本文的 P0/P1 编号为本次分析新增，与 <code>docs/FIX_ROADMAP_2026-09-05.html</code> 的 F/G/P 编号无关。
+</div>
+
+</div>
+</body>
+</html>

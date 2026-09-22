@@ -603,6 +603,28 @@ const MIGRATIONS: &[Migration] = &[
         "CREATE INDEX IF NOT EXISTS idx_dispatch_article ON article_dispatches(tenant_id, article_id)",
         ],
     },
+    // ── 0010_webhook_events（P0-3 配套：入站 Webhook 事件落库）────────
+    // 入站事件的单一事实源：既做 event_id 去重（Stripe 会重投），
+    // 也做失败重放与日后对账的依据。此前事件**处理完即丢**，
+    // 所以既无法重放，也无从知道"Stripe 说投过但库里没变化"。
+    // status: received（已入库待处理）/ processed / pending_apply（缺订阅状态机，待阶段 1）/
+    //         ignored（未识别类型）/ failed（处理失败，Stripe 会重投）。
+    Migration {
+        version: "0010_webhook_events",
+        name: "0010_webhook_events",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS webhook_events (\
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, \
+            provider TEXT NOT NULL DEFAULT '', event_id TEXT NOT NULL DEFAULT '', \
+            type TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '', \
+            status TEXT NOT NULL DEFAULT 'received', attempts INTEGER NOT NULL DEFAULT 0, \
+            last_error TEXT DEFAULT '', applies_at TEXT DEFAULT '', \
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_event_unique ON webhook_events(tenant_id, provider, event_id)",
+        "CREATE INDEX IF NOT EXISTS idx_webhook_event_status ON webhook_events(tenant_id, status, created_at)",
+        ],
+    },
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。

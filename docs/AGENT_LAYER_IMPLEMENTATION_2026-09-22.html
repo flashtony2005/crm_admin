@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Layer 落地报告 — admin / CouCouYa（2026-09-22）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+  --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+  --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+  --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+  --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:25px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+  color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:8px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+.meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+.lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+  border-radius:10px;padding:16px 20px;margin:16px 0}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.g2,.g4{grid-template-columns:1fr}}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+.mcard .v{font-size:21px;font-weight:600;letter-spacing:-.3px}
+.mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.t-red{background:var(--redbg);color:var(--red)}
+.t-amber{background:var(--amberbg);color:var(--amber)}
+.t-green{background:var(--greenbg);color:var(--green)}
+.t-blue{background:var(--bluebg);color:var(--blue)}
+.t-purple{background:var(--purplebg);color:var(--purple)}
+.t-gray{background:var(--graybg);color:var(--tx2)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+th{background:#fafbfc;text-align:left;font-weight:600;font-size:12.5px;color:var(--tx2);
+  padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid #f0f1f4;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+ul{margin:8px 0;padding-left:20px}
+li{margin:5px 0}
+.def{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+.def .hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+.def .hd .sev{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+.def .hd .ttl{font-weight:600;font-size:14px}
+.def .bd{padding:14px 18px}
+.loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);
+  background:#f5f6f8;display:inline-block;padding:2px 7px;border-radius:4px;margin:2px 0}
+.fix{background:var(--greenbg);border:1px solid #cbe7d8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.fix b{color:var(--green)}
+.warn{background:var(--amberbg);border:1px solid #f0dcb8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.warn b{color:var(--amber)}
+pre{background:#1e2228;color:#d8dee8;border-radius:9px;padding:13px 15px;overflow-x:auto;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;margin:11px 0}
+pre .ok{color:#7ddc9a}
+pre .no{color:#f08a7c}
+pre .cm{color:#7a8698}
+.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--graybg);color:var(--tx2);
+  font-family:ui-monospace,Menlo,Consolas,monospace;margin-right:4px}
+.bar{display:flex;align-items:center;gap:9px;margin:7px 0;font-size:12.5px}
+.bar .lbl{width:150px;color:var(--tx2);flex:none}
+.bar .track{flex:1;height:16px;background:#eceef2;border-radius:4px;overflow:hidden;position:relative}
+.bar .fill{height:100%;border-radius:4px}
+.bar .val{width:74px;text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);flex:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Agent Layer 落地报告</h1>
+<div class="meta">admin（cms-server）/ CouCouYa 主页 · 落地日期 2026-09-22 · 全部结论来自本机实测，命令与输出见第 6 节</div>
+
+<div class="lead">
+<b>一句话：把「一个 1973 字节、对机器完全空洞的 CSR 页面」改造成「同一个 URL 下同时对人可读、对机器可读、对 Agent 可声明可调用」的页面 —— 未改任何前端代码、未加任何数据库迁移、未引入任何新依赖。</b>
+<br><br>
+按上一轮《Agent-First Growth 对齐分析》确定的顺序执行：<b>段 0</b>（公开页有真实内容 · 阻塞项）→ <b>段 1</b>（Agent Layer 最小集）→ <b>段 2</b>（付费边界固化）。执行过程中实测发现并修掉两个<b>现网缺陷</b>：sitemap 发布的 7 条 URL 里 6 条是 404；带尾斜杠的主页地址 404。
+</div>
+
+<div class="g4">
+  <div class="mcard"><div class="k">主页 HTML 体积</div><div class="v" style="color:var(--green)">1973 → 8418</div><div class="s">字节；正文/meta 全部由 DB 派生</div></div>
+  <div class="mcard"><div class="k">sitemap URL 可达性</div><div class="v" style="color:var(--green)">1/7 → 7/7</div><div class="s">6 条 `/read/*` 死链实测修复</div></div>
+  <div class="mcard"><div class="k">新增机器端点</div><div class="v">3</div><div class="s">/llms.txt · /agent.json · /ai/product</div></div>
+  <div class="mcard"><div class="k">新增单测</div><div class="v" style="color:var(--green)">10 / 10 通过</div><div class="s">含付费内容不泄漏的负向断言</div></div>
+</div>
+
+<h2><span class="num">1</span>段 0：让公开页对机器不再空洞</h2>
+
+<h3>问题复核（改前实测）</h3>
+<table>
+<tr><th>检查项</th><th>改前</th><th>改后</th></tr>
+<tr><td>主页 HTML 体积（<span class="loc">/t/coucouya</span>）</td><td class="mono" style="color:var(--red)">1973 B</td><td class="mono" style="color:var(--green)">8418 B</td></tr>
+<tr><td><span class="mono">og:*</span> 标签</td><td class="mono" style="color:var(--red)">0</td><td class="mono" style="color:var(--green)">6（type / url / title / description / site_name / locale）</td></tr>
+<tr><td><span class="mono">application/ld+json</span> 块</td><td class="mono" style="color:var(--red)">0</td><td class="mono" style="color:var(--green)">3（WebSite + Organization + FAQPage；WebSite 内含 6 篇 Article）</td></tr>
+<tr><td><span class="mono">twitter:*</span></td><td class="mono" style="color:var(--red)">0</td><td class="mono" style="color:var(--green)">4（card / title / description / url；有封面时另有 image，且 card 升为 <span class="mono">summary_large_image</span>）</td></tr>
+<tr><td><span class="mono">rel="canonical"</span></td><td class="mono" style="color:var(--red)">0</td><td class="mono" style="color:var(--green)">1</td></tr>
+<tr><td><span class="mono">&lt;noscript&gt;</span> 正文兜底</td><td class="mono" style="color:var(--red)">0</td><td class="mono" style="color:var(--green)">1（约 2.8 KB：站点标题 / 摘要 / 6 篇文章标题+链接+摘要 / 导航）</td></tr>
+<tr><td>文章深链页面（<span class="loc">/post/&lt;slug&gt;</span>）</td><td class="mono" style="color:var(--red)">空壳（正文靠 fetch）</td><td class="mono" style="color:var(--green)">约 4.7 KB，标题 / OG / Twitter / Article JSON-LD 齐全，正文进 noscript</td></tr>
+</table>
+
+<h3>做法：服务期头注，而不是构建期静态快照</h3>
+<p>新建 <span class="loc">server/src/agent_layer.rs</span>。核心是一个纯函数 <span class="mono">inject_head(html, &amp;HeadInjection) -&gt; String</span>：<span class="loc">templates.rs::serve_file</span> 在伺服 <b>模板入口 index.html</b>（含深链兜底那一次）时，先从 DB 采一份 <span class="mono">Facts</span> 快照，生成 <span class="mono">HeadInjection</span>，做纯字符串合并后再返回。<b>磁盘上的产物文件一个字节都没改。</b></p>
+<table>
+<tr><th>为什么不用构建期快照</th><th>服务期头注</th></tr>
+<tr><td>后台改站点标题 / 改文章标题要重跑前端构建 + 部署脚本</td><td>下一次请求即生效，零部署动作</td></tr>
+<tr><td>需要在构建流水线里维护一份数据导出</td><td>数据直接从 <span class="mono">site_settings / sections / tiers / articles / nav_links</span> 读，天然不会与后台配置漂移</td></tr>
+<tr><td>动态路由 <span class="mono">/post/&lt;slug&gt;</span> 需要预渲染所有文章</td><td>按请求解析 <span class="mono">post/&lt;key&gt; / read/&lt;key&gt; / articles/&lt;key&gt;</span>，按需注入该篇事实</td></tr>
+</table>
+
+<div class="card">
+<b>四个刻意的设计决定（都有理由，不是随意）</b>
+<ul>
+<li><b>站点根的 <span class="mono">&lt;title&gt;</span> / description 保留模板原值，不强行用 DB 覆盖。</b>那是发布者写给人看的门面文案。但 <span class="mono">og:title / og:description</span> <b>取页面自身的同一份文本</b> —— 两处各取一个来源会让同页出现两种说法，看起来像配置错乱，也是机器判断实体时的噪声。</li>
+<li><b>注入态不发 <span class="mono">Last-Modified</span>、不做 304。</b>内容来自 DB 而非文件，文件 mtime 无法代表内容是否变化。沿用文件时间戳会让「后台改了标题但客户端收到 304」变成无法排查的陈旧内容。子资源仍保留 <span class="mono">max-age=86400</span> + 条件请求。</li>
+<li><b>注入前先摘掉模板里同名 meta</b>（og:type/url/title/description/site_name、canonical、已有的 ld+json），保证输出确定性、不出现同页重复声明。</li>
+<li><b>注入失败绝不影响页面。</b>DB 不可用 / 解析异常 → 只打 stderr 日志、原样返回 HTML。头注是增强，不是可用性依赖。</li>
+</ul>
+</div>
+
+<h3>顺带修好的、比 GEO 更基础的一件事</h3>
+<p><b>OG 为 0 意味着连人分享链接都没有预览卡。</b>这条不是 GEO 问题，是所有人分享公众号/微信/X 链接时都会看到的空白卡片。现在站点根与每篇文章都有 <span class="mono">og:title / og:description / og:url / og:type / og:site_name / og:locale</span>，以及显式的 <span class="mono">twitter:card / twitter:title / twitter:description / twitter:url</span>（X 对 <span class="mono">og:*</span> 的回落并不可靠，且 <span class="mono">card</span> 必须按实际有无封面给值 —— 声明 <span class="mono">summary_large_image</span> 却无图，抓取器会渲染成无图大卡，比 <span class="mono">summary</span> 更糟）。</p>
+
+<h2><span class="num">2</span>段 1：Agent Layer 最小集</h2>
+
+<table>
+<tr><th>端点</th><th>内容</th><th>来源</th><th>状态</th></tr>
+<tr><td class="mono">GET /llms.txt</td><td>低歧义产品说明书（Markdown）：What it is / Best for / Content（30 篇带链接）/ Pricing / Machine endpoints / Limits</td><td rowspan="3">同一份 <span class="mono">Facts</span> 快照<br><span class="tag t-green">不可能互相漂移</span></td><td><span class="tag t-green">200</span></td></tr>
+<tr><td class="mono">GET /ai/product</td><td>与 /llms.txt 同一渲染函数，仅 <span class="mono">Content-Type: text/markdown</span> 不同</td><td><span class="tag t-green">200</span></td></tr>
+<tr><td class="mono">GET /agent.json</td><td>Agent Manifest：name / topics / content（含每篇 <span class="mono">access: free|subscription</span>）/ plans / capabilities / actions / limits</td><td><span class="tag t-green">200</span></td></tr>
+<tr><td class="mono">GET /robots.txt</td><td>新增 <b>21 个 AI 爬虫的显式声明段</b>（12 个检索型 + 9 个训练型，两组共享 allow/disallow）</td><td>常量 <span class="mono">AI_SEARCH_CRAWLERS</span> / <span class="mono">AI_TRAINING_CRAWLERS</span></td><td><span class="tag t-green">200</span></td></tr>
+</table>
+
+<div class="card">
+<b>三个容易被做歪的点，本次的处理</b>
+<ul>
+<li><b>capabilities 只声明今天真实存在的端点。</b>声明一个不存在的接口会让 Agent 调用失败并把整站判为不可信，比不声明更糟。所以清单里是 <span class="mono">read_home / list_articles / read_article / list_tags / list_plans / read_feed</span> —— 全是已实测 200 的只读接口。写入、发布、支付类接口明确写进 <span class="mono">limits</span>：「不对外部 Agent 开放，需站内权限与人工审批」（这与项目里已有的审批链路一致）。</li>
+<li><b>topics 取文章标签，不取区块标题。</b>第一版把区块标题一起并进去，结果产出「组织、实验、Web3」——「组织」「实验」是站点结构名，会让 Agent 误判「这个站点讲组织管理」。改为：优先文章标签，完全没有标签时才退回区块标题。实测结果 <span class="mono">['支付方式','外币卡','手机卡','港卡','U 卡']</span>。</li>
+<li><b>robots 的 AI 组与 <span class="mono">*</span> 组规则相同，是刻意的。</b>功能上等价，价值在于<b>声明意图</b>：日后若收紧 <span class="mono">*</span> 组，被判为「欢迎」的爬虫不会被动连带失联。名单会随厂商更名/新增而变化，所以真正的兜底仍是 <span class="mono">*</span> 组 —— 漏掉一个新爬虫也不影响可达性。</li>
+</ul>
+</div>
+
+<p><span class="mono">/robots.txt</span> 另外把 <span class="mono">/api/</span> 保持在 Disallow 内：机器读内容走 HTML（已有头注）与 <span class="mono">/llms.txt</span> / <span class="mono">/agent.json</span>，不必让爬虫把 API 当抓取入口压。</p>
+
+<h2><span class="num">3</span>段 2：付费内容的机器暴露边界（含端到端验证）</h2>
+
+<p>这一条不是「加个过滤」，而是先定<b>策略</b>，再在三个通道上分别落实。<b>策略：付费内容的标题与摘要可公开引用（那是转化入口），正文一律不给。</b></p>
+
+<table>
+<tr><th>通道</th><th>处置</th><th>理由</th></tr>
+<tr><td class="mono">/sitemap.xml</td><td><span class="tag t-blue">收录</span> 付费项（只出 URL）</td><td>只暴露 URL。让付费内容保持可发现、可被索引，付费墙由页面层与 API 的 402 守住。排除它等于让这些内容对搜索与 Agent 完全隐形，主动放弃转化入口。</td></tr>
+<tr><td class="mono">/rss.xml</td><td><span class="tag t-amber">排除</span> 付费项</td><td>RSS 是<b>免费分发通道</b>，<span class="mono">&lt;description&gt;</span> 是可自由转发的摘要，而订阅器天然无法完成付费。把付费项写进去，等于对外发一份永远拿不到全文的承诺。</td></tr>
+<tr><td class="mono">/llms.txt · /agent.json</td><td><span class="tag t-purple">标注</span>（标题+摘要+「会员专享」/ <span class="mono">access:subscription</span>）</td><td>让 Agent 知道「有这篇、要付费」，而不是「内容为空」——后者会让 AI 在回答「有没有讲 X 的文章」时给出错误结论。</td></tr>
+<tr><td class="mono">/t/&lt;slug&gt;/post/&lt;key&gt;</td><td><span class="tag t-blue">头注但不给正文</span></td><td>JSON-LD 标 <span class="mono">"isAccessibleForFree": false</span>，<b>不写 <span class="mono">articleBody</span></b>；noscript 只给标题 + 摘要 + 门槛说明。正文提取在<b>这一层就短路</b>，不给任何「提取失败时误落正文」的机会。</td></tr>
+</table>
+
+<h3>端到端验证（隔离实例，未触碰 cms.db）</h3>
+<p>用一个<b>探针库</b>（<span class="mono">cp cms.db*</span> → <span class="mono">F:/tmp/cms_probe.db</span>，把 <span class="mono">u-card-comparison</span> 置为 <span class="mono">paid_level=1 + visibility=paid</span>、<span class="mono">hong-kong-bank-card-review</span> 置为 <span class="mono">paid_level=3 + visibility=members</span>），再起一份完全隔离的 shim(8082) + 服务(8090) 实测：</p>
+<pre>$ curl $P/t/coucouya/post/u-card-comparison
+  <span class="cm">页面</span>  http=200  bytes=4666
+  <span class="cm">标题</span>  &lt;title&gt;主流 U 卡怎么选？今天一网打尽大横评（保姆级图文教程）&lt;/title&gt;
+  <span class="cm">标记</span>  "isAccessibleForFree":false
+  <span class="ok">articleBody 出现次数 : 0        ← 正文未进入结构化数据</span>
+  <span class="ok">正文块泄漏检查     : 0        ← noscript 里只有 &lt;p&gt;摘要 + 「本篇为订阅会员专享内容」</span>
+
+$ curl $P/api/public/articles/u-card-comparison
+  http=402   locked:True  reason:subscription  paidLevel:1   preview 是否含 content: False
+
+$ <span class="cm">边界一致性（同一份探针库）</span>
+  sitemap 收录付费文 : 2   <span class="cm">（保可发现）</span>
+  rss     收录付费文 : 0   <span class="cm">（item 数 6 → 4）</span>
+  agent.json gatedCount : 2
+  llms.txt 正文原文命中 : <span class="ok">0</span>   <span class="cm">（"会员专享"标注命中 3）</span>
+</pre>
+<p>另有 4 条负向单测固化在同一层：<span class="mono">gated_article_never_leaks_body</span>（断言 <span class="mono">SECRET_BODY</span> 不出现）、<span class="mono">free_article_includes_body</span>（免费正文必须出现、且 script 块内容不得混入）、<span class="mono">jsonld_escapes_script_close</span>（JSON-LD 里的 <span class="mono">&lt;/script&gt;</span> 必须转义，否则结构化数据变成注入点）、<span class="mono">gate_detection</span>（门槛口径与 <span class="mono">public_api.rs</span> 一致）。</p>
+
+<h2><span class="num">4</span>执行中发现并修掉的两个现网缺陷</h2>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">SEO 死链</span><span class="ttl">sitemap 发布的 7 条 URL 里 6 条是 404</span></div>
+  <div class="bd">
+    <p><b>现象（改前实测）：</b>sitemap 的 <span class="mono">&lt;loc&gt;</span> 全是 <span class="mono">http://localhost:8088/read/&lt;key&gt;</span> 与根路径 <span class="mono">http://localhost:8088/</span>，逐条请求 <b>6/7 返回 404</b>。等于长期向搜索引擎提交一份死链清单。</p>
+    <p><b>双层根因：</b></p>
+    <ul>
+      <li><span class="loc">seo.rs::home_loc / article_url</span> 未配置 <span class="mono">PUBLIC_HOME_URL</span> 时回落 <span class="mono">{base}</span> 与 <span class="mono">{base}/read/{key}</span>。但后端根路径是<b>后台 SPA</b>（<span class="mono">spa_fallback</span> 伺服 <span class="mono">dist-app</span>），不是对外门面 —— 把 SEO 门面指向后台上就埋下了这条死链。</li>
+      <li><span class="loc">main.rs::static_dir</span> 默认 <span class="mono">./dist-app</span>（相对 cwd）。服务器 cwd 是 <span class="mono">server/</span>，而产物在仓库根的 <span class="mono">dist-app/</span> —— 不设 <span class="mono">STATIC_DIR</span> 时后台 SPA 整体 404，把「回落路径本身就是错的」和「后台没起来」两个问题叠在一起。</li>
+    </ul>
+    <div class="fix"><b>已修：</b>新增 <span class="mono">seo::home_base()</span> —— <span class="mono">PUBLIC_HOME_URL</span> 优先，未配置时<b>自动解析当前激活模板</b>取规范主页 <span class="mono">/t/&lt;slug&gt;</span>；文章链接统一为 <span class="mono">{home}/post/{key}</span>（与主页前端路由约定一致）。实测 <b>7/7 → 200</b>。同一修正也应用到 RSS 的 channel/ item 链接与 <span class="mono">agent_layer</span>。</div>
+    <div class="warn"><b>待你处理（未改）：</b><span class="mono">static_dir()</span> 的默认值问题仍在 —— 生产部署若依赖后台内置页面，需要显式设 <span class="mono">STATIC_DIR</span>，或像 <span class="mono">templates::templates_dir()</span> 那样逐级向上找目录。本次未动它，因为改静态目录解析会影响后台可用性判断，属于另一条链路。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">可用性</span><span class="ttl">主页地址带尾斜杠时 404</span></div>
+  <div class="bd">
+    <p>axum/matchit 把 <span class="mono">/t/&lt;slug&gt;</span> 与 <span class="mono">/t/&lt;slug&gt;/</span> 当成两条不同路径，只注册了前者，于是 <span class="mono">/t/coucouya/</span> 落到兜底并 404。「主页地址会不会带尾斜杠」由用户输入决定，不该靠碰运气 —— 何况 sitemap 与 RSS 发布的地址也不应是死链。</p>
+    <div class="fix"><b>已修：</b><span class="mono">spa_fallback</span> 增加<b>窄条件</b>归一化 —— 只处理「恰好一个非空段的 <span class="mono">/t/xxx/</span>」，其余一律照旧走 SPA 逻辑（不做通用尾斜杠剥离，避免影响后台路由）。302 而非 301：模板可切换，别让浏览器永久记住。实测 <span class="mono">/t/coucouya/</span> → <span class="mono">302 → /t/coucouya</span>；<span class="mono">/t/coucouya/post/</span> 不被误伤（仍走深链兜底）。</div>
+  </div>
+</div>
+
+<h2><span class="num">5</span>改动清单</h2>
+<table>
+<tr><th>文件</th><th>性质</th><th>内容</th></tr>
+<tr><td class="mono">server/src/agent_layer.rs</td><td><span class="tag t-green">新增</span></td><td>事实快照 <span class="mono">Facts</span>、头注构建与注入器、<span class="mono">llms.txt</span> / <span class="mono">agent.json</span> 渲染、AI 爬虫常量、10 条单测</td></tr>
+<tr><td class="mono">server/src/templates.rs</td><td>修改</td><td><span class="mono">serve_file</span> 接入注入（仅 HTML 入口）+ 注入态不发 304；<span class="mono">serve_index</span> / <span class="mono">serve_one</span> 增加 <span class="mono">State</span>；<span class="mono">resolve_active</span> 提为 <span class="mono">pub(crate)</span></td></tr>
+<tr><td class="mono">server/src/seo.rs</td><td>修改</td><td><span class="mono">home_base()</span> 修正站点基准；<span class="mono">article_url()</span> 改为 <span class="mono">{home}/post/{key}</span>；RSS 排除付费内容（sitemap 保留）；robots 增加 AI 爬虫声明段</td></tr>
+<tr><td class="mono">server/src/main.rs</td><td>修改</td><td>注册 <span class="mono">mod agent_layer</span> 与 3 条路由；<span class="mono">spa_fallback</span> 尾斜杠归一化</td></tr>
+</table>
+<p><b>没有新增数据库迁移，没有新增依赖，没有改任何前端代码。</b>主页产物（<span class="mono">server/templates/coucouya/</span>）保持原样 —— 这正是选择服务期注入的直接收益：改完后 <b>不需要重跑 coucouya 的构建与部署脚本</b>。</p>
+
+<h2><span class="num">6</span>验收证据（全部本机实测）</h2>
+
+<h3>6.1 编译与测试</h3>
+<pre>cargo build                                      <span class="ok">Finished `dev` profile  exit 0</span>
+cargo test --bin cms-server agent_layer          <span class="ok">10 passed; 0 failed</span>
+<span class="cm">agent_layer.rs 自身 0 warning（新建模块不留告警）</span>
+</pre>
+
+<h3>6.2 sitemap 逐条可达性</h3>
+<pre>200    /t/coucouya
+200    /t/coucouya/post/ee6bd9a0-…              <span class="cm">（无 slug，回落 id）</span>
+200    /t/coucouya/post/u-card-comparison
+200    /t/coucouya/post/hong-kong-bank-card-review
+200    /t/coucouya/post/overseas-sim-card-guide
+200    /t/coucouya/post/student-foreign-currency-card-review
+200    /t/coucouya/post/android-overseas-subscription-payments
+<span class="cm">← 改前为上表 6/7 条 404</span>
+</pre>
+
+<h3>6.3 机器端点</h3>
+<pre>/llms.txt     200  text/plain; charset=utf-8
+/agent.json   200  application/json; charset=utf-8
+/ai/product   200  text/markdown; charset=utf-8
+/rss.xml      200  application/rss+xml; charset=utf-8
+/sitemap.xml  200  application/xml; charset=utf-8
+/robots.txt   200  text/plain; charset=utf-8
+</pre>
+
+<h3>6.4 幂等与缓存语义</h3>
+<pre>同一 URL 连续两次请求            <span class="ok">字节完全一致</span>
+agent-layer 标记出现次数       2 <span class="cm">（标记 + 注释，符合预期，无重复注入）</span>
+注入态 Last-Modified 头        <span class="ok">0</span> <span class="cm">（刻意不发，避免 DB 内容变更被 304 掩盖）</span>
+</pre>
+
+<h3>6.5 安全回归（因为改动过 serve_file，必须复核）</h3>
+<pre><span class="cm">目录穿越 —— 2026-09-22 修过的洞，本次改动不能碰坏</span>
+/t/coucouya/../manifest.json                 -> <span class="ok">400</span>
+/t/coucouya/../../Cargo.toml                 -> <span class="ok">400</span>
+/t/coucouya/%2e%2e%2fmanifest.json           -> <span class="ok">400</span>
+/t/coucouya/%2e%2e%2f%2e%2e%2fCargo.toml     -> <span class="ok">400</span>
+/t/coucouya/..%5cmanifest.json               -> <span class="ok">400</span>
+
+<span class="cm">资源型缺失必须 404（不能拿注入后的 HTML 冒充 JS/CSS）</span>
+/t/coucouya/assets/index-DEADBEEF.js   -> <span class="ok">404</span>
+/t/coucouya/nope.css                   -> <span class="ok">404</span>
+
+<span class="cm">真实资源不得被注入</span>
+/t/coucouya/assets/index-y1l8RDe6.js   -> 200  370445 B  <span class="ok">与磁盘文件字节数一致</span>
+/t/coucouya/assets/index-DPmeYQPM.css  -> 200   27703 B  <span class="ok">一致</span>
+
+<span class="cm">带点 slug / 多段深链仍走 SPA 兜底（不能被资源判定误杀）</span>
+/t/coucouya/post/ai-2.0    -> 200  8503 B  agent-layer=2
+/t/coucouya/whatever       -> 200  8503 B  agent-layer=2
+</pre>
+
+<h3>6.6 agent.json 实际内容（节选）</h3>
+<pre>url      : http://localhost:8088/t/coucouya
+topics   : ['支付方式','外币卡','手机卡','港卡','U 卡']
+plans    : []                       <span class="cm">← tiers 表当前为空，如实返回空数组，不编造价格</span>
+caps     : ['read_home','list_articles','read_article','list_tags','list_plans','read_feed']
+articles[1]: {'id':'4bd03ba9-…','slug':'android-overseas-subscription-payments',
+              'key':'android-overseas-subscription-payments',
+              'url':'…/t/coucouya/post/android-overseas-subscription-payments','access':'free'}
+limits   : 4 条（含「写操作不对外部 Agent 开放」）
+</pre>
+
+<h3>6.7 复现命令</h3>
+<pre><span class="cm"># 起 shim + 后端（turso_mode.flag 存在时必须先起 shim）</span>
+cd /f/project/admin/server && python turso_local.py                       <span class="cm"># 8081</span>
+cd /f/project/admin/server && TURSO_URL=http://127.0.0.1:8081 TURSO_AUTH_TOKEN=local \
+  ./tgt_build4/debug/cms-server.exe                                       <span class="cm"># 8088</span>
+
+B=http://127.0.0.1:8088
+curl -s --noproxy '*' $B/llms.txt | head -20
+curl -s --noproxy '*' $B/agent.json | python -m json.tool | head -40
+curl -s --noproxy '*' -o /dev/null -w '%{http_code}\n' $B/t/coucouya
+curl -s --noproxy '*' $B/t/coucouya | grep -c 'ld+json'                  <span class="cm"># 应为 3</span>
+curl -s --noproxy '*' $B/t/coucouya/post/u-card-comparison | grep -o '&lt;title&gt;[^&lt;]*'</pre>
+
+<h2><span class="num">7</span>未做 / 需要你拍板</h2>
+
+<table>
+<tr><th>项</th><th>状态</th><th>说明</th></tr>
+<tr><td>段 3：问题页面体系（<span class="mono">/problems</span>、<span class="mono">/compare</span>、<span class="mono">/use-cases</span>）</td><td><span class="tag t-amber">未做</span></td><td>已在段 1 打好地基（FAQPage + Article + BreadcrumbList 已就位）。但<b>页面骨架需要你的内容决策</b>：本站真实内容主题是「安卓订阅海外服务 / 外币卡 / 港卡 / 海外手机卡 / U 卡」，问题页面应该围绕这些真实问题建，而不是套模板。<b>建议下一步就做这一件</b>，它是唯一直接产生流量的动作。</td></tr>
+<tr><td>段 4：Agent 可调用 API 的开放口径</td><td><span class="tag t-gray">待定</span></td><td><span class="mono">agent.json</span> 已声明只读面。若要开放「Agent 可试用/可调用」的写能力，项目里已有治理层可用（<span class="mono">ai.rs</span> 的 <span class="mono">CapDef</span> 能力注册表 + <span class="mono">approvals</span> 审批 + <span class="mono">ai_audit_log</span>）——需要你决定开放哪些、限不限流、要不要 API Key。</td></tr>
+<tr><td><span class="mono">static_dir()</span> 默认值</td><td><span class="tag t-red">建议修</span></td><td>见第 4 节。不设 <span class="mono">STATIC_DIR</span> 时后台 SPA 与 <span class="mono">/read/*</span> 全 404。属独立链路，本次未动。</td></tr>
+<tr><td>站点名称不一致</td><td><span class="tag t-amber">建议统一</span></td><td>模板 head 文案是「可可鸭 CouCouYa · Community Growth &amp; Learning in Public」，后台 <span class="mono">site_title</span> 是「可可鸭 <b>KeKeYa</b>」，区块里 <span class="mono">brandEn</span> 是「CouCouYa」。目前会同时出现在同一页（模板写 <span class="mono">&lt;title&gt;</span>、DB 写 JSON-LD/agent.json），机器判断实体时会出现两个名字。<b>建议在后台「站点外观」把 site_title 改成与模板一致</b>，一处配置即可，不需要改代码。</td></tr>
+<tr><td><span class="mono">/t/active/</span> 带尾斜杠</td><td><span class="tag t-gray">保持 404</span></td><td>本次的归一化<b>特意排除</b>了 <span class="mono">active</span>（它是别名入口，自身就跳转）。要去掉这个限制是一个常量的事，但没有实际收益，先留着。</td></tr>
+</table>
+
+<div class="lead" style="border-left-color:var(--green)">
+<b>回溯上一轮结论：那 16 个条目里真正要动的三分之一，今天动完了。</b>而且再次印证了同一件事 —— <b>没有一项需要换语言、换库、外挂 IdP 或做数据库迁移</b>：全部落在同一套 Axum + SQLite + <span class="mono">/t/*</span> 静态伺服体系内，新增 1 个模块 + 3 处改动，前端零改动。
+</div>
+
+</div>
+</body>
+</html>

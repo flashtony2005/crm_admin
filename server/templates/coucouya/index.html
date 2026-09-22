@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="duck">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 图标走 public/favicon.svg，构建时 vite 会按 base 重写为 /t/coucouya/favicon.svg；
+         缺了它浏览器会去请求根路径 /favicon.ico，在反代/同源托管下必然 404。 -->
+    <link rel="icon" type="image/svg+xml" href="/t/coucouya/favicon.svg" />
+    <title>可可鸭 CouCouYa · Community Growth &amp; Learning in Public</title>
+    <meta
+      name="description"
+      content="可可鸭 CouCouYa —— KOSX.ai 社群增长操盘手。在 AI 时代，帮有才华的人被看见。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      字体：Noto Sans SC / Space Grotesk 是默认无衬线组合；
+      Noto Serif SC 供 poema / vivre / tsubaki 这几档衬线风格覆盖 --font-display
+      （见 index.css 的分档变量组）。多一档字重会明显变慢，故只取 400/700。
+    -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <!--
+      模板跳转（后台激活了非 coucouya 模板时自动切走）统一由 src/App.tsx 的
+      单个 effect 实现。此处原先另有一份内联脚本，用绝对地址
+      http://127.0.0.1:8088/... 读模板清单 —— 生产域名下既跨域又指向服务器
+      本机回环，必然失败且被静默吞掉，已移除。
+    -->
+    <script type="module" crossorigin src="/t/coucouya/assets/index-y1l8RDe6.js"></script>
+    <link rel="stylesheet" crossorigin href="/t/coucouya/assets/index-DPmeYQPM.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

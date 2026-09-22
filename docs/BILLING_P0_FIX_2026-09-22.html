@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>收款层 P0 修复落地报告 — admin / CouCouYa（2026-09-22）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+  --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+  --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+  --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+  --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:25px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+  color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:8px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+.meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+.lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+  border-radius:10px;padding:16px 20px;margin:16px 0}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.g2,.g4{grid-template-columns:1fr}}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+.mcard .v{font-size:21px;font-weight:600;letter-spacing:-.3px}
+.mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.t-red{background:var(--redbg);color:var(--red)}
+.t-amber{background:var(--amberbg);color:var(--amber)}
+.t-green{background:var(--greenbg);color:var(--green)}
+.t-blue{background:var(--bluebg);color:var(--blue)}
+.t-purple{background:var(--purplebg);color:var(--purple)}
+.t-gray{background:var(--graybg);color:var(--tx2)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+th{background:#fafbfc;text-align:left;font-weight:600;font-size:12.5px;color:var(--tx2);
+  padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid #f0f1f4;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+ul{margin:8px 0;padding-left:20px}
+li{margin:5px 0}
+.def{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+.def .hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+.def .hd .sev{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+.def .hd .ttl{font-weight:600;font-size:14px}
+.def .bd{padding:14px 18px}
+.loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);
+  background:#f5f6f8;display:inline-block;padding:2px 7px;border-radius:4px;margin:2px 0}
+.fix{background:var(--greenbg);border:1px solid #cbe7d8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.fix b{color:var(--green)}
+.warn{background:var(--amberbg);border:1px solid #f0dcb8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.warn b{color:var(--amber)}
+pre{background:#1e2228;color:#d8dee8;border-radius:9px;padding:13px 15px;overflow-x:auto;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;margin:11px 0}
+pre .ok{color:#7ddc9a}
+pre .no{color:#f08a7c}
+pre .cm{color:#7a8698}
+.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--graybg);color:var(--tx2);
+  font-family:ui-monospace,Menlo,Consolas,monospace;margin-right:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>收款层 P0 修复落地报告</h1>
+<div class="meta">admin（cms-server，8088）· 落地日期 2026-09-22 · 阶段 0「不改架构，先消除资损与丢单」· 全部结论来自本机实测（隔离探针实例 8090 + 独立 shim 8082，不污染主库）</div>
+
+<div class="lead">
+<b>一句话：把《收款 / 订阅 / 权益》对齐分析里 4 条 P0（2 条资损、1 条丢单、1 条越权）全部修掉 —— 未动前端、未加任何第三方依赖、无破坏性迁移（只新增一张表）。</b>
+<br><br>
+修前的三条攻击路径在真实浏览器/HTTP 里都能打通：注册一个免费账号后 <code>POST /api/public/members/me {"plan":"pro"}</code> 即<b>永久解锁</b>全部订阅内容；未配 Stripe 密钥时下单会<b>静默发放会员</b>；Stripe Webhook 处理失败仍返 2xx 让 Stripe <b>不再重试</b>。修完后四条路径全部被拦，且拦下来的方式都是「显式报错 + 可操作文案」，不是静默失败。
+</div>
+
+<div class="g4">
+  <div class="mcard"><div class="k">P0 修复</div><div class="v" style="color:var(--green)">4 / 4</div><div class="s">全部线上复验通过</div></div>
+  <div class="mcard"><div class="k">后端测试</div><div class="v" style="color:var(--green)">44 / 44</div><div class="s">新增 8 条（4 纯函数 + 4 集成）</div></div>
+  <div class="mcard"><div class="k">新增迁移</div><div class="v">0010</div><div class="s">webhook_events · 幂等入站</div></div>
+  <div class="mcard"><div class="k">新增依赖 / 破坏性改动</div><div class="v" style="color:var(--green)">0 / 0</div><div class="s">仅追加表，无重建</div></div>
+</div>
+
+<h2><span class="num">1</span>阶段 0 范围与判定口径</h2>
+
+<p>来源：<code>.workbuddy/memory/TOPIC_BILLING.md</code>「建议落地顺序 → 阶段 0（半天，不改架构）：修 4 条 P0 → 资损与丢单风险即消除」。四条按<b>风险类型</b>分布如下：</p>
+
+<table>
+<thead><tr><th style="width:74px">编号</th><th style="width:86px">类型</th><th>一句话风险</th><th style="width:96px">修前状态</th><th style="width:96px">修后状态</th></tr></thead>
+<tbody>
+<tr><td class="mono">P0-1</td><td><span class="tag t-red">资损</span></td><td>会员可自助升级：客户端 <code>plan</code> 字段直写库，过期时间为空 = 不限期</td><td><span class="tag t-red">可打通</span></td><td><span class="tag t-green">拒绝</span></td></tr>
+<tr><td class="mono">P0-2</td><td><span class="tag t-red">资损</span></td><td>Stripe 未配置时静默发会员（演示模式默认放开）</td><td><span class="tag t-red">可打通</span></td><td><span class="tag t-green">双开关</span></td></tr>
+<tr><td class="mono">P0-3</td><td><span class="tag t-amber">丢单</span></td><td>Webhook 处理失败仍返 2xx → Stripe 不再重试 → 事件永久丢失</td><td><span class="tag t-red">可打通</span></td><td><span class="tag t-green">落库+5xx</span></td></tr>
+<tr><td class="mono">P0-4</td><td><span class="tag t-purple">越权</span></td><td>会员 Token 不可撤销：只验签不回查 <code>members.status</code></td><td><span class="tag t-red">可打通</span></td><td><span class="tag t-green">逐请求回查</span></td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<b>判定口径（本次统一采用）</b>
+<ul>
+<li><b>资损类</b>看「能否用普通会员身份/普通请求把权益白拿到」——修完必须是<b>硬拒绝</b>，不能是「不推荐但可用」。</li>
+<li><b>丢单类</b>看「处理失败时上游是否会重试」——修完必须让上游<b>看到失败</b>（非 2xx），且重复投递要幂等。</li>
+<li><b>越权类</b>看「管理员侧已经做到的事，会员侧是否也做到」——本次以管理员侧 <code>auth.rs</code> 的「逐请求回查 status」为基准，会员侧照抄。</li>
+<li>凡「安全默认」有歧义的地方一律取保守值（例如 <code>plan_expires_at</code> 解析失败从「视为不限期」改为「拒绝」）。</li>
+</ul>
+</div>
+
+<h2><span class="num">2</span>四条 P0 逐条：根因 / 修法 / 实测证据</h2>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">P0-1 资损</span><span class="ttl">会员可自助升级 —— 客户端 <code>plan</code> 直写库</span><span class="tag t-green">已修</span></div>
+  <div class="bd">
+    <p><b>根因</b>：<span class="loc">members.rs::update_me</span> 的 <code>MemberUpdate{ name, plan }</code> 把请求体里的 <code>plan</code> 当普通字段直接写进 <code>members.plan</code>；而付费墙 <code>subscribed()</code> 只认「<code>plan != 'free'</code> 且未到期」，且 <b><code>plan_expires_at</code> 为空被当作「不限期」、解析失败也被当作「不限期」</b>。两个宽松叠加 = 注册（<code>member_invite_required=off</code> 时默认开放）拿到会员身份后，一次 PATCH 即永久解锁全部 <code>paid_level=1</code> 内容。</p>
+    <p><b>修法</b>（两处，一堵一收）：</p>
+    <div class="fix"><b>① 写入口收口</b> — <code>update_me</code> 里只要 <code>req.plan.is_some()</code> 立即 <code>return Err(ApiError::bad("会员套餐不可自助修改，请通过购买订单或兑换码升级"))</code>。plan 的唯一合法写入口 = 订单发货 / 兑码核销 / 后台管理。</div>
+    <div class="fix"><b>② 判定改安全默认</b> — <code>public_api.rs::MemberGate::subscribed()</code> 把 <code>plan_expires_at</code> 解析失败由 <code>Err(_) =&gt; true</code>（视为不限期）改为 <code>Err(_) =&gt; false</code>（视为无权），并加 <code>active()</code> 前置。</div>
+    <p><b>实测证据</b>（隔离探针实例，非主库）：</p>
+<pre><span class="cm"># 自助改 plan —— 被拒</span>
+POST /api/public/members/me  {"plan":"pro"}
+<span class="no">HTTP 400</span>  {"error":"会员套餐不可自助修改，请通过购买订单或兑换码升级","ok":false}
+<span class="cm"># 复查库：plan 未被改动</span>
+select plan,plan_expires_at from members where ...  <span class="ok">→ 仍为 free / NULL</span>
+<span class="cm"># 正常字段仍可改（确认没误伤）</span>
+POST /api/public/members/me  {"name":"新昵称"}
+<span class="ok">HTTP 200</span>  {"data":{...,"name":"新昵称"},"ok":true}</pre>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">P0-2 资损</span><span class="ttl">Stripe 未配置 / 测试模式静默发会员</span><span class="tag t-green">已修</span></div>
+  <div class="bd">
+    <p><b>根因</b>：<span class="loc">subscriptions.rs::checkout</span> 里 <code>STRIPE_SECRET_KEY</code> 缺失、或 tier 没有 <code>stripe_price_id</code> 时，代码走「演示分支」直接把 <code>members.plan</code> 置为 tier_slug + <code>status=1</code>，并返回一个 <code>?demo=1</code> 成功页。<b>即：只要 Stripe 没配好，任何人都能自助白拿会员。</b>这个分支在生产环境同样生效。</p>
+    <p><b>修法</b>：抽出纯函数 <code>decide_checkout(sk, price_id, demo_flag, is_prod) -&gt; CheckoutMode</code>，三态明确：</p>
+    <table>
+      <thead><tr><th>判定顺序</th><th>条件</th><th>结果</th><th>行为</th></tr></thead>
+      <tbody>
+      <tr><td class="mono">1（最优先）</td><td>密钥 + price_id 均就绪</td><td><span class="tag t-green">Live</span></td><td>走真实 Stripe Checkout，并带 <code>subscription_data[metadata][member_id]</code> 便于后续订阅事件定位会员</td></tr>
+      <tr><td class="mono">2</td><td>未就绪 且 <code>STRIPE_DEMO_MODE=1</code> 且 非 production</td><td><span class="tag t-amber">Demo</span></td><td>仅演示放行，<code>eprintln!</code> 告警；<b>production 下该分支被禁</b></td></tr>
+      <tr><td class="mono">3</td><td>其余所有情况</td><td><span class="tag t-red">Denied</span></td><td>返 <code>400</code> + 可操作原因（缺密钥 / 缺 price_id / 生产禁演示）</td></tr>
+      </tbody>
+    </table>
+    <div class="warn"><b>顺序有讲究</b>：<b>先判 Live</b> 而不是先判 Demo。否则生产上一个历史遗留的 <code>STRIPE_DEMO_MODE=1</code> 就能免费发会员。已写进断言 <code>decide_checkout("sk_test","price_1",true,true) == Live</code>。</div>
+    <p><b>实测证据</b>：</p>
+<pre><span class="cm"># 未配密钥 —— 拒绝（含原因）</span>
+POST /api/public/checkout {"tier_id":"tier_p0"}
+<span class="no">HTTP 400</span>  {"error":"在线支付未开通（STRIPE_SECRET_KEY 未配置），请联系管理员","ok":false}
+
+<span class="cm"># 双开关齐全（STRIPE_DEMO_MODE=1 且非 production）—— 放行</span>
+POST /api/public/checkout {"tier_id":"tier_p0"}
+<span class="ok">HTTP 200</span>  {"data":{"testMode":true,"url":".../membership?thank=1&amp;demo=1"},"ok":true}
+<span class="cm"># 复查库：plan 置为 tier slug、status=1</span>
+select plan,status from members ...  <span class="ok">→ 'p0pro' / 1</span></pre>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P0-3 丢单</span><span class="ttl">Stripe Webhook 失败仍返 2xx · 无幂等 · 无落库</span><span class="tag t-green">已修</span></div>
+  <div class="bd">
+    <p><b>根因</b>：<span class="loc">subscriptions.rs::stripe_webhook</span> 旧实现三个问题叠加 —— ①事件不落库；②没有 <code>event_id</code> 去重；③DB 更新用 <code>.ok()</code> 吞掉错误后<b>仍然返回 <code>{"received":true}</code>（2xx）</b>。Stripe 见 2xx 即认为投递成功，不再重试 → <b>事件永久丢失、订单永不发货</b>。另外只处理 <code>checkout.session.completed</code>，续费/失败/取消/退款全部无响应；验签无时间戳容差（可被重放）。</p>
+    <p><b>修法</b>（迁移 + 重写处理流程）：</p>
+    <div class="fix"><b>① 迁移 0010_webhook_events</b> — 新表 <code>webhook_events(id PK, tenant_id, provider, event_id, type, payload, status, attempts, last_error, applies_at, created_at, updated_at)</code>，含 <span class="pill">idx_webhook_event_unique</span> UNIQUE(tenant_id, provider, event_id) 与 <span class="pill">idx_webhook_event_status</span>。<b>纯追加，不改既有表。</b></div>
+    <div class="fix"><b>② 先入库后处理</b> — 进函数第一件事是 INSERT 事件做幂等占位；插入冲突即视为「已处理过」，直接返 2xx（带 <code>duplicate:true</code>）；插入成功才继续 apply，成功标 <code>processed</code> / <code>pending_apply</code> / <code>ignored</code>，失败标 <code>failed</code> 并返 <b>5xx（<code>ApiError::server</code>）</b>，让 Stripe 按它自己的节奏重试。</div>
+    <div class="fix"><b>③ 补事件类型 + 验签容差</b> — <code>customer.subscription.*</code> / <code>invoice.*</code> 归为 <code>Applied::PendingApply</code>（落库待阶段 1 状态机消费，不再静默丢弃）；<code>verify_stripe_sig</code> 加 <code>now</code> 参数与 <code>STRIPE_SIG_TOLERANCE_SECS = 300</code> 时间容差。</div>
+    <p><b>实测证据</b>：</p>
+<pre><span class="cm"># 首次投递 —— 落库并应用</span>
+POST /api/public/stripe/webhook  {"id":"evt_p0_1","type":"checkout.session.completed",...}
+<span class="ok">HTTP 200</span>  {"received":true,"duplicate":false,...}
+<span class="cm"># 同一 event_id 再投 —— 幂等命中</span>
+POST /api/public/stripe/webhook  {"id":"evt_p0_1",...}
+<span class="ok">HTTP 200</span>  {"received":true,<b>"duplicate":true</b>}   <span class="cm"># 副作用不再跑第二遍</span>
+<span class="cm"># 缺 event id —— 拒收</span>
+<span class="no">HTTP 400</span>
+<span class="cm"># 订阅变更类 —— 落库标 pending_apply（不再丢）</span>
+{"type":"customer.subscription.updated"}  →  status=pending_apply
+<span class="cm"># 落库能力被破坏时 —— 必须 5xx 让 Stripe 重试（DROP TABLE 后复验）</span>
+<span class="no">HTTP 500</span></pre>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-purple">P0-4 越权</span><span class="ttl">会员 Token 不可撤销 —— 只验签不回查 status</span><span class="tag t-green">已修</span></div>
+  <div class="bd">
+    <p><b>根因</b>：<span class="loc">members.rs::MemberAuth</span> 提取器只做 JWT 验签，不回查 <code>members.status</code>；会员 token 有效期 30 天、<code>tv</code> 固定为 0 不参与版本比对。管理员侧早已修过（<code>auth.rs</code> 逐请求回查 status + token_version），<b>会员侧没抄</b>。后果：后台停用/封禁一个会员后，对方手里的 token 仍可畅通 30 天 —— 付费墙侧同样只看 <code>plan</code> 不看 <code>status</code>，停用会员照样能读正文。</p>
+    <p><b>修法</b>：</p>
+    <div class="fix"><b>① 提取器加回查</b> — <code>MemberAuth</code> 加 <code>AppState: FromRef&lt;S&gt;</code> 约束，按请求查 <code>members.status</code>，<code>status != 1</code> 或查不到 → <b>401</b>。</div>
+    <div class="fix"><b>② 付费墙侧同步收紧</b> — <code>MemberGate</code> 查询补上 <code>status</code> 字段，新增 <code>active()</code>；<code>subscribed()</code>、<code>invite</code> 分支与兜底分支全部改为「<code>active()</code> 才放行」。停用会员在付费墙侧统一返 402，不泄漏正文。</div>
+    <p><b>实测证据</b>：</p>
+<pre><span class="cm"># 停用一个已登录会员，拿它旧 token 继续请求</span>
+PATCH /api/public/members/me (旧 token, 该会员已 status=0)
+<span class="no">HTTP 401</span>
+
+<span class="cm"># 付费墙侧：停用会员 / 脏到期时间 —— 一律 402，且 preview 不含正文</span>
+GET /api/public/articles/{paid_id}   (停用会员)      <span class="no">HTTP 402</span> {locked,reason,preview(无正文)}
+GET /api/public/articles/{paid_id}   (plan_expires_at 非法)  <span class="no">HTTP 402</span>
+<span class="cm"># 有效订阅 —— 放行且带正文</span>
+GET /api/public/articles/{paid_id}   (active 会员)   <span class="ok">HTTP 200</span> {...,content:"..."}</pre>
+  </div>
+</div>
+
+<h2><span class="num">3</span>代码改动清单</h2>
+
+<table>
+<thead><tr><th style="width:210px">文件</th><th>改动</th><th style="width:70px">P0</th></tr></thead>
+<tbody>
+<tr><td class="mono">server/src/db.rs</td><td>追加迁移 <code>0010_webhook_events</code>（<code>lenient:true</code>）+ 两个索引</td><td class="mono">P0-3</td></tr>
+<tr><td class="mono">server/src/error.rs</td><td>新增 <code>ApiError::server(msg)</code> 构造器（500），供 Webhook 失败返 5xx</td><td class="mono">P0-3</td></tr>
+<tr><td class="mono">server/src/members.rs</td><td><code>MemberAuth</code> 加 <code>FromRef</code> + 逐请求回查 <code>members.status</code> → 401；<code>update_me</code> 显式拒绝 <code>plan</code></td><td class="mono">P0-1 / P0-4</td></tr>
+<tr><td class="mono">server/src/public_api.rs</td><td><code>MemberGate</code> 加 <code>status</code> + <code>active()</code>；<code>subscribed()</code> 收紧、到期解析失败改拒绝；各权益分支统一 <code>active()</code> 前置</td><td class="mono">P0-1 / P0-4</td></tr>
+<tr><td class="mono">server/src/subscriptions.rs</td><td><code>decide_checkout</code> 三态 + <code>env_flag</code>（P0-2）；Webhook 重写为「先入库幂等 → 处理 → 标状态 / 失败 5xx」+ <code>insert_ok</code> + 事件类型扩展 + 验签时间容差（P0-3）；内嵌纯函数单测</td><td class="mono">P0-2 / P0-3</td></tr>
+<tr><td class="mono">server/src/tests_api.rs</td><td>补 <code>call_h</code>（自定义头）/ <code>stripe_sig_header</code> 两个 helper + 4 条集成用例</td><td class="mono">全部</td></tr>
+</tbody>
+</table>
+
+<p><b>未改</b>：前端（<code>web/</code> 与 CouCouYa 全未动）、付费墙 402 响应结构（仍是 <code>{locked,reason,paidLevel,pricePoints,preview}</code>，前端无需适配）、既有 24 表与通用 CRUD 网关、Agent Layer 端点（<code>/llms.txt</code>、<code>/agent.json</code>、<code>/ai/product</code>、sitemap、rss 复验仍全 200）。</p>
+
+<h2><span class="num">4</span>测试与验收证据</h2>
+
+<div class="g2">
+  <div class="mcard">
+    <div class="k">后端测试套件</div>
+    <div class="v" style="color:var(--green)">44 / 44 通过</div>
+    <div class="s">原 36 条 + 新增 8 条</div>
+  </div>
+  <div class="mcard">
+    <div class="k">新增用例构成</div>
+    <div class="v">4 + 4</div>
+    <div class="s">4 条纯函数单测（subscriptions.rs 内嵌）+ 4 条集成用例（tests_api.rs）</div>
+  </div>
+</div>
+
+<table>
+<thead><tr><th style="width:300px">用例</th><th style="width:88px">层</th><th>断言要点</th></tr></thead>
+<tbody>
+<tr><td class="mono">checkout_mode_matrix</td><td><span class="tag t-gray">纯函数</span></td><td>已配密钥无论 demo 开关都是 Live；空密钥/空 price → Denied；双开关 → Demo；生产 + demo → Denied</td></tr>
+<tr><td class="mono">denied_reason_is_actionable</td><td><span class="tag t-gray">纯函数</span></td><td>拒绝文案必须点名缺失项（含 <code>STRIPE_SECRET_KEY</code> / <code>stripe_price_id</code>），不能是空话</td></tr>
+<tr><td class="mono">stripe_sig_requires_fresh_timestamp</td><td><span class="tag t-gray">纯函数</span></td><td>时间戳超出 300s 容差 → 验签失败（防重放）</td></tr>
+<tr><td class="mono">stripe_sig_detects_tampering</td><td><span class="tag t-gray">纯函数</span></td><td>改一个字节 payload → 验签失败</td></tr>
+<tr><td class="mono">insert_ok_treats_zero_rows_as_conflict</td><td><span class="tag t-gray">纯函数</span></td><td><code>Ok(1)</code> 算插入成功；<b><code>Ok(0)</code> 必须算冲突</b>；<code>Err</code> 算冲突</td></tr>
+<tr><td class="mono">member_cannot_self_upgrade_plan</td><td><span class="tag t-blue">集成</span></td><td>PATCH 带 plan → 400，复查库 plan 未变</td></tr>
+<tr><td class="mono">member_token_revoked_after_disable</td><td><span class="tag t-blue">集成</span></td><td>status 置 0 后旧 token → 401</td></tr>
+<tr><td class="mono">paywall_denies_bad_expiry_and_disabled_member</td><td><span class="tag t-blue">集成</span></td><td>脏到期时间 / 停用会员 → 402 且 preview 无正文</td></tr>
+<tr><td class="mono">stripe_webhook_records_dedups_and_fails_loud</td><td><span class="tag t-blue">集成</span></td><td>落库 + 同 id 返 duplicate + 缺 id 400 + <code>DROP TABLE webhook_events</code> 后返 5xx</td></tr>
+</tbody>
+</table>
+
+<h3>迁移落库复核（主库 cms.db）</h3>
+<pre><span class="cm">select version from _migrations order by version;</span>
+0001_base_schema · 0002_compat_columns · 0003_domain_model_v1 · 0004_community_paywall
+0005_points_orders · 0006_hardening · 0007_process_state · 0008_audit
+0009_article_dispatches · <span class="ok">0010_webhook_events</span>
+
+<span class="cm">pragma table_info(webhook_events);  → 12 列（id / tenant_id / provider / event_id / type / payload
+                                                   / status / attempts / last_error / applies_at / created_at / updated_at）
+索引：idx_webhook_event_unique（UNIQUE tenant+provider+event_id）· idx_webhook_event_status</span></pre>
+
+<h2><span class="num">5</span>过程中踩到并解决的坑（下次直接省掉）</h2>
+
+<div class="card">
+<h3>坑 1（最关键）· Turso 后端把唯一键冲突吞成 <code>Ok(0)</code>，不是 <code>Err</code></h3>
+<p>Webhook 幂等最初用 <code>inserted.is_err()</code> 判冲突。SQLite 路径下唯一键冲突确实返 <code>Err</code>，测试通过；但切到 <b>Turso 路径</b>（本地 shim）实测时，冲突表现为 <code>Ok(0)</code> —— <code>is_err()</code> 为 false，于是 <b>重复事件被当成首次处理</b>，库里只有 1 行、副作用却跑了两遍。这正是「重复投递导致重复发货」的典型资损形态。</p>
+<div class="fix"><b>修法</b>：新增 <code>fn insert_ok(written: &amp;Result&lt;u64, DbErr&gt;) -&gt; bool { matches!(written, Ok(n) if *n &gt; 0) }</code>，并写单测钉死 <code>Ok(0) → 冲突</code>。<b>结论：在这个项目里判「有没有写进去」一律看 <code>rows_affected &gt; 0</code>，不要只看 <code>is_err()</code>。</b></div>
+<div class="warn"><b>注意类型</b>：这里的 <code>DbErr</code> 是 <code>crate::cmsdb::DbErr</code>（本地 <code>pub struct DbErr(pub String)</code>），<b>不是</b> <code>sea_orm::DbErr</code>。写签名时别用错。</div>
+</div>
+
+<div class="card">
+<h3>坑 2 · bash 内联 Python 里的反引号会被当命令替换</h3>
+<p>用 bash 内联 <code>python -c "..."</code> 给 Rust 注释补写含反引号的文字（如 <code>`CmsDb::exec_tx`</code>）时，反引号被 shell 优先解析成命令替换，导致写进源码的注释残缺（出现 <code>不能用  判定</code> 这种断字）。</p>
+<div class="fix"><b>修法</b>：涉及反引号 / <code>$</code> 的内容改用<b>独立 <code>.py</code> 脚本文件</b>执行，不写在 bash 内联字符串里。复查后 0 处破损。</div>
+</div>
+
+<div class="card">
+<h3>坑 3 · 编译中断后启动到旧二进制，迁移没落库</h3>
+<p><code>cargo build</code> 中途因 <code>FromRef</code> 报错中断，只编出了 test profile；<code>taskkill</code> 后启动的仍是改动前的旧 exe（时间戳早于本次修改），表现为「<code>webhook_events</code> 表不存在」「P0-1 仍可打通」——看起来像修复失效，实则是跑错了二进制。</p>
+<div class="fix"><b>修法</b>：重新完整构建后核对 exe 生成时间，再启动；并直接查 <code>_migrations</code> + <code>pragma table_info</code> 确认迁移落库，<b>不要只凭接口行为反推</b>。</div>
+</div>
+
+<h2><span class="num">6</span>遗留（阶段 1 / 2 / 3 保持待办，本次不动）</h2>
+
+<table>
+<thead><tr><th style="width:74px">阶段</th><th>内容</th><th style="width:150px">为什么不在本轮</th></tr></thead>
+<tbody>
+<tr><td class="mono">阶段 1</td><td>迁移建 <code>subscriptions</code> / <code>billing_operations</code> / <code>entitlements</code>（<code>webhook_events</code> 本轮已建）；付费墙改查 entitlements；<code>plan_expires_at</code> 由 <code>subscriptions.current_period_end</code> 驱动，区分 canceled（期末）/ past_due（宽限）</td><td>改架构 —— 本轮明确是「不改架构 先止血」</td></tr>
+<tr><td class="mono">阶段 2</td><td>scheduler 每日订阅对账 + stale 订单关闭 + 宽限期到期降级；后台订阅列表 / 事件重放 / 对账视图；会员自助页取消续费 / 恢复续费 / 账单记录</td><td rowspan="2">依赖阶段 1 的状态机</td></tr>
+<tr><td class="mono">阶段 3</td><td>年付（<code>interval</code> 真正生效，<code>price_yearly</code> 目前是死字段）、账单自助、退款 / 争议状态</td></tr>
+</tbody>
+</table>
+
+<div class="warn"><b>本轮不做但已有铺垫</b>：<code>customer.subscription.*</code> / <code>invoice.*</code> 事件现在会<b>落库并标 <code>pending_apply</code></b>，不再被丢弃 —— 阶段 1 的状态机上线后，这些历史事件可以按 <code>applies_at</code> 重放补齐，不用重放整条订阅历史。</div>
+
+<h2><span class="num">7</span>结论</h2>
+
+<div class="card">
+<ul>
+<li>4 条 P0 全部修复并<b>线上复验通过</b>：自助升级被硬拒（400 + 库不变）、未配置 Stripe 明确拒绝、Webhook 幂等落库 + 失败返 5xx、停用会员旧 token 立即 401 且付费墙侧同步 402。</li>
+<li>改动面<b>收敛且可回退</b>：仅后端 6 个文件，未动前端、未加依赖、未改既有表结构与付费墙响应契约；迁移 0010 是纯追加，回退只需不启动新 exe。</li>
+<li>新增 8 条测试把这 4 条的判定逻辑钉死（含 <code>Ok(0)</code> 这个 Turso 专属边界），后续改动能被测试兜住。</li>
+<li><b>风险性质已变</b>：从「任何人可白拿会员 / 付款了不发货」变成「功能缺口（年付、宽限期、自助取消）」，后者是阶段 1/2 的内容，可以按计划排期，不再是资损。</li>
+</ul>
+</div>
+
+</div>
+</body>
+</html>

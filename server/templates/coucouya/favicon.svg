@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CouCouYa">
+  <rect width="64" height="64" rx="16" fill="#d99b1f"/>
+  <!-- 简化的鸭头剪影：不依赖任何字体，任何环境渲染一致 -->
+  <circle cx="27" cy="27" r="13" fill="#fbf8f1"/>
+  <circle cx="23" cy="24" r="2.6" fill="#1a1a1a"/>
+  <path d="M38 29h9a3 3 0 0 1 0 6h-4.5a8 8 0 0 1-4.5-6z" fill="#fbf8f1"/>
+  <path d="M16 47h32" stroke="#fbf8f1" stroke-width="4" stroke-linecap="round"/>
+</svg>

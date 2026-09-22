@@ -3,7 +3,7 @@
 //! （管理员 Auth 提取器只接受 owner/editor/viewer；会员令牌无法访问管理端点）。
 
 use argon2::{password_hash::{PasswordHash, PasswordVerifier}, Argon2};
-use axum::{extract::{Path, State}, Json};
+use axum::{extract::{FromRef, State}, Json};
 use sea_orm::{Statement, Value as SqlValue};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -23,12 +23,13 @@ pub struct MemberAuth(pub crate::auth::Claims);
 
 impl<S> axum::extract::FromRequestParts<S> for MemberAuth
 where
-    S: Send + Sync,
+    S: Send + Sync + Clone + 'static,
+    AppState: axum::extract::FromRef<S>,
 {
     type Rejection = ApiError;
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        _state: &S,
+        state: &S,
     ) -> Result<Self, Self::Rejection> {
         let token = parts
             .headers
@@ -39,6 +40,28 @@ where
         let claims = verify(token).ok_or_else(|| ApiError::unauthorized("登录已过期"))?;
         if claims.role != "member" {
             return Err(ApiError::unauthorized("需要会员身份"));
+        }
+        // P0-4 修复：此前会员令牌**只验签、不回查 members**，而令牌有效期 30 天，
+        // 所以管理员把会员 status 置 0 之后，对方手上令牌在剩余有效期内
+        // 依旧能解锁全部付费内容（越权）。管理员侧早就在 Auth 里逐请求回查
+        // （auth.rs），会员侧漏了这一条。现照同一做法补齐：停用立即失效。
+        let st = AppState::from_ref(state);
+        let row = st
+            .db
+            .query_one(
+                "SELECT status FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
+                vec![sval(claims.sub.clone()), sval(st.tenant.clone())],
+            )
+            .await
+            .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+        match row {
+            Some(r) => {
+                let status: i64 = r.try_get::<i64>("", "status").unwrap_or(1);
+                if status != 1 {
+                    return Err(ApiError::unauthorized("账号已被停用"));
+                }
+            }
+            None => return Err(ApiError::unauthorized("账号不存在或已删除")),
         }
         Ok(MemberAuth(claims))
     }
@@ -251,20 +274,32 @@ fn public_member(id: &str, email: &str, name: &str, plan: &str) -> Value {
 #[derive(Deserialize)]
 pub struct MemberUpdate {
     pub name: Option<String>,
+    /// P0-1：**保留此字段只为显式拒绝**，它不是可写字段。
+    ///
+    /// 此前这里把客户端传来的 `plan` 直接写库，而付费墙只读该字段、且
+    /// `plan_expires_at` 为空即视为不限期 —— 于是注册后一句
+    /// `POST /api/public/members/me {"plan":"pro"}` 就是**永久解锁全部
+    /// paid_level=1 内容**（注册默认开放）。
+    ///
+    /// 换成直接删字段会变成"静默忽略"，调用方以为改成功了；保留字段 + 显式
+    /// 400 才能让前端/攻击者立刻知道这条路不通。
+    /// 会员套餐的唯一合法写入口：订单发货 / 兑码核销 / 后台管理。
     pub plan: Option<String>,
 }
 
 /// POST /api/public/members/me —— 更新昵称（会员自助）
 pub async fn update_me(State(st): State<AppState>, auth: MemberAuth, Json(req): Json<MemberUpdate>) -> ApiResult {
+    // P0-1：套餐只能由钱换，不接受客户端声明。
+    if req.plan.is_some() {
+        return Err(ApiError::bad(
+            "会员套餐不可自助修改，请通过购买订单或兑换码升级",
+        ));
+    }
     let mut sets = Vec::new();
     let mut args: Vec<SqlValue> = vec![];
     if let Some(n) = &req.name {
         sets.push("name = ?");
         args.push(sval(n.trim().to_string()));
-    }
-    if let Some(p) = &req.plan {
-        sets.push("plan = ?");
-        args.push(sval(p.clone()));
     }
     if sets.is_empty() {
         return Err(ApiError::bad("无更新字段"));

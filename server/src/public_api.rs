@@ -20,6 +20,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::error::{ok, ApiError, ApiResult};
+use crate::site;
 use crate::state::AppState;
 
 /// 读 TEXT 列（NULL→空串）
@@ -105,12 +106,21 @@ struct MemberGate {
     plan: String,
     plan_expires_at: String,
     invited_by: String,
+    status: i64,
 }
 
 impl MemberGate {
-    /// 订阅有效：plan != 'free' 且（未设到期 或 未到期）
+    /// 账号本身可用：status == 1。
+    ///
+    /// P0-4：付费墙此前只认令牌、不看 status，管理员停用会员后对方凭旧令牌
+    /// 仍能解锁付费内容。所有权益判定都必须先过这一关。
+    fn active(&self) -> bool {
+        self.status == 1
+    }
+
+    /// 订阅有效：账号可用 且 plan != 'free' 且（未设到期 或 未到期）
     fn subscribed(&self) -> bool {
-        if self.plan == "free" {
+        if !self.active() || self.plan == "free" {
             return false;
         }
         if self.plan_expires_at.is_empty() {
@@ -118,7 +128,10 @@ impl MemberGate {
         }
         match chrono::DateTime::parse_from_rfc3339(&self.plan_expires_at) {
             Ok(exp) => exp.with_timezone(&chrono::Utc) > chrono::Utc::now(),
-            Err(_) => true, // 解析失败视为不限期（旧数据兼容）
+            // P0-1（安全默认）：此前解析失败**视为不限期**，等于把一条脏数据
+            // 变成永久会员。存疑时应当拒绝，而不是放行 —— 到期时间写坏了
+            // 是运营问题，白送权益是资损。
+            Err(_) => false,
         }
     }
 }
@@ -127,7 +140,7 @@ async fn member_gate_row(st: &AppState, member_id: &str) -> Result<Option<Member
     let r = st
         .db
         .query_one(
-            "SELECT plan, plan_expires_at, invited_by FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
+            "SELECT plan, plan_expires_at, invited_by, status FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
             vec![
                 SqlValue::String(Some(member_id.to_string())),
                 SqlValue::String(Some(st.tenant.clone())),
@@ -139,6 +152,7 @@ async fn member_gate_row(st: &AppState, member_id: &str) -> Result<Option<Member
         plan: x.try_get("", "plan").unwrap_or_else(|_| "free".into()),
         plan_expires_at: x.try_get("", "plan_expires_at").unwrap_or_default(),
         invited_by: x.try_get("", "invited_by").unwrap_or_default(),
+        status: x.try_get::<i64>("", "status").unwrap_or(1),
     }))
 }
 
@@ -165,6 +179,15 @@ pub async fn articles(
     State(st): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> ApiResult {
+    let items = articles_value(&st, &params).await?;
+    ok(items)
+}
+
+/// 已发布文章列表的纯数据实现（单个端点与 `/api/public/home` 聚合共用）
+async fn articles_value(
+    st: &AppState,
+    params: &HashMap<String, String>,
+) -> Result<Value, ApiError> {
     let tag = params.get("tag").map(|s| s.trim()).filter(|s| !s.is_empty());
     let locale = params.get("locale").map(|s| s.trim()).filter(|s| !s.is_empty() && *s != "all");
     let author = params.get("author").map(|s| s.trim()).filter(|s| !s.is_empty());
@@ -205,7 +228,7 @@ pub async fn articles(
         .await
         .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
     let items: Vec<Value> = rows.iter().map(|r| row_json(r, false)).collect();
-    ok(json!(items))
+    Ok(json!(items))
 }
 
 /// GET /api/public/articles/{id} —— 单篇详情（含正文；id 或 slug 均可解析）
@@ -290,8 +313,12 @@ pub async fn article_detail(
                     }
                     _ => false,
                 },
-                "invite" => member.as_ref().map(|m| !m.invited_by.is_empty()).unwrap_or(false),
-                _ => member.is_some(),
+                "invite" => member
+                    .as_ref()
+                    .map(|m| m.active() && !m.invited_by.is_empty())
+                    .unwrap_or(false),
+                // 兜底分支（login）：停用账号不算"已登录会员"
+                _ => member.as_ref().map(|m| m.active()).unwrap_or(false),
             };
             if !entitled {
                 return locked(reason, message, row_json(r, false), paid_level, price_points);
@@ -307,6 +334,12 @@ pub async fn article_detail(
 /// `body` 是区块的结构化内容（JSON 对象，已从 TEXT 还原）。供 coucouya 等
 /// 公开站点按 slug（about / org / lab / web3）合并进首页内容。
 pub async fn sections(State(st): State<AppState>) -> ApiResult {
+    let items = sections_value(&st).await?;
+    ok(items)
+}
+
+/// 首页区块的纯数据实现（单个端点与 `/api/public/home` 聚合共用）
+async fn sections_value(st: &AppState) -> Result<Value, ApiError> {
     let sql = "SELECT id, slug, title, subtitle, body, icon, sort, updated_at \
                FROM sections WHERE tenant_id = ? ORDER BY sort ASC, updated_at ASC";
     let rows = st
@@ -332,7 +365,7 @@ pub async fn sections(State(st): State<AppState>) -> ApiResult {
             })
         })
         .collect();
-    ok(json!(items))
+    Ok(json!(items))
 }
 
 /// GET /api/public/tags —— 标签列表（独立 Tag 管理表，含文章计数）
@@ -368,6 +401,12 @@ pub async fn tags(State(st): State<AppState>) -> ApiResult {
 /// 数据源 nav_links 表（后台「设置 → 站点外观 → 导航与页脚链接」维护）；
 /// 公开站点 SiteNav/SiteFooter 优先读此接口，读不到再回落内置默认。
 pub async fn nav(State(st): State<AppState>) -> ApiResult {
+    let v = nav_value(&st).await?;
+    ok(v)
+}
+
+/// 导航 / 页脚链接的纯数据实现（单个端点与 `/api/public/home` 聚合共用）
+async fn nav_value(st: &AppState) -> Result<Value, ApiError> {
     let sql = "SELECT id, grp, label, href, target, sort FROM nav_links \
                WHERE tenant_id = ? AND enabled = 1 \
                ORDER BY grp ASC, sort ASC, created_at ASC";
@@ -391,7 +430,7 @@ pub async fn nav(State(st): State<AppState>) -> ApiResult {
             nav.push(item);
         }
     }
-    ok(json!({ "nav": nav, "footer": footer }))
+    Ok(json!({ "nav": nav, "footer": footer }))
 }
 
 /// GET /api/public/home-pins?slot=writing —— 主页置顶文章（免认证，JOIN articles）
@@ -400,6 +439,12 @@ pub async fn nav(State(st): State<AppState>) -> ApiResult {
 /// 公开站点优先用 pins 精确编排；未配置时回落 featured 过滤。
 pub async fn home_pins(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>) -> ApiResult {
     let slot = params.get("slot").map(|s| s.trim()).filter(|s| !s.is_empty()).unwrap_or("writing");
+    let items = home_pins_value(&st, slot).await?;
+    ok(items)
+}
+
+/// 主页置顶的纯数据实现（单个端点与 `/api/public/home` 聚合共用）
+async fn home_pins_value(st: &AppState, slot: &str) -> Result<Value, ApiError> {
     let sql = "SELECT p.sort AS pin_sort, a.id, a.title, a.slug, a.summary, a.featured_image, \
                a.published_at, a.tags, a.updated_at \
                FROM home_pins p JOIN articles a ON a.id = p.article_id \
@@ -433,5 +478,38 @@ pub async fn home_pins(State(st): State<AppState>, Query(params): Query<HashMap<
             })
         })
         .collect();
-    ok(json!(items))
+    Ok(json!(items))
+}
+
+/// GET /api/public/home —— 主页首屏聚合（免认证）
+///
+/// 一次返回主页渲染所需的全部区块，替代前端并发打 5 个端点：
+/// `{ site, sections, nav, footer, pins, articles }`。
+/// 任一子块查询失败时**该块单独降级**（null / 空数组），不拖垮整页 —— 主页前端
+/// 本就有「失败即回落内置默认内容」的设计，两者叠加后可用性更稳。
+pub async fn home(State(st): State<AppState>) -> ApiResult {
+    let site = site::site_value(&st).await.unwrap_or(Value::Null);
+    let sections = sections_value(&st).await.unwrap_or_else(|_| json!([]));
+    let nav = nav_value(&st).await.unwrap_or(Value::Null);
+    let pins = home_pins_value(&st, "writing")
+        .await
+        .unwrap_or_else(|_| json!([]));
+    let mut params = HashMap::<String, String>::new();
+    params.insert("featured".to_string(), "1".to_string());
+    let articles = articles_value(&st, &params).await.unwrap_or_else(|_| json!([]));
+    let (nav_items, footer_items) = match &nav {
+        Value::Object(o) => (
+            o.get("nav").cloned().unwrap_or_else(|| json!([])),
+            o.get("footer").cloned().unwrap_or_else(|| json!([])),
+        ),
+        _ => (json!([]), json!([])),
+    };
+    ok(json!({
+        "site": site,
+        "sections": sections,
+        "nav": nav_items,
+        "footer": footer_items,
+        "pins": pins,
+        "articles": articles,
+    }))
 }

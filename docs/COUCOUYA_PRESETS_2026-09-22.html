@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CouCouYa 版式预设体系 · 设计与落地 · 2026-09-22</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --ink:#1a1d23; --muted:#6b7280; --line:#e5e7eb;
+    --red:#dc2626; --red-bg:#fef2f2; --amber:#d97706; --amber-bg:#fffbeb;
+    --green:#059669; --green-bg:#ecfdf5; --blue:#2563eb; --blue-bg:#eff6ff;
+    --purple:#7c3aed; --purple-bg:#f5f3ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;padding:32px 16px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:26px;margin-bottom:4px}
+  h2{font-size:19px;margin:36px 0 12px;padding-left:10px;border-left:4px solid var(--blue)}
+  h3{font-size:15px;margin:18px 0 8px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:16px}
+  .verdict{background:linear-gradient(135deg,#eff6ff,#ecfdf5);border:1px solid #bfdbfe;border-radius:12px;padding:22px 24px;margin-bottom:8px}
+  .verdict h2{border:none;margin:0 0 8px;padding:0;font-size:20px}
+  .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;margin-right:6px;vertical-align:2px}
+  .t-red{background:var(--red-bg);color:var(--red)} .t-amber{background:var(--amber-bg);color:var(--amber)}
+  .t-green{background:var(--green-bg);color:var(--green)} .t-blue{background:var(--blue-bg);color:var(--blue)}
+  .t-purple{background:var(--purple-bg);color:var(--purple)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th{background:#f3f4f6;text-align:left;padding:8px 10px;font-size:13px;border-bottom:2px solid var(--line);white-space:nowrap}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  code{font-family:Consolas,monospace;font-size:12.5px;background:#f3f4f6;padding:1px 5px;border-radius:4px}
+  .loc{color:var(--muted);font-size:12px;font-family:Consolas,monospace;white-space:nowrap}
+  .num{font-weight:700;font-size:28px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-align:center}
+  .kpi .lab{font-size:12px;color:var(--muted)}
+  .ok{color:var(--green);font-weight:600} .bad{color:var(--red);font-weight:600} .warn{color:var(--amber);font-weight:600}
+  ul{padding-left:20px} li{margin:5px 0}
+  .muted{color:var(--muted);font-size:13px}
+  .flow{font-family:Consolas,monospace;font-size:12.5px;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;overflow-x:auto;line-height:1.9;white-space:pre}
+  .chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0}
+  .lg{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap}
+  .lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .sw{display:inline-block;width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.12);margin-right:3px;vertical-align:-2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>CouCouYa 版式预设体系 · 设计与落地</h1>
+<div class="sub">从「模板 = 独立应用」改为「1 内核 + N 预设」· 参考 WordPress 2026 主题格局 · 2026-09-22</div>
+
+<div class="verdict">
+  <h2>结论</h2>
+  <p><b>「多做几个模板」如果按老路子做（每个模板一份独立代码），是纯粹的负债</b>——付费墙、详情页、SEO 每加一个模板都要重做一遍。正解是抄 WordPress 真正赢的那套：
+  <b>内核极简 + 预设丰富</b>。本轮把 CouCouYa 的首页外观拆成两个正交维度：<b>5 套版式预设 × 10 档风格变体 = 50 种组合，代码只有一份</b>。</p>
+  <p style="margin-top:10px">三层全部落地并通过真实浏览器端到端验证：<span class="tag t-green">L1 风格变体 10 档</span><span class="tag t-green">L2 版式预设 5 套</span><span class="tag t-green">L3 后台切换 UI</span></p>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="num ok">50</div><div class="lab">外观组合（5 预设 × 10 风格）</div></div>
+  <div class="kpi"><div class="num ok">1</div><div class="lab">份变现链路代码</div></div>
+  <div class="kpi"><div class="num ok">0</div><div class="lab">新增独立应用</div></div>
+  <div class="kpi"><div class="num ok">4</div><div class="lab">过程中修掉的真 bug</div></div>
+</div>
+
+<h2>一、WordPress 2026 的实际情况</h2>
+<p class="muted">两个榜单口径不同，必须分开看：一个是<b>实际装机量</b>（BuiltWith 全球前 100 万网站），一个是 <b>WordPress.com 上的真实使用</b>（偏个人博客 / 内容创作者 —— 与我们的场景最接近）。</p>
+
+<div class="chartbox">
+  <div class="lg">
+    <span><i style="background:#185FA5"></i>全球前 100 万网站装机量（BuiltWith）</span>
+    <span><i style="background:#BA7517"></i>WordPress.com 实际使用（创作 / 博客向）</span>
+  </div>
+  <div style="position:relative;width:100%;height:400px">
+    <canvas id="c1" role="img" aria-label="WordPress 主题使用率对比：Hello Elementor 12.9%，Twenty Twenty-Four 9.78%，Astra 7.73%，GeneratePress 6.23%，Divi 6.07%，Retrospect 5.93%，Twenty Twenty-Three 5.53%，Twenty Twenty-Five 3.83%，Flatsome 3.01%">Hello Elementor 12.9% / Twenty Twenty-Four 9.78% / Astra 7.73% / GeneratePress 6.23% / Divi 6.07%</canvas>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">装机量榜（BuiltWith，前 100 万站）</h3>
+    <table>
+      <tr><th>主题</th><th>站点数</th><th>份额</th></tr>
+      <tr><td>Hello Elementor</td><td>22,658</td><td>12.9%</td></tr>
+      <tr><td>Astra</td><td>14,480</td><td>7.73%</td></tr>
+      <tr><td>GeneratePress</td><td>11,675</td><td>6.23%</td></tr>
+      <tr><td>Divi</td><td>11,366</td><td>6.07%</td></tr>
+      <tr><td>Flatsome</td><td>5,643</td><td>3.01%</td></tr>
+    </table>
+    <p class="muted">ThemeForest 历史销量冠军序列：Avada 105.4 万 / The7 33.3 万 / BeTheme 33.2 万 / Enfold 26.9 万 / Flatsome 26.5 万。</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">WordPress.com 内容型榜（更贴近我们）</h3>
+    <table>
+      <tr><th>主题</th><th>份额</th><th>取向</th></tr>
+      <tr><td>Twenty Twenty-Four</td><td>9.78%</td><td>极简内容优先</td></tr>
+      <tr><td>Retrospect</td><td>5.93%</td><td>大图 / 摄影</td></tr>
+      <tr><td>Twenty Twenty-Three</td><td>5.53%</td><td>多变体起点</td></tr>
+      <tr><td>Twenty Twenty-Five</td><td>3.83%</td><td>模式库丰富</td></tr>
+    </table>
+    <p class="muted">其他值得参考的取向：Zoologist（单栏免打扰）、Hey（个人博客）、Poema（黑白排版）、Nook（双栏 + 侧栏）、Vivre（杂志编辑）、Tsubaki（WooCommerce / 日式）、Aether（小店 + 叙事）。</p>
+  </div>
+</div>
+
+<h2>二、关键洞察：赢的不是「设计」，是「架构」</h2>
+<div class="card">
+  <p>两个榜单的第一名<b>在视觉上几乎完全相反</b>：</p>
+  <ul>
+    <li><b>Hello Elementor</b>（装机量第一，12.9%）几乎是<b>零设计的空壳</b>——它的卖点是不和页面构建器打架；</li>
+    <li><b>Twenty Twenty-Four</b>（WP.com 第一，9.78%）是<b>自带样式变体的块主题</b>——开箱就是一整套设计。</li>
+  </ul>
+  <p style="margin-top:8px">它们赢法完全一致：<b>内核极简 + 预设丰富</b>。Astra / GeneratePress / Blocksy / Kadence 全是同一个套路——不是一个主题解决所有场景，而是「<b>一个内核 + 一堆 starter template / style variation</b>」。</p>
+  <p style="margin-top:8px">还有一个信号印证这点：页面构建器份额一年内从 56% 掉到 43%，而原生块编辑器从低位涨到 18%。<b>用户要的是开箱即用的设计预设，不是无限可配置的构建器。</b></p>
+</div>
+
+<h2>三、我们的差距</h2>
+<div class="card">
+  <p>改造前，CouCouYa 的「模板」是<b>每加一个就多一份独立代码</b>：</p>
+  <table>
+    <tr><th>模板</th><th>形态</th><th>问题</th></tr>
+    <tr><td><code>coucouya</code></td><td>React 应用 · 5199</td><td rowspan="2">各带一套路由 / 详情页 / 付费墙 / SEO，<br>变现链路要维护 N 遍</td></tr>
+    <tr><td><code>fastshot</code></td><td>React 应用 · 5197</td></tr>
+    <tr><td><code>neon</code> / <code>editorial</code></td><td>独立 HTML 上传包</td><td>完全无法复用详情页与付费墙</td></tr>
+  </table>
+  <p style="margin-top:8px">更要紧的是：视觉多样性其实只来自 <b>4 档配色变量</b>，<b>布局是写死在 <code>App.tsx</code> 里的</b>（Hero → Affiliation → Writing → Series → Web3）。所以「多做几个模板」这件事，当时既贵又没效果。</p>
+</div>
+
+<h2>四、落地：三层改造</h2>
+
+<h3>L1 · 风格变体 4 → 10 档</h3>
+<p class="muted">等价于 WordPress 的 Global Styles / <code>theme.json</code>：一组语义变量，组件完全不感知。除配色外，档位还覆盖 <code>--font-display</code>（衬线与否）与 <code>--radius</code>（方圆气质）—— 这样"换风格"才不只是换色。</p>
+<table>
+  <tr><th>id</th><th>名称</th><th>分组</th><th>色板</th><th>参考取向</th></tr>
+  <tr><td><code>duck</code></td><td>暖奶白可可鸭</td><td>品牌</td><td><span class="sw" style="background:#FBF8F1"></span><span class="sw" style="background:#D99B1F"></span></td><td>原版</td></tr>
+  <tr><td><code>mono</code></td><td>极简黑白</td><td>品牌</td><td><span class="sw" style="background:#FFFFFF"></span><span class="sw" style="background:#111111"></span></td><td>极简企业风</td></tr>
+  <tr><td><code>emerald</code></td><td>翡翠绿</td><td>品牌</td><td><span class="sw" style="background:#F4FBF7"></span><span class="sw" style="background:#0F9D63"></span></td><td>社群 / 增长</td></tr>
+  <tr><td><code>ocean</code></td><td>深空蓝</td><td>品牌</td><td><span class="sw" style="background:#0A1020"></span><span class="sw" style="background:#3B82F6"></span></td><td>深色科技</td></tr>
+  <tr><td><code>poema</code></td><td>纸感衬线</td><td>内容</td><td><span class="sw" style="background:#FAF8F4"></span><span class="sw" style="background:#1A1A1A"></span></td><td>Poema · 全衬线 + 方角</td></tr>
+  <tr><td><code>vivre</code></td><td>杂志高对比</td><td>内容</td><td><span class="sw" style="background:#FFFFFF"></span><span class="sw" style="background:#C8102E"></span></td><td>Vivre / XXIV</td></tr>
+  <tr><td><code>retrospect</code></td><td>深底影像</td><td>内容</td><td><span class="sw" style="background:#101012"></span><span class="sw" style="background:#FAFAFA"></span></td><td>Retrospect</td></tr>
+  <tr><td><code>nook</code></td><td>暖木双栏</td><td>生活</td><td><span class="sw" style="background:#F7F3EA"></span><span class="sw" style="background:#8B5E3C"></span></td><td>Nook</td></tr>
+  <tr><td><code>tsubaki</code></td><td>椿日式</td><td>生活</td><td><span class="sw" style="background:#FDF9F7"></span><span class="sw" style="background:#B23A48"></span></td><td>Tsubaki</td></tr>
+  <tr><td><code>aether</code></td><td>暖棕叙事</td><td>生活</td><td><span class="sw" style="background:#FBF6EF"></span><span class="sw" style="background:#A0522D"></span></td><td>Aether</td></tr>
+</table>
+
+<h3>L2 · 版式预设 5 套</h3>
+<p class="muted">等价于 WordPress 的 block pattern / template：同一批组件，换个顺序与变体就是另一个"主题"。<b>预设决定排布，风格决定配色，两者正交可自由组合。</b></p>
+<table>
+  <tr><th>id</th><th>名称</th><th>骨架</th><th>区块序列</th><th>参考取向</th></tr>
+  <tr><td><code>classic</code></td><td>经典版式</td><td>单栏</td><td>hero → affiliation → writing → series → web3</td><td>原版</td></tr>
+  <tr><td><code>editorial</code></td><td>杂志编辑</td><td>单栏</td><td>hero(wide) → <b>writing</b> → series → affiliation → web3</td><td>Vivre / XXIV</td></tr>
+  <tr><td><code>gallery</code></td><td>影像优先</td><td>单栏</td><td>hero(minimal) → writing(masonry) → series → web3</td><td>Retrospect</td></tr>
+  <tr><td><code>sidebar</code></td><td>侧栏双栏</td><td><b>双栏</b></td><td>hero(compact) → writing(list) → series → affiliation → web3 <b>+ 侧栏</b></td><td>Nook</td></tr>
+  <tr><td><code>minimal</code></td><td>极简单栏</td><td>单栏</td><td>hero(minimal) → writing(list)</td><td>Zoologist / Hey / Poema</td></tr>
+</table>
+<div class="card">
+  <p><b>组件只认「变体」，不认「预设」</b>。这是关键解耦——新增一套预设只是往 <code>PRESETS</code> 加一条声明，<b>不需要改任何组件</b>：</p>
+  <div class="flow" style="margin-top:10px">Hero    变体：default | wide | minimal | compact
+Writing 变体：grid（三列卡片）| list（图文横排单列）| masonry（两列大图）
+
+sidebar 骨架额外渲染侧栏模块（Aside.tsx）：
+  subscribe 订阅位 · recent 最近更新 · toc 本页目录
+  ↑ 订阅位是这个骨架的主要意义：把转化入口常驻在每一屏，而不是埋在页面底部</div>
+</div>
+
+<h3>L3 · 后台切换</h3>
+<p class="muted">完整复刻既有的 <code>homeTheme</code> 链路：<code>site_settings</code> KV → <code>/api/public/site</code> 的 <code>homePreset</code> → 前端应用。后台「站点外观」多了「主页版式」区块，每套预设配一张骨架缩略图。</p>
+<div class="flow">site_settings.home_preset  (KV, 权威)
+        ↓  site.rs::site_value
+GET /api/public/site  →  { homeTheme, homePreset, homeTemplate, mainPort, ... }
+        ↓                        ↓
+coucouya/src/App.tsx     admin 站点外观「主页版式」选择器
+  getPreset(id) → 区块序列
+  
+/w/templates/manifest.json → items[].presets[]  (目录性信息)</div>
+
+<h2>五、风格优先级链</h2>
+<div class="card">
+  <div class="flow">theme = 用户手选(localStorage)  ??  后台「主页风格」指定  ??  当前预设建议</div>
+  <ul style="margin-top:10px">
+    <li><b>用户手选优先</b>，且跨预设保留 —— 用户选过的风格不该被换预设冲掉；</li>
+    <li>后台那一档<b>留空（<code>''</code>）表示"不指定"</b>，让位给预设建议；填了具体值则强制覆盖；</li>
+    <li>只有真的手选过才写 localStorage，「跟随版式预设」会<b>真删键</b>（否则下次加载又把手选值读回来）。</li>
+  </ul>
+</div>
+
+<h2>六、验证记录（真实浏览器）</h2>
+<p class="muted">用本机缓存的 headless Chromium（playwright-core + <code>chromium_headless_shell-1200</code>，零下载）跑端到端；预设通过后台 API 真写下发，因此测的是完整链路而非前端桩数据。</p>
+<table>
+  <tr><th>项</th><th>期望</th><th>开发态 5199</th><th>生产态 8088/t/coucouya</th></tr>
+  <tr><td>classic 区块顺序 / 列数</td><td>affiliation→writing→series→web3 · 3 列</td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>editorial（内容前置）</td><td>writing 提到 affiliation 之前</td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>gallery（去掉组织块 + 两列大图）</td><td>无 #affiliation · 2 列</td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>sidebar（双栏 + 侧栏）</td><td>有 aside · 单列 · <code>.layout-sidebar</code></td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>minimal（只留 hero + 文章流）</td><td>仅 <code>#writing</code></td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>预设建议风格生效</td><td>vivre / retrospect / nook / poema 各自到位</td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>衬线字体差异</td><td>vivre / poema 命中 <code>Noto Serif SC</code></td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>风格优先级四态</td><td>无手选→预设 / 手选→ocean / 刷新保留 / 清除→回预设</td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>窄屏降级（700px）</td><td>侧栏 <code>display:none</code></td><td class="ok">OK</td><td class="ok">OK</td></tr>
+  <tr><td>浏览器控制台报错</td><td>无</td><td class="ok">无</td><td class="ok">无</td></tr>
+</table>
+<div class="card">
+  <p class="muted" style="margin:0">
+    <b>回归：</b><code>cargo test</code> <b>25/25</b>（含 <code>rel_rejects_traversal</code> / <code>asset_boundary</code>，本轮新增 <code>presets::tests</code> 4 条与 <code>site_preset_whitelist_and_catalog</code>）· <code>cargo build</code> exit 0 ·
+    coucouya <code>tsc</code> 0 error · admin <code>tsc</code> 0 error · <code>vite build</code> exit 0 ·
+    后台「主页版式」5/5 卡片 + 20 条骨架行块 + 10/10 风格卡片渲染正常。
+  </p>
+</div>
+
+<h2>七、过程中发现并修掉的 4 个真 bug</h2>
+<table>
+  <tr><th>#</th><th>现象</th><th>根因</th><th>修法</th></tr>
+  <tr>
+    <td>1</td>
+    <td><b>预设建议的风格从不生效</b><br>永远停在 duck</td>
+    <td>优先级链里后台 <code>home_theme</code> 恒有值（<code>'duck'</code>），把预设建议压死了；且后台读取用 <code>|| 'duck'</code> 兜底，把"留空=不指定"这个状态吞掉，一保存就固化</td>
+    <td>后台加「跟随版式预设」选项存空串；读取改为 <code>|| ''</code>；优先级链支持空值让位</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><b>「清除手选」点了没用</b><br>刷新后用户偏好又回来了</td>
+    <td>只置空 state，没删 localStorage 键；读侧 <code>loadTheme()</code> 下次又把值读回来</td>
+    <td>新增 <code>clearTheme()</code>，<code>manualTheme</code> 为 null 时真删键</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><b>后台骨架缩略图整片空白</b><br>DOM 里 20 条行块都在，就是看不见</td>
+    <td>用了 <code>bg-default-100</code> / <code>bg-default-300</code> / <code>h-[3px]</code>，这套 HeroUI 类在当前版本没生效</td>
+    <td>改内联 <code>rgba(128,128,128,…)</code> 中性灰，浅色 / 深色后台主题下都能读</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><b>构建警告：CSS 里出现非法 token</b></td>
+    <td>注释里写了 <code>pt-*/pb-*</code>，其中的 <code>*/</code> <b>提前闭合了注释</b>，后续文字变成真 CSS</td>
+    <td>改写注释，避免出现星号加斜杠的序列</td>
+  </tr>
+</table>
+<p class="muted">另有 1 次误判：<code>about</code> 区块的 <code>hero.title</code> 末尾带着「1111」——排查后确认是<b>早前测试时录进后台的数据</b>，不是渲染问题（后端返回的 <code>site.home.hero.title</code> 是干净的）。</p>
+
+<h2>八、以后怎么加</h2>
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">加一套版式预设</h3>
+    <p class="muted">只改 1 个文件：</p>
+    <ul>
+      <li><code>coucouya/src/presets.ts</code> 的 <code>PRESETS</code> 加一条声明（区块序列 + 骨架 + 建议风格 + 侧栏模块）</li>
+    </ul>
+    <p class="muted" style="margin-top:8px">只有想加<b>全新布局形态</b>（如三列瀑布流）时，才需要给对应组件加一个变体。</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">加一档风格变体</h3>
+    <p class="muted">要同步 3 处（都是清单，不是逻辑）：</p>
+    <ul>
+      <li><code>coucouya/src/index.css</code> — 加一组 <code>[data-theme='xxx'] { --bg: … }</code></li>
+      <li><code>coucouya/src/themes.ts</code> — <code>THEMES</code> 加一项（id / 名称 / 分组 / 三色）</li>
+      <li><code>admin/web/src/routes/site-appearance.tsx</code> — <code>HOME_THEMES</code> 加一项，后台才选得到</li>
+    </ul>
+  </div>
+</div>
+
+<h2>九、遗留与建议</h2>
+<div class="card">
+  <p style="margin:0 0 10px"><b>本轮已补齐（2026-09-22 第五轮）：</b></p>
+  <ul>
+    <li><b>① <code>home_preset</code> 白名单校验 —— 已做。</b>新增后端单一目录 <code>server/src/presets.rs</code>；<code>site.rs::update_site</code> 遇到非空且非法的值即返回 <b>400</b> 并列出可选值（实测 <code>"bogus"</code> → 400 且不落库，合法值正常生效）。</li>
+    <li><b>② 预设清单三处副本 —— 已收敛。</b>目录元信息以 <code>server/src/presets.rs</code> 为单一权威：<code>templates.rs</code> 的清单由 <code>presets::ids()</code> 派生；后台 UI 改从 <code>/api/public/site</code> 的 <code>homePresets</code> 拉取（只留 <code>FALLBACK_HOME_PRESETS</code> 离线兜底）；模板卡的预设显示串同样改为派生。<code>presets.ts</code> 退为「版式实现」权威。新增一档预设 = 改两处。</li>
+    <li><b>③ <code>about</code> 区块的「1111」—— 已清。</b>顺带修掉 <code>hero.bio</code> 里同源的 <code>可可鸭ga </code> 残留，对齐 <code>content/home.json</code> 的正式文案，并已通过 <code>/api/public/home</code> 复验。</li>
+  </ul>
+</div>
+<div class="card" style="margin-top:14px">
+  <p style="margin:0 0 10px"><b>仍然遗留：</b></p>
+  <ul>
+    <li><code>manifest.json</code> 的 <code>presets</code> 字段是目录性信息，运行时真相源仍是 <code>site_settings.home_preset</code>；<code>TplMeta</code> 必须带 <code>#[serde(default)]</code> —— <code>write_manifest</code> 会整体重序列化，缺默认值会读空整个模板列表。</li>
+    <li><b>风格变体（10 档）仍是两份</b>（后台 <code>HOME_THEMES</code> 与 <code>coucouya/themes.ts</code>）—— 与预设同类的可收敛点，本轮未动。</li>
+    <li>上一轮评审的遗留项仍在：模板版本与回滚、预渲染 / SSR、模板与 API 分域（独立 origin）；<code>server/templates/coucouya/</code> 构建产物提交还是忽略仍待定。</li>
+    <li>CouCouYa 主页（<code>F://project//coucouya</code>）已纳入版本控制（独立仓库，首提交 <code>790de8c</code>），但尚未配置远程。</li>
+  </ul>
+</div>
+
+<p class="muted" style="margin-top:28px;text-align:center">CouCouYa 版式预设体系 · 设计与落地 · 2026-09-22</p>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+new Chart(document.getElementById('c1'), {
+  type: 'bar',
+  data: {
+    labels: ['Hello Elementor','Twenty Twenty-Four','Astra','GeneratePress','Divi','Retrospect','Twenty Twenty-Three','Twenty Twenty-Five','Flatsome'],
+    datasets: [{
+      data: [12.9, 9.78, 7.73, 6.23, 6.07, 5.93, 5.53, 3.83, 3.01],
+      backgroundColor: ['#185FA5','#BA7517','#185FA5','#185FA5','#185FA5','#BA7517','#BA7517','#BA7517','#185FA5'],
+      borderRadius: 3
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: c => c.parsed.x + '% 的站点在用' } }
+    },
+    scales: {
+      x: { ticks: { callback: v => v + '%', color: '#6b7280', font: { size: 12 } }, grid: { color: 'rgba(0,0,0,.08)' } },
+      y: { ticks: { autoSkip: false, color: '#1a1d23', font: { size: 12 } }, grid: { display: false } }
+    }
+  }
+});
+</script>
+</body>
+</html>

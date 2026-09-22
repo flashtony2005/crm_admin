@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>问题页面（段 3）落地方案 — admin / CouCouYa（2026-09-22）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+  --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+  --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+  --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+  --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:25px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+  color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:8px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+.meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+.lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+  border-radius:10px;padding:16px 20px;margin:16px 0}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+.mcard .v{font-size:21px;font-weight:600;letter-spacing:-.3px}
+.mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.t-red{background:var(--redbg);color:var(--red)}
+.t-amber{background:var(--amberbg);color:var(--amber)}
+.t-green{background:var(--greenbg);color:var(--green)}
+.t-blue{background:var(--bluebg);color:var(--blue)}
+.t-purple{background:var(--purplebg);color:var(--purple)}
+.t-gray{background:var(--graybg);color:var(--tx2)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+th{background:#fafbfc;text-align:left;font-weight:600;font-size:12.5px;color:var(--tx2);
+  padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid #f0f1f4;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+ul{margin:8px 0;padding-left:20px}
+li{margin:5px 0}
+.def{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+.def .hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+.def .hd .sev{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+.def .hd .ttl{font-weight:600;font-size:14px}
+.def .bd{padding:14px 18px}
+.loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);
+  background:#f5f6f8;display:inline-block;padding:2px 7px;border-radius:4px;margin:2px 0}
+.fix{background:var(--greenbg);border:1px solid #cbe7d8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.fix b{color:var(--green)}
+.warn{background:var(--amberbg);border:1px solid #f0dcb8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.warn b{color:var(--amber)}
+.bad{background:var(--redbg);border:1px solid #f0c8c2;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.bad b{color:var(--red)}
+pre{background:#1e2228;color:#d8dee8;border-radius:9px;padding:13px 15px;overflow-x:auto;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;margin:11px 0}
+pre .ok{color:#7ddc9a}
+pre .no{color:#f08a7c}
+pre .cm{color:#7a8698}
+.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--graybg);color:var(--tx2);
+  font-family:ui-monospace,Menlo,Consolas,monospace;margin-right:4px}
+.bar{display:flex;align-items:center;gap:9px;margin:7px 0;font-size:12.5px}
+.bar .lbl{width:210px;color:var(--tx2);flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{flex:1;height:16px;background:#eceef2;border-radius:4px;overflow:hidden;position:relative}
+.bar .fill{height:100%;border-radius:4px}
+.bar .val{width:78px;text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);flex:none}
+.q{border-left:2px solid var(--line2);padding:2px 0 2px 12px;margin:7px 0;font-size:13px}
+.q b{font-weight:600}
+.step{display:flex;gap:12px;margin:12px 0;align-items:flex-start}
+.step .no{flex:none;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+  background:var(--tx);color:#fff;font-size:12px;font-weight:600;margin-top:1px}
+.step .bd{flex:1}
+.step .bd b{display:block;margin-bottom:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>问题页面（段 3）落地方案</h1>
+<div class="meta">admin（cms-server）/ CouCouYa 主页 · 2026-09-22 · 全部数字取自本机 <code>cms.db</code> 与 <code>coucouya/src</code> 实测，不引用估计值</div>
+
+<div class="lead">
+<b>结论先行：方向对，但顺序要再往前挪一格 —— 现在直接写问题页面，会批量产出「标题很唬人、正文一句话」的薄页面。</b>
+<br><br>
+你判断「问题页要围绕真实主题建、不要套模板」是对的。但实测下来，<b>真正的瓶颈不是页面骨架，而是事实原料</b>：本站 5 篇已发布文章的正文只有 <b>55–97 个字符</b>（一句话摘要），而标题承诺的是「保姆级教程 / 全网最全 / 大横评」。骨架已经够好，往空壳上再套一层结构，正好落进方案自己警告过的坑 ——「结构正确、内容为空的实体」，可能被判低质，<b>反噬站点信誉</b>。
+<br><br>
+所以这一件事的正确做法是：<b>先把已有干货切成「一个问题 → 一个直接答案」的最小可引用单元，再让它落到页面上</b>。好消息是本站已有三件现成的载体被闲置，其中两件几乎零成本。
+</div>
+
+<div class="g4">
+  <div class="mcard"><div class="k">已发布文章</div><div class="v">5</div><div class="s">正文 55–97 字符（空壳）</div></div>
+  <div class="mcard"><div class="k">已有主题（tags 表）</div><div class="v" style="color:var(--green)">5</div><div class="s">带 slug + 描述 + meta，<b>无页面消费</b></div></div>
+  <div class="mcard"><div class="k">可复用载体</div><div class="v" style="color:var(--green)">3</div><div class="s">articles / tags / pages</div></div>
+  <div class="mcard"><div class="k">新增代码量</div><div class="v" style="color:var(--green)">小</div><div class="s">1 迁移 + 1 列 + 前端约 30 行</div></div>
+</div>
+
+<h2><span class="num">1</span>现状实测：三件你已经有、但没在用；一个致命缺口</h2>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">致命缺口</span><span class="ttl">5 篇文章的正文是空壳 —— 这是问题页面唯一的真实阻塞</span></div>
+  <div class="bd">
+    <p>直接查库（<code>length(content)</code>）与打真实接口（<code>GET /api/public/articles/{slug}</code>）双向确认，正文体量如下：</p>
+    <div class="bar"><span class="lbl">android-overseas-subscription-payments</span><span class="track"><span class="fill" style="width:6%;background:#c0392b"></span></span><span class="val">97 字符</span></div>
+    <div class="bar"><span class="lbl">u-card-comparison</span><span class="track"><span class="fill" style="width:4.5%;background:#c0392b"></span></span><span class="val">67 字符</span></div>
+    <div class="bar"><span class="lbl">overseas-sim-card-guide</span><span class="track"><span class="fill" style="width:4.2%;background:#c0392b"></span></span><span class="val">63 字符</span></div>
+    <div class="bar"><span class="lbl">hong-kong-bank-card-review</span><span class="track"><span class="fill" style="width:4.1%;background:#c0392b"></span></span><span class="val">62 字符</span></div>
+    <div class="bar"><span class="lbl">student-foreign-currency-card-review</span><span class="track"><span class="fill" style="width:3.9%;background:#c0392b"></span></span><span class="val">58 字符</span></div>
+    <div class="bar"><span class="lbl" style="color:#8b929e">（一条能讲清问题的正文，参考下限）</span><span class="track"><span class="fill" style="width:100%;background:#d4d7dd"></span></span><span class="val">≈1,500 字符</span></div>
+    <p style="margin-top:12px">实际返回的正文全文（这就是「全网最全 / 保姆级图文教程」的全部内容）：</p>
+<pre><span class="cm">GET /api/public/articles/android-overseas-subscription-payments</span>
+content = <span class="no">"安卓手机如何使用虚拟 U 卡、国内银行发行的 Visa / MasterCard、
+银联卡，订阅 ChatGPT、Claude 等海外服务？核心是支付渠道、账号绑定和网络环境要匹配。"</span>
+<span class="cm">→ 一句话。没有步骤、没有截图、没有官网链接、没有费率表。</span></pre>
+    <div class="bad"><b>这意味着什么</b>：如果现在按标题派生出 20 个问题页，那 20 个页面的答案只能来自这 97 个字符 —— 要么互相重复，要么凭空编造。<b>薄内容的代价不是「没流量」，而是「被判低质后连现有的 5 篇一起拖下去」。</b></div>
+  </div>
+</div>
+
+<h3>三件被闲置的资产（决定了做法有多便宜）</h3>
+
+<table>
+<thead><tr><th style="width:120px">载体</th><th style="width:110px">现状</th><th>实测发现</th><th style="width:110px">可利用度</th></tr></thead>
+<tbody>
+<tr>
+  <td class="mono">tags</td>
+  <td>5 行，齐全</td>
+  <td>已是<b>完整的主题一等数据</b>：<code>name</code> / <code>slug</code> / <code>description</code> / <code>cover_image</code> / <code>meta_title</code> / <code>meta_description</code>。内容为 <code>支付方式·payments</code>、<code>外币卡·forex-card</code>、<code>手机卡·sim-card</code>、<code>港卡·hk-bank-card</code>、<code>U 卡·u-card</code>，描述已写实（如「主流 U 卡横评与真实损耗」）。<br><b>但 <code>/api/public/tags</code> 没有任何页面消费它</b> —— 前端只把 <code>tags</code> 当文章上的一个字符串读。</td>
+  <td><span class="tag t-green">最高</span><br>零迁移</td>
+</tr>
+<tr>
+  <td class="mono">articles</td>
+  <td>5 行，全链路通</td>
+  <td>slug / locale / meta_title / meta_description / canonical_url / tags / featured_image / visibility / paid_level / published_at 全有，且已接入 sitemap、RSS、JSON-LD、agent_layer、后台编辑器。<b>唯一缺陷是没有「类型」字段</b>，无法区分「长文」与「问题页」。</td>
+  <td><span class="tag t-green">最高</span><br>加 1 列</td>
+</tr>
+<tr>
+  <td class="mono">pages</td>
+  <td>0 行，空表</td>
+  <td>表已建、<code>TableDef</code> 已注册（<code>content.pages</code>）。但只有 <code>title / slug / content / status</code> 四列 —— <b>没有 locale / meta / tags / published_at / visibility / paid_level</b>，且不在 sitemap / RSS / agent_layer 任何链路里。</td>
+  <td><span class="tag t-amber">中</span><br>接 5 处新代码</td>
+</tr>
+</tbody>
+</table>
+
+<div class="fix"><b>一句话</b>：主题（tags）已经有了、文章全链路已经通了、pages 表空着 —— 所以问题页面<b>不需要新建一套体系</b>，需要的是「补内容 + 加一个类型标记 + 复用已有链路」。</div>
+
+<h2><span class="num">2</span>先定问题清单：三个已有信号交叉，不拍脑袋</h2>
+
+<p>「围绕真实问题建」的前提是<b>问题从哪来</b>。本站有三个现成信号源，交叉出来的问题清单天然贴近真实意图：</p>
+
+<div class="g3">
+  <div class="mcard">
+    <div class="k">信号 A · 主题的自我描述</div>
+    <div class="s" style="font-size:12.5px;color:var(--tx2)">tags 表的 <code>description</code> 是发布者自己写的一句话，代表「这个话题我打算解决什么」。如 U 卡 =「主流 U 卡横评与<b>真实损耗</b>」→ 问题里必须有一条讲损耗。</div>
+  </div>
+  <div class="mcard">
+    <div class="k">信号 B · 标题承诺了什么</div>
+    <div class="s" style="font-size:12.5px;color:var(--tx2)">标题里出现的名词就是必须兑现的清单：「所有支付方式」「Visa、万事达、运通、JCB」「附带官网链接」「大横评」→ <b>标题承诺的范围，就是问题页该逐个拆开兑现的点</b>。</div>
+  </div>
+  <div class="mcard">
+    <div class="k">信号 C · 站外已被问过什么</div>
+    <div class="s" style="font-size:12.5px;color:var(--tx2)"><code>@KeKeYa88</code> 一个月 20M+ 曝光（导航直链已挂）。X 上被追问最多的问题，就是流量已验证过的问题 —— 这是最可靠的信号。</div>
+  </div>
+</div>
+
+<h3>首批问题矩阵（建议 5 主题 × 4–5 问 = 22 条）</h3>
+
+<p>形态统一为「用户会原样打进搜索框的话」，因为 Agent 抽取与搜索匹配都按原话来。左侧为主题（对应 <code>tags.slug</code>），右侧为该主题下建议的问题页：</p>
+
+<table>
+<thead><tr><th style="width:150px">主题（tags.slug）</th><th>建议问题页（URL 形如 <code>/problems/{slug}</code>）</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>安卓订阅海外服务</b><br><span class="mono" style="font-size:11px">payments</span></td>
+  <td>
+    <div class="q">安卓手机怎么订阅 ChatGPT Plus？国内卡一直被拒怎么办</div>
+    <div class="q">Google Play 付款失败 / 订单被取消的常见原因</div>
+    <div class="q">订阅海外服务，虚拟卡、国内 Visa、银联到底哪个最稳</div>
+    <div class="q">订阅成功了又被退款（refund）是什么情况</div>
+    <div class="q">订阅海外服务需要什么样的网络环境</div>
+  </td>
+</tr>
+<tr>
+  <td><b>外币卡</b><br><span class="mono" style="font-size:11px">forex-card</span></td>
+  <td>
+    <div class="q">国内大学生能办哪些外币卡</div>
+    <div class="q">Visa、万事达、运通、JCB 有什么区别，我该选哪个</div>
+    <div class="q">外币卡能不能付 ChatGPT / Steam / Apple</div>
+    <div class="q">外币卡被拒付（declined）按什么顺序排查</div>
+    <div class="q">学生办外币卡需要准备什么材料</div>
+  </td>
+</tr>
+<tr>
+  <td><b>港卡</b><br><span class="mono" style="font-size:11px">hk-bank-card</span></td>
+  <td>
+    <div class="q">内地人怎么开香港银行卡</div>
+    <div class="q">港卡有什么用？不炒港美股还需要吗</div>
+    <div class="q">港卡和 U 卡有什么区别</div>
+    <div class="q">港卡有哪些容易忽略的费用（管理费 / 年费 / 转账费）</div>
+    <div class="q">哪几家香港银行对内地人最友好</div>
+  </td>
+</tr>
+<tr>
+  <td><b>海外手机卡</b><br><span class="mono" style="font-size:11px">sim-card</span></td>
+  <td>
+    <div class="q">海外手机卡怎么买？实体卡和 eSIM 该选哪个</div>
+    <div class="q">海外手机卡到底能不能收验证码</div>
+    <div class="q">海外手机卡在国内怎么用，要一直开漫游吗</div>
+    <div class="q">养一张海外卡最低要多少钱</div>
+    <div class="q">哪类海外卡最容易注册海外账号</div>
+  </td>
+</tr>
+<tr>
+  <td><b>U 卡</b><br><span class="mono" style="font-size:11px">u-card</span></td>
+  <td>
+    <div class="q">U 卡是什么，和加密货币是什么关系</div>
+    <div class="q">主流 U 卡怎么选（费率 / 损耗对比）</div>
+    <div class="q">U 卡能不能付 ChatGPT 这类订阅</div>
+    <div class="q">U 卡安全吗，怎么判断会不会跑路</div>
+    <div class="q">U 卡充值提现的真实损耗怎么算</div>
+  </td>
+</tr>
+</tbody>
+</table>
+
+<h3>对比页（单列，因为它是转化最好的一类）</h3>
+
+<p>对比型查询意图最明确、转化最高，且完全复用同一套载体，只需 URL 前缀不同。建议首批 4 篇：</p>
+<ul>
+<li><code>/compare/港卡-vs-U卡</code> —— 已在两条问题清单里自然出现</li>
+<li><code>/compare/Visa-vs-万事达-vs-运通-vs-JCB</code> —— 直接兑现外币卡那篇的标题承诺</li>
+<li><code>/compare/eSIM-vs-实体海外卡</code></li>
+<li><code>/compare/U卡-vs-虚拟卡</code></li>
+</ul>
+
+<h2><span class="num">3</span>承载与 URL：三个方案对比，推荐复用 articles</h2>
+
+<table>
+<thead><tr><th style="width:210px">方案</th><th>做法</th><th style="width:200px">成本</th><th style="width:80px">结论</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>A · 复用 articles + 加 <code>kind</code> 列</b></td>
+  <td>迁移 <code>0011</code> lenient 加 <code>kind TEXT DEFAULT 'post'</code>；<code>TableDef</code> 补一列；sitemap / agent_layer 按 <code>kind</code> 决定出 <code>/problems/{slug}</code> 还是 <code>/post/{slug}</code>。</td>
+  <td>1 个迁移 + 1 列 + sitemap 分支（约 10 行）+ 前端路由（约 12 行）</td>
+  <td><span class="tag t-green">推荐</span></td>
+</tr>
+<tr>
+  <td>B · 复用 articles，用保留标签标记</td>
+  <td>不加列，用 <code>tags</code> 里的保留值（如 <code>问答</code>）当标记，sitemap 按标记出不同前缀。</td>
+  <td><b>零迁移</b>，但「标志位藏在内容字段里」</td>
+  <td><span class="tag t-amber">可先跑</span></td>
+</tr>
+<tr>
+  <td>C · 复用 <code>pages</code> 表</td>
+  <td>代价被低估了：pages 没有 locale / meta / tags / published_at / visibility / paid_level，要把它接进 sitemap、RSS、agent_layer、public_api、前端路由 —— <b>5 处新代码</b>，且没有标签就无法做主题聚合与内部链接。</td>
+  <td>5 处新链路</td>
+  <td><span class="tag t-red">不推荐</span></td>
+</tr>
+<tr>
+  <td>D · 新建 <code>problems</code> 表</td>
+  <td>语义最干净，但等于把 articles 的整条链路复制一份，收益不抵成本。</td>
+  <td>全链路复制</td>
+  <td><span class="tag t-red">不推荐</span></td>
+</tr>
+</tbody>
+</table>
+
+<div class="warn"><b>选 A 的一个硬约束（吃过亏）</b>：本项目有一条教训 —— <code>resources.rs</code> 的 <code>TableDef</code> 曾漏掉 articles 的 <code>visibility</code> / <code>locale</code> / <code>paid_level</code> / <code>price_points</code>，导致通用网关<b>静默丢弃</b>这些字段、后台付费墙设置失效。<b>所以「给 TableDef 加列」必须同时补一条集成测试</b>，否则 <code>kind</code> 会被网关悄悄吃掉，问题页全部退化成普通文章。</div>
+
+<h3>URL 设计</h3>
+<pre>/problems/{slug}          问题页（用户原话做标题）
+/compare/{a}-vs-{b}       对比页
+/tags/{slug}              ← 零成本增量：tags 表 5 条已就绪，做主题聚合页
+/post/{slug}              原有的长篇 pillar（保持不变）</pre>
+
+<h2><span class="num">4</span>页面结构：answer-first，且必须防「套模板」</h2>
+
+<p>问题页与长文的结构差别只有一点，但它是决定能否被 Agent 引用的关键：<b>答案必须出现在第一段</b>。Agent 抽取事实单元时优先取首段与标题邻近文本；把答案埋在第三屏，等于没写。</p>
+
+<div class="card">
+<h3>每个问题页的固定骨架</h3>
+<div class="step"><span class="no">1</span><span class="bd"><b>H1 = 用户原话</b>不要改写成营销标题。搜索与抽取都按原话匹配（例：「U 卡安全吗，怎么判断会不会跑路」）。</span></div>
+<div class="step"><span class="no">2</span><span class="bd"><b>首段 40–80 字直接给答案</b>不铺垫、不「让我们来看看」。这一段是 Agent 最可能整段引用出去的内容，必须能脱离上下文独立成立。</span></div>
+<div class="step"><span class="no">3</span><span class="bd"><b>依据分点 / 表格</b>把你 X 上已讲过的实战细节落在这里：步骤、费率、官网链接、踩坑点。这是「保姆级」标题真正兑现的地方。</span></div>
+<div class="step"><span class="no">4</span><span class="bd"><b>FAQPage JSON-LD</b>问答必须与正文逐条一致 —— <b>不允许为了凑 Schema 编造正文里没有的问答</b>（现有 <code>faq_from_facts</code> 已按这个原则写成「没套餐时不编价格问题」，问题页要沿用同一纪律）。</span></div>
+<div class="step"><span class="no">5</span><span class="bd"><b>BreadcrumbList + 内链</b>问题页 → 主题（tags）→ 首页；正文里链回对应的 pillar 长文。这是让 5 篇 pillar 和 22 篇问题页互相抬权重的唯一手段。</span></div>
+<div class="step"><span class="no">6</span><span class="bd"><b>一个转化动作</b>站内暂无付费套餐（<code>tiers</code> 表 0 行），所以当前转化锚点应是「关注 X / 进社群 / 读完整 pillar」，而不是购买。</span></div>
+</div>
+
+<div class="bad"><b>「套模板」的判定标准</b>：如果一页的答案在去掉站名后放进<b>任何一个同类站点都成立</b>，那它就是模板垃圾。问题页必须含有至少一处<b>只属于你的事实</b> —— 你开过的那张卡、你被拒的那次、你实测出的那个损耗数字。这正是「不套模板」的可操作定义。</div>
+
+<h2><span class="num">5</span>接线点：改动清单</h2>
+
+<table>
+<thead><tr><th style="width:250px">文件 / 位置</th><th>改动</th><th style="width:70px">量级</th></tr></thead>
+<tbody>
+<tr><td class="mono">server/src/db.rs</td><td>迁移 <code>0011</code>：<code>ALTER TABLE articles ADD COLUMN kind TEXT DEFAULT 'post'</code>（lenient）</td><td>小</td></tr>
+<tr><td class="mono">server/src/resources.rs</td><td><code>articles</code> 的 <code>TableDef.columns</code> 加 <code>("kind","kind",Col::Text)</code>　<b>+ 配一条集成测试</b></td><td>小</td></tr>
+<tr><td class="mono">server/src/seo.rs</td><td><code>sitemap</code> 循环里按 <code>kind</code> 出 <code>/problems/{slug}</code> 或 <code>/post/{slug}</code>；新增 <code>problem_url()</code>（比照现有 <code>article_url()</code>）</td><td>小</td></tr>
+<tr><td class="mono">server/src/agent_layer.rs</td><td><code>facts()</code> 已取 tag 作 topics；把问题页标题并进 llms.txt 的「适合问什么」，让 Agent 知道本站能答哪些问题</td><td>小</td></tr>
+<tr><td class="mono">coucouya/src/router.ts</td><td>加 <code>{ kind:'problem'; key }</code> 与 <code>/^\/problems\/(.+)$/</code> 分支 + <code>routeHref</code>（文件仅 101 行，扩展约 12 行）</td><td>小</td></tr>
+<tr><td class="mono">coucouya/src/App.tsx</td><td>问题页渲染分支（复用现有文章渲染 + 首段加粗样式差异）</td><td>小</td></tr>
+<tr><td class="mono">server/src/public_api.rs</td><td><b>无需改动</b> —— <code>article_detail</code> 已按 slug/id 解析，问题页自动可用</td><td>0</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">6</span>执行顺序：内容先于骨架</h2>
+
+<div class="card">
+<div class="step"><span class="no">0</span><span class="bd"><b>补实 5 篇 pillar 的正文（前置，不可跳过）</b>把 X 上已发过的内容整理回 CMS。这一步不写代码，但决定后面所有页面的质量上限。<b>没有这一步，后面全是白做。</b></span></div>
+<div class="step"><span class="no">1</span><span class="bd"><b>零成本先上 <code>/tags/{slug}</code> 主题聚合页</b>tags 表 5 条已就绪（含描述与 meta）→ 后端加路由 + 前端加 5 行路由即可出 5 个页面。这是<b>唯一不需要新内容的即时流量入口</b>，也能先把「主题 → 文章」的内部链接骨架立起来。</span></div>
+<div class="step"><span class="no">2</span><span class="bd"><b>加 <code>kind</code> 列 + <code>/problems</code> 路由 + sitemap 分支</b>骨架就位（约半天）。</span></div>
+<div class="step"><span class="no">3</span><span class="bd"><b>首批 10 篇问题页</b>优先做「信号 C」已验证过的问题（X 上被问最多的），每个主题先出 2 篇，验证结构是否被检索/被引用。</span></div>
+<div class="step"><span class="no">4</span><span class="bd"><b>补齐到 22 篇 + 4 篇对比页</b>有数据后再上量，避免一次性铺开薄内容。</span></div>
+<div class="step"><span class="no">5</span><span class="bd"><b>观测与迭代</b>看哪些问题真被引用，再决定是否加量、是否值得抽 Intent 一等对象（方案 §17，建议仍暂缓）。</span></div>
+</div>
+
+<h3>验收标准（可量化，不靠感觉）</h3>
+<table>
+<thead><tr><th style="width:210px">验收项</th><th>判定方式</th></tr></thead>
+<tbody>
+<tr><td>页面有真实正文</td><td><code>curl /api/public/articles/{slug}</code> 的 <code>content</code> 字符数 <b>&gt; 800</b>（对照现状 97）</td></tr>
+<tr><td>sitemap 收录且可解析</td><td><code>curl /sitemap.xml</code> 含 <code>/problems/</code> 条目，逐条 <code>curl</code> 返回 <b>200</b>（当前 7/7 全 200 这条基线不能破）</td></tr>
+<tr><td>结构化数据可解析</td><td>页面注入的 JSON-LD 中 FAQPage 能解析出 <b>≥3</b> 组问答，且问答文本与正文一致</td></tr>
+<tr><td>Agent 可读</td><td><code>/llms.txt</code>、<code>/agent.json</code> 的 topics / capabilities 反映新增问题主题，且所声明端点实测 200</td></tr>
+<tr><td>内部链接成网</td><td>问题页 → 主题页 → pillar 长文 双向可达（不是只出不进）</td></tr>
+<tr><td>被引用（终局）</td><td>定期用同一批问题问主流 AI，观察是否引用本站；这是唯一真正的成功指标</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">7</span>风险</h2>
+
+<div class="g2">
+  <div class="card">
+    <h3 style="margin-top:0">① 薄内容（最致命）</h3>
+    <p>在当前 97 字符的底子上直接铺 20+ 页，是本方案唯一可能把站点做坏的做法。防线：<b>宁少勿滥</b>，每页必须有只属于你的实测事实；先 10 篇验证再上量。</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">② 与 pillar 重复</h3>
+    <p>问题页只答<b>一个点</b>，pillar 讲<b>全流程</b>；问题页正文里链回 pillar，不复述整篇。否则两边互相稀释。</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">③ 付费墙边界</h3>
+    <p>问题页是流量入口，<b>建议全部 <code>visibility=public</code>、<code>paid_level=0</code></b>，与段 2 已固化的策略一致（付费内容标题摘要可引用、正文不给）。若将来要给问题页设 <code>paid_level</code>，必须走既有的 402 三态且 <code>preview</code> 不含正文。</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">④ 合规措辞</h3>
+    <p>「U 卡 / 港卡 / 跨境支付」涉及资金与加密资产：只讲<b>自己实测的路径与损耗</b>，不做收益承诺、不导流到具体未核实平台；导航里已有的「平台与风险提示」页应在问题页页脚固定链出。</p>
+  </div>
+</div>
+
+<h2><span class="num">8</span>需要你拍板的三件事</h2>
+
+<div class="card">
+<ul>
+<li><b>① 接受「先补 pillar 正文，再做问题页」这个前置吗？</b>　这一步不写代码，但它是质量上限。若跳过，我建议首批问题页压到 <b>5 篇以内</b>并把答案写足，而不是铺 22 篇。</li>
+<li><b>② 承载用 A（加 <code>kind</code> 列，推荐）还是 B（零迁移、保留标签法）？</b>　A 干净但要一次迁移 + 一条必配的集成测试；B 立刻可跑但标志位藏在内容字段里。</li>
+<li><b>③ 首批问题清单照上面 22 条走，还是你先给我「X 上被问最多的 10 个问题」？</b>　你手上的真实提问比我推演的问题清单可靠得多 —— 给我原话，我直接把它变成页面。</li>
+</ul>
+</div>
+
+<div class="lead" style="margin-top:26px">
+<b>总结</b>：段 1 的地基确实已经打好，<b>但它托住的是「结构」，不是「内容」</b>。问题页面这件事，代码成本很小（1 迁移 + 1 列 + 前端约 30 行），真正的成本在内容。所以下一步的正确顺序是：<b>先把 X 上的实战内容回流成 5 篇扎实的 pillar，再零成本挂上 5 个主题聚合页，然后才铺问题页</b> —— 这样每一步都在产生可索引、可引用的页面，而不是先攒一堆空壳。
+</div>
+
+</div>
+</body>
+</html>

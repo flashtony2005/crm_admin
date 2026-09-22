@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent-First Growth 对齐分析 — admin / CouCouYa（2026-09-22）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+  --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+  --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+  --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+  --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:25px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+  color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:8px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+.meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+.lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+  border-radius:10px;padding:16px 20px;margin:16px 0}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.g2,.g4{grid-template-columns:1fr}}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+.mcard .v{font-size:21px;font-weight:600;letter-spacing:-.3px}
+.mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.t-red{background:var(--redbg);color:var(--red)}
+.t-amber{background:var(--amberbg);color:var(--amber)}
+.t-green{background:var(--greenbg);color:var(--green)}
+.t-blue{background:var(--bluebg);color:var(--blue)}
+.t-gray{background:var(--graybg);color:var(--tx2)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+th{background:#fafbfc;text-align:left;font-weight:600;font-size:12.5px;color:var(--tx2);
+  padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid #f0f1f4;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+ul{margin:8px 0;padding-left:20px}
+li{margin:5px 0}
+.def{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+.def .hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+.def .hd .sev{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+.def .hd .ttl{font-weight:600;font-size:14px}
+.def .bd{padding:14px 18px}
+.loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);
+  background:#f5f6f8;display:inline-block;padding:2px 7px;border-radius:4px;margin:2px 0}
+.fix{background:var(--greenbg);border:1px solid #cbe7d8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.fix b{color:var(--green)}
+.step{display:flex;gap:14px;margin:0}
+.step .rail{width:26px;display:flex;flex-direction:column;align-items:center;flex:none}
+.step .rail b{width:26px;height:26px;border-radius:50%;background:var(--tx);color:#fff;font-size:12px;
+  font-weight:600;display:flex;align-items:center;justify-content:center}
+.step .rail i{flex:1;width:1px;background:var(--line2);display:block;margin:4px 0}
+.step:last-child .rail i{display:none}
+.step .body{padding-bottom:18px;flex:1}
+.step .body h4{margin:3px 0 6px;font-size:14px;font-weight:600}
+.small{font-size:12.5px;color:var(--tx2)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin:6px 0}
+.kv b{font-weight:600;color:var(--tx2);font-size:12.5px}
+.foot{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--tx3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Agent-First Growth System 对齐分析</h1>
+<div class="meta">对象：<code>F:\project\admin</code>（CMS 后端）+ <code>F:\project\coucouya</code>（公开主页）　·　比对基准：《Website → Agent-First Growth System》17 节（GEO / AEO / Agent Layer / Intent CMS）　·　分析日 2026-09-22　·　结论基于源码与构建产物实测</div>
+
+<div class="lead">
+<b>结论一：方向不冲突，但优先级必须翻转。</b>这份文档和上一轮那份（栈选型）性质不同——它没有要求你换语言、换库、外挂身份服务，所以<b>没有"不建议对齐"的条目</b>。但文档的推进顺序是「定义受众 → 三段用户 → llms.txt → Schema → 问题页面 → Agent Manifest」，而项目当前的<b>第一阻塞在更前面</b>：<br><br>
+<b>公开页对机器而言是空的。</b>实测 <code>server/templates/coucouya/index.html</code> 只有 <b>1973 字节</b>，<code>og:</code> 0 处、<code>ld+json</code> 0 处、<code>twitter:</code> 0 处、<code>noscript</code> 0 处，<code>&lt;body&gt;</code> 里只有一个 <code>&lt;div id="root"&gt;</code>。sitemap 里所有 URL 都指向这个空壳，<code>/post/&lt;slug&gt;</code> 又靠前端 fetch 才出正文。<b>机器人拿不到任何内容，GEO 的每一个动作都建立在一个当前不成立的前提上。</b><br><br>
+<b>结论二：结算层不是瓶颈，获客与知识层是空白。</b>文档自己也承认「你文件里的 Free / Pro + Checkout + Portal + Webhook + Entitlements 其实已经是最后的成交层」——上一轮我已核对过，那层已建成约六成。<b>现在缺的是它上面的 Knowledge Layer 与 Agent Layer，两层都是零到一。</b>
+</div>
+
+<h2><span class="num">1</span>先看体检结果：机器能看到什么</h2>
+
+<div class="g4" style="margin:16px 0">
+  <div class="mcard"><div class="k">公开页 HTML 体积</div><div class="v" style="color:var(--red)">1973 B</div><div class="s">纯 CSR 外壳，无正文</div></div>
+  <div class="mcard"><div class="k">JSON-LD / OG 标签</div><div class="v" style="color:var(--red)">0 处</div><div class="s">结构化数据完全缺失</div></div>
+  <div class="mcard"><div class="k">机器可读内容通道</div><div class="v" style="color:var(--amber)">1 条</div><div class="s">仅 rss.xml 带正文文本</div></div>
+  <div class="mcard"><div class="k">AI 抓取许可</div><div class="v" style="color:var(--green)">已允许</div><div class="s">User-agent: * 未拦 AI bot</div></div>
+</div>
+
+<h3>逐项实测</h3>
+<table>
+<thead><tr><th style="width:26%">检查项</th><th style="width:34%">实测结果</th><th>对 Agent 的含义</th></tr></thead>
+<tbody>
+<tr><td>页面正文</td><td class="mono">body = div#root + script</td><td><span class="tag t-red">阻塞</span> Agent 读到空文档，等于页面不存在</td></tr>
+<tr><td>JSON-LD 结构化数据</td><td class="mono">grep -c ld+json → 0</td><td><span class="tag t-red">缺失</span> 无 Product / Organization / FAQPage / Article 实体</td></tr>
+<tr><td>OG / Twitter 卡片</td><td class="mono">grep -c "og:" → 0</td><td><span class="tag t-red">缺失</span> 比 JSON-LD 更基础：连人分享的预览卡都没有</td></tr>
+<tr><td>无脚本回退</td><td class="mono">noscript → 0</td><td><span class="tag t-red">缺失</span> 无降级内容</td></tr>
+<tr><td>sitemap.xml</td><td class="mono">home + 文章，<code>WHERE status='published'</code>，LIMIT 200</td><td><span class="tag t-amber">部分</span> 只给 URL，且<b>未过滤 paid_level / visibility</b></td></tr>
+<tr><td>rss.xml</td><td class="mono">title + summary + pubDate</td><td><span class="tag t-green">可用</span> 当前<b>唯一</b>含正文文本的机器通道</td></tr>
+<tr><td>robots.txt</td><td class="mono">User-agent: * / Allow: / / Disallow: /api/ /graphql /graphiql</td><td><span class="tag t-green">已允许</span> AI 抓取默认放开，但无显式声明</td></tr>
+<tr><td>公开只读 API</td><td class="mono">/api/public/home 聚合 + 逐端点 + /tiers + /locales</td><td><span class="tag t-green">已有</span> 机器可读数据源其实齐备</td></tr>
+<tr><td>GraphQL</td><td class="mono">/graphql + /graphiql 存在，被 robots 屏蔽</td><td><span class="tag t-amber">闲置</span> 机器可调用接口已在，但策略上关掉了</td></tr>
+<tr><td>llms.txt / agent.md</td><td class="mono">无此路由</td><td><span class="tag t-red">缺失</span></td></tr>
+<tr><td>Agent Manifest</td><td class="mono">无；但 site_settings + tiers + nav + sections 数据齐备</td><td><span class="tag t-amber">可派生</span> 零迁移即可生成</td></tr>
+<tr><td>渠道归因</td><td class="mono">events 表通用 KV（type/ref_id/ref_key/payload）；track 免认证接受任意 type</td><td><span class="tag t-amber">可承接</span> AI 渠道统计零迁移可实现，但前端不采集 referrer/utm</td></tr>
+</tbody>
+</table>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--redbg);color:var(--red)">结构阻塞</span><span class="ttl">公开页是 CSR 空壳 —— 这一条决定其余所有工作的价值</span></div>
+  <div class="bd">
+    <p>文档的第 3、4、6、14 节（机器可读事实单元、Schema.org 知识图谱、问题页面、可引用内容）全部以前提「机器能读到文本」成立。当前这个前提不成立：</p>
+    <ul>
+      <li>主页 <code>/t/coucouya</code> 伺服的是 Vite 构建产物 <code>index.html</code>，1973 字节，<code>&lt;body&gt;</code> 只有挂载点；</li>
+      <li>文章详情 <code>/post/&lt;slug&gt;</code> 是客户端路由（<code>src/router.ts</code>），正文由 <code>fetch('/api/public/articles/…')</code> 后渲染；</li>
+      <li>sitemap 收录的所有 URL 都指向上述空壳 → 收录到的是"有标题、无内容"的页面；</li>
+      <li>唯一例外是 RSS：它把 <code>title + summary</code> 直接写进 XML，所以今天机器能读到的只有摘要。</li>
+    </ul>
+    <p class="small">对照：记忆里此前验证 CSR 页面时也踩过同一件事 —— <code>curl</code> 拿到的是空 <code>&lt;div id="root"&gt;</code>，必须用真实浏览器才看得到内容。那次是测试问题，这次是<b>获客问题</b>。</p>
+    <div class="fix"><b>修法（两条路，需选一条）：</b>① <b>注入式</b>——在 <code>templates.rs::serve_index</code> 伺服时把 JSON-LD + OG + <code>noscript</code> 摘要注入 <code>&lt;/head&gt;</code>／<code>&lt;body&gt;</code>，数据取自 DB（最省事，机器人至少能读到站点与文章元数据）；② <b>预渲染式</b>——构建期给主页与文章页出静态 HTML 快照（对 <code>/post/&lt;slug&gt;</code> 尤其必要，因为它是动态路由）。建议先做 ① 打通链路，再对文章页补 ②。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--amberbg);color:var(--amber)">策略前置</span><span class="ttl">放开 AI 抓取之前，先定付费内容的边界</span></div>
+  <div class="bd">
+    <p>这是一个文档没有覆盖、但必须先决策的点。sitemap 与 rss 的查询条件都只有 <code>status = 'published'</code>：</p>
+    <div class="loc">seo.rs:81-83　SELECT … FROM articles WHERE tenant_id = ? AND status = 'published' LIMIT 200</div>
+    <p style="margin-top:10px">也就是说 <code>paid_level &gt; 0</code> 的付费文章<b>同样进了 sitemap，摘要也进了 RSS</b>。<code>articles</code> 表里明明有 <code>visibility</code>（public / members / paid）和 <code>paid_level</code> 两个字段可用，SEO 通道没用它们。</p>
+    <p>今天这不算泄漏（因为页面是空壳，机器读不到正文）。<b>但一旦按上一条把内容变成机器可读，Agent 该看到摘要、还是全文，就成了必须显式声明的策略</b>——尤其考虑"Agent 可调用 API"那一步时，付费墙必须在<b>服务端</b>拦住，而不是靠前端隐藏。</p>
+    <div class="fix"><b>建议：</b>明确三档——公开文章全文可被引用；付费文章仅 <code>title/summary/meta</code> 可作为"预览"被机器读取（与现有 402 三态一致）；任何正文、音频、导出文件一律只走鉴权后的受控接口。</div>
+  </div>
+</div>
+
+<h2><span class="num">2</span>已有资产：这些是杠杆，不是缺口</h2>
+
+<p>这个项目在"机器可读"上并非零基础，有些东西已经超出文档预期。对齐时应先激活它们，而不是新建子系统。</p>
+
+<div class="g2">
+  <div class="card" style="margin:0">
+    <h3 style="margin-top:0">已经具备的</h3>
+    <ul style="margin-bottom:0">
+      <li><b>AI 抓取已被许可</b>：<code>robots.txt</code> 是 <code>User-agent: * / Allow: /</code>，只屏蔽了 <code>/api/</code>、<code>/graphql</code>、<code>/graphiql</code>。文档里"允许 OAI-SearchBot 抓取"这条已经满足（缺的只是显式声明）。</li>
+      <li><b>公开只读 API 已成体系</b>：<code>/api/public/home</code> 一次返回 <code>{site,sections,nav,footer,pins,articles}</code>，另有逐端点、<code>/tiers</code>（可直接当 Agent Manifest 的 <code>plans</code>）、<code>/locales</code>、<code>/i18n/{locale}</code>。</li>
+      <li><b>内容元数据字段齐备</b>：<code>articles</code> 已有 <code>slug / meta_title / meta_description / canonical_url / featured_image / locale / visibility / paid_level</code>——Schema.org 需要的数据大多已在库里，只是没输出成 JSON-LD。</li>
+      <li><b>Agent Manifest 可零迁移派生</b>：站点名/描述在 <code>site_settings</code>、能力在 <code>sections</code>、套餐在 <code>tiers</code>、动作在 <code>nav_links</code>。不需要新表。</li>
+      <li><b>渠道归因已有承接结构</b>：<code>events</code> 是通用 KV，<code>/api/public/track</code> 免认证接受任意 <code>type</code>，加 <code>ai_referral</code> 事件<b>不需要迁移</b>。</li>
+      <li><b>GraphQL 端点已存在</b>（机器可调用接口的基础），只是被 robots 关掉了。</li>
+      <li><b>能力注册表 + 治理骨架已经存在</b>：<code>ai.rs</code> 里有 <code>CapDef { name, required_perm, escalatable }</code> 形式的四能力声明（<code>content.articles.draft/publish</code>、<code>content.seo.optimize</code>、<code>content.translate</code>），每项绑定所需权限，高风险项标记为可升级审批，配合 <code>ai_audit_log</code> 与 <code>approvals</code> 审批链路。<b>这正是文档 §9「让 Agent 可调用产品能力」所需的那层治理</b>——它已经在库里，缺的只是对外声明与开放策略。</li>
+    </ul>
+  </div>
+  <div class="card" style="margin:0">
+    <h3 style="margin-top:0">可以承载新增内容的现成骨架</h3>
+    <ul style="margin-bottom:0">
+      <li><code>sections</code> 表（slug / title / subtitle / body JSON / sort）→ 天然可作"问题页面"的承载；</li>
+      <li><code>articles</code> + <code>pages</code> → 可作 Definition / How-to / Comparison / Evidence 的载体；</li>
+      <li><code>nav_links</code>（grp = nav/footer，href，sort，enabled）→ 新页面进导航不用改代码；</li>
+      <li>主页版式体系（1 内核 + 10 风格 × 5 预设，section 声明式渲染）→ 加一种 <code>kind</code> 就能出新的内容形态，组件零改动；</li>
+      <li>SEO 三件套（sitemap / rss / robots）已有真实数据流；</li>
+      <li>可访问性有基础（主页文章整卡可点、键盘可达）→ 文档 §16 提到的 ARIA/角色/状态只需系统化，不必重做。</li>
+    </ul>
+  </div>
+</div>
+
+<h2><span class="num">3</span>缺口矩阵：文档 17 节 → 14 个可判定条目</h2>
+
+<table>
+<thead><tr><th style="width:22%">文档主张</th><th style="width:30%">项目现状</th><th style="width:12%">判定</th><th>备注</th></tr></thead>
+<tbody>
+<tr><td>允许 AI 抓取</td><td class="mono">robots 已 Allow: /，仅拦 API/GraphQL</td><td><span class="tag t-green">已具备</span></td><td>补显式 bot 声明即可</td></tr>
+<tr><td>可抓取的内容源</td><td class="mono">rss.xml 带 title+summary；公开 API 全量 JSON</td><td><span class="tag t-green">已具备</span></td><td>是当前唯一有文本的通道</td></tr>
+<tr><td>产品事实数据（name/category/pricing/audience）</td><td class="mono">site_settings + sections + tiers + nav_links 齐备</td><td><span class="tag t-green">已具备</span></td><td>只差输出格式</td></tr>
+<tr><td>Human-readable 页面</td><td class="mono">CSR 空壳（1973 B）</td><td><span class="tag t-red">阻塞</span></td><td><b>决定其余条目价值</b></td></tr>
+<tr><td>Machine-readable 页面</td><td class="mono">同上，正文仅在 API JSON 里</td><td><span class="tag t-red">阻塞</span></td><td>随上条一并解决</td></tr>
+<tr><td>Schema.org / JSON-LD 知识图谱</td><td class="mono">0 处</td><td><span class="tag t-red">缺失</span></td><td>字段已有，缺输出</td></tr>
+<tr><td>OG / Twitter 卡片</td><td class="mono">0 处</td><td><span class="tag t-red">缺失</span></td><td>比 JSON-LD 更基础，先补</td></tr>
+<tr><td><code>/llms.txt</code> <code>/agent.md</code> 机器入口</td><td class="mono">无路由</td><td><span class="tag t-red">缺失</span></td><td>低成本，可 DB 派生</td></tr>
+<tr><td>Agent Manifest（JSON）</td><td class="mono">无，但数据齐备</td><td><span class="tag t-red">缺失</span></td><td>零迁移可做</td></tr>
+<tr><td>问题页面体系（/problems、/solutions、/compare、/use-cases）</td><td class="mono">无；现有 articles / pages / sections 可承载</td><td><span class="tag t-red">缺失</span></td><td>需新增路由与内容类型</td></tr>
+<tr><td>Agent-actionable API（可调用能力）</td><td class="mono">无对外入口；但 <code>ai.rs</code> 已有 CapDef 能力注册表（权限绑定 + 审批升级）+ <code>ai_audit_log</code></td><td><span class="tag t-amber">治理已有</span></td><td>缺的是对外声明与开放口径，<b>需产品决策</b></td></tr>
+<tr><td>渠道分析（AI traffic / agent referral / API calls）</td><td class="mono">无归因；events + track 可零迁移承接</td><td><span class="tag t-amber">低成本可补</span></td><td>前端需采集 referrer/utm</td></tr>
+<tr><td>Intent 作为核心对象（Audience→…→Action）</td><td class="mono">模型仍是 articles / pages / sections / tags</td><td><span class="tag t-amber">模型级改造</span></td><td>建议最后做，避免过度设计</td></tr>
+<tr><td>多语言本地化页面 + hreflang</td><td class="mono">articles.locale 存在、i18n 端点有；无 hreflang 输出</td><td><span class="tag t-amber">部分</span></td><td>出海时才成硬需求</td></tr>
+</tbody>
+</table>
+
+<p class="small">统计：<b>已具备 3 ／ 阻塞 2 ／ 缺失 5 ／ 部分或低成本可补 4</b>。与上一轮那份方案的关键差别是——这里<b>没有"不建议对齐"的条目</b>，因为它不要求你换任何技术栈。</p>
+
+<h2><span class="num">4</span>与上一轮（结算层）方案的关系</h2>
+
+<table>
+<thead><tr><th style="width:16%">层</th><th style="width:30%">本轮文档</th><th style="width:22%">项目现状</th><th>结论</th></tr></thead>
+<tbody>
+<tr><td>5 Revenue</td><td class="mono">Subscription / Checkout / CRM</td><td class="mono">orders + points + 微信支付 + Stripe（部分）</td><td>已建成约六成，上一轮已出对齐清单</td></tr>
+<tr><td>4 Conversion</td><td class="mono">Demo / Trial / Signup / Pricing</td><td class="mono">members 注册登录、tiers 套餐、402 付费墙</td><td><b>骨架已有</b>，缺 Demo/Trial 与定价页</td></tr>
+<tr><td>3 Agent</td><td class="mono">Manifest / API / Actions / Feed</td><td class="mono">无（只有 sitemap/rss/robots）</td><td><b>零到一</b></td></tr>
+<tr><td>2 Knowledge</td><td class="mono">Problems / Solutions / FAQ / Comparison / Evidence</td><td class="mono">无类型化；articles/sections 可承载</td><td><b>零到一</b>，但有骨架可挂</td></tr>
+<tr><td>1 Product</td><td class="mono">Capability / Data / User / App</td><td class="mono">已有（CMS 24 表 + 模板体系 + 会员）</td><td>已有，且比文档假设的成熟</td></tr>
+</tbody>
+</table>
+
+<div class="lead" style="border-left-color:#1f5fa8">
+<b>读法：</b>文档描述的是一个完整的 Growth OS，而你的项目<b>在第 1 层和第 5 层都已有实质资产，中间的 2/3 层是空白，第 4 层刚起头</b>。这意味着不需要推倒重来——需要的是在已有骨架上补两层，而不是重建系统。这与上一轮那种"要不要换掉 PostgreSQL / 引入 Rauthy"的问题完全不同。
+</div>
+
+<h2><span class="num">5</span>必须由产品拍板的三件事（否则工程会白做）</h2>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--purplebg);color:var(--purple)">决策 1</span><span class="ttl">CouCouYa 的"能力单元"到底是什么</span></div>
+  <div class="bd">
+    <p>文档里的示例全部来自另一个产品（NCE-Flow / 英语听力 / <code>blind_listening</code> / <code>speech_recognition</code> / 新概念英语）。CouCouYa 不是学习工具，它是<b>给创作者和站长的变现平台</b>。所以 Capability 不是听力训练，而应该是类似：</p>
+    <div class="loc">content.publish · content.seo.optimize · content.translate · paid_membership · community · 模板/主题托管</div>
+    <p class="small" style="margin-top:10px">有意思的是——这些能力<b>后端 ai.rs 里已经存在</b>（<code>content.articles.draft/publish</code>、<code>content.seo.optimize</code>、<code>content.translate</code>）。也就是说 Agent Manifest 里的 <code>capabilities</code> 可以从现有能力注册表派生，但<b>要开放哪些给 Agent 调用，是产品决策</b>。</p>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--purplebg);color:var(--purple)">决策 2</span><span class="ttl">目标受众的三层定义</span></div>
+  <div class="bd">
+    <p>文档 §1 要求区分 L1（AI/搜索 Agent）/ L2（人）/ L3（你的产品 Agent）。项目里 L4 对应关系需要重新填：</p>
+    <ul>
+      <li>L1 面向机器：要让 Agent 知道"当用户想把自己的内容变现 / 建会员站时，应该推荐 CouCouYa"——这决定了问题页面写什么；</li>
+      <li>L2 是真实买家：创作者？社群操盘手？还是技术站长？（<code>site_settings</code> 里现在的站点描述是"社群增长操盘手 / 帮有才华的人被看见"，偏品牌语，不够机器可判断）；</li>
+      <li>L3 是产品内的 AI 能力：已存在（ai.rs 4 项），但尚未作为"可被 Agent 调用的能力"对外声明。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev" style="background:var(--purplebg);color:var(--purple)">决策 3</span><span class="ttl">Intent 是否要成为一等对象</span></div>
+  <div class="bd">
+    <p>文档 §17 建议把 CMS 核心模型从 <code>Page/Post/Category/Tag</code> 升级为 <code>Audience→Intent→Problem→Solution→Capability→Evidence→Offer→Action</code>。这是<b>数据模型级改造</b>（新表、新后台、新渲染链路），也是全文最重的一项。</p>
+    <p>我的看法：<b>不建议现在做。</b>当前 <code>sections</code>（带 slug/body/sort）+ <code>articles</code>（带 locale/meta/canonical）+ 声明式渲染已经足以承载"问题页面"，先用现有模型把 <code>/problems</code>、<code>/compare</code> 跑出真实流量数据，再决定是否值得抽出一等对象。文档的方向是对的，但它的收益要在有数据之后才能验证。</p>
+  </div>
+</div>
+
+<h2><span class="num">6</span>建议落地顺序（按"是否解除阻塞"排序）</h2>
+
+<div class="card">
+<div class="step">
+  <div class="rail"><b>0</b><i></i></div>
+  <div class="body">
+    <h4>让公开页有内容（真正的阻塞项）</h4>
+    <p class="small" style="margin:0">在 <code>templates.rs</code> 伺服 <code>index.html</code> 时注入：OG / Twitter 卡片 + <code>Organization</code> / <code>WebSite</code> / <code>Article</code> JSON-LD + <code>noscript</code> 摘要；对文章详情补静态快照或服务端渲染。<b>验收：</b><code>curl</code> 主页与 <code>/post/&lt;slug&gt;</code> 能直接看到标题、摘要、结构化数据，不再只有一个 <code>div#root</code>。这一步同时修掉了"人分享没有预览卡"这个更基础的漏项。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>1</b><i></i></div>
+  <div class="body">
+    <h4>Agent Layer 最小集（零迁移，纯派生）</h4>
+    <p class="small" style="margin:0"><code>GET /llms.txt</code>（What it is / Best for / Capabilities / Pricing / Recommended when / Actions）、<code>GET /agent.json</code>（Manifest：从 <code>site_settings</code>+<code>tiers</code>+<code>nav_links</code> 派生）、<code>GET /ai/product</code>、<code>/ai/pricing</code>；<code>robots.txt</code> 显式声明 AI bot 策略并指向上述入口。<b>验收：</b>三份产物返回真实站点数据而非示例硬编码，且改后台配置后自动变化。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>2</b><i></i></div>
+  <div class="body">
+    <h4>付费边界 + 渠道归因</h4>
+    <p class="small" style="margin:0">先定策略：sitemap/rss 是否排除 <code>paid_level &gt; 0</code> 或降级为仅 <code>title/meta</code>；付费正文只走鉴权接口。同时前端采集 <code>document.referrer</code> + <code>utm_source</code>（chatgpt.com / perplexity / claude / gemini）→ <code>/api/public/track</code> 写入 <code>ai_referral</code> 事件，后台加一个"AI/Agent 渠道"面板。<b>验收：</b>能从后台区分 Google / 直接访问 / AI 引荐的来源与转化。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>3</b><i></i></div>
+  <div class="body">
+    <h4>知识层：问题页面体系</h4>
+    <p class="small" style="margin:0">基于现有 <code>sections</code>/<code>articles</code> 出 <code>/problems/{slug}</code>、<code>/compare/{a}-vs-{b}</code>、<code>/use-cases/{slug}</code>，配 <code>FAQPage</code> / <code>Article</code> JSON-LD，全部指向 Demo / Pricing / Signup。<b>验收：</b>每个页面都能被 sitemap 收录、被 <code>curl</code> 读到正文、被 LLM 抽出事实单元。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="rail"><b>4</b></div>
+  <div class="body">
+    <h4>（待数据验证）Agent-actionable API 与 Intent 模型</h4>
+    <p class="small" style="margin:0">把 ai.rs 的 4 项能力开放为可被 Agent 调用的工具（需鉴权 + 配额 + 审计）；若前三段跑出真实引荐与转化，再评估把 Intent 抽成一等对象。</p>
+  </div>
+</div>
+</div>
+
+<h2><span class="num">7</span>三条容易走偏的地方</h2>
+
+<div class="card">
+<ul style="margin:0">
+  <li><b>不要把 <code>llms.txt</code> 当 SEO 魔法。</b>它没有官方标准、不保证被任何模型读取。它真正的价值是给自己一个"低歧义产品说明书"的单一事实源——所以内容必须由 DB 派生，而不是手写死一遍（否则会和后台配置漂移，这个项目在预设清单上已经吃过一次手工同步的亏）。</li>
+  <li><b>不要让 Agent 能调用未授权能力。</b>文档 §9 说"让 Agent 能试用"，但项目里已经存在一个反例：会员自助接口接受客户端传 <code>plan</code> 就能升级会员。任何对外暴露的 Agent 调用入口，都必须先把这类"信任前端输入"的路径清掉。</li>
+  <li><b>不要跳过第 0 段直接做 Schema 和问题页面。</b>内容页面本身对机器是空的，那么给它加 <code>Product</code> JSON-LD 只会产出"结构正确、内容为空"的实体，反而可能被判定为低质量。文档里 <code>Product Knowledge Graph</code> 那段很有价值，但它的前提是页面先有可读实体。</li>
+</ul>
+</div>
+
+<div class="lead" style="border-left-color:#1c7a4a">
+<b>总结：</b>这份文档值得对齐，而且比上一轮那份更贴合你的项目——因为它不要求换技术栈，要求的是一层你还没有的东西。但它的推进顺序需要调整：<b>先让机器能读到内容（第 0 段），再做机器入口（第 1 段），再定付费边界与归因（第 2 段），最后才是问题页面与 Intent 模型</b>。目前项目在这件事上的真实位置是：结算层已建成大半，获客层几乎空白，而空白的最前端卡在一个 1973 字节的空壳上。
+</div>
+
+<div class="foot">
+分析依据：<code>server/src/seo.rs</code>（sitemap/rss/robots 全文）、<code>server/src/templates.rs</code> 路由、<code>server/templates/coucouya/index.html</code>（构建产物实测）、<code>server/src/stats.rs::track</code>、<code>server/src/db.rs</code>（articles/sections/nav_links/tiers/events 表定义）、<code>server/src/main.rs</code> 路由表、<code>server/src/ai.rs</code> 能力清单；公开页实测在分析时未起服务，基于磁盘上的构建产物。<br>
+配套报告：<code>docs/SUBSCRIPTION_ALIGNMENT_2026-09-22.html</code>（结算层对齐）。
+</div>
+
+</div>
+</body>
+</html>

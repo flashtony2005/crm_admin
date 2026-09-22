@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主页支持 · 架构评审 · 2026-09-21</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --ink:#1a1d23; --muted:#6b7280; --line:#e5e7eb;
+    --red:#dc2626; --red-bg:#fef2f2; --amber:#d97706; --amber-bg:#fffbeb;
+    --green:#059669; --green-bg:#ecfdf5; --blue:#2563eb; --blue-bg:#eff6ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;padding:32px 16px}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:26px;margin-bottom:4px}
+  h2{font-size:19px;margin:36px 0 12px;padding-left:10px;border-left:4px solid var(--blue)}
+  h3{font-size:15px;margin:18px 0 8px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:16px}
+  .verdict{background:linear-gradient(135deg,#eff6ff,#ecfdf5);border:1px solid #bfdbfe;border-radius:12px;padding:22px 24px;margin-bottom:8px}
+  .verdict h2{border:none;margin:0 0 8px;padding:0;font-size:20px}
+  .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;margin-right:6px;vertical-align:2px}
+  .t-red{background:var(--red-bg);color:var(--red)} .t-amber{background:var(--amber-bg);color:var(--amber)}
+  .t-green{background:var(--green-bg);color:var(--green)} .t-blue{background:var(--blue-bg);color:var(--blue)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th{background:#f3f4f6;text-align:left;padding:8px 10px;font-size:13px;border-bottom:2px solid var(--line);white-space:nowrap}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  code{font-family:Consolas,monospace;font-size:12.5px;background:#f3f4f6;padding:1px 5px;border-radius:4px}
+  .loc{color:var(--muted);font-size:12px;font-family:Consolas,monospace;white-space:nowrap}
+  .num{font-weight:700;font-size:28px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-align:center}
+  .kpi .lab{font-size:12px;color:var(--muted)}
+  .ok{color:var(--green);font-weight:600} .bad{color:var(--red);font-weight:600} .warn{color:var(--amber);font-weight:600}
+  ul{padding-left:20px} li{margin:5px 0}
+  .muted{color:var(--muted);font-size:13px}
+  .flow{font-family:Consolas,monospace;font-size:12.5px;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;overflow-x:auto;line-height:1.9;white-space:pre}
+  .pill{display:inline-block;font-size:11.5px;font-weight:600;border-radius:5px;padding:1px 7px;margin-right:6px}
+  .p0{background:var(--red-bg);color:var(--red)} .p1{background:var(--amber-bg);color:var(--amber)} .p2{background:#f3f4f6;color:#4b5563}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>主页支持 · 架构评审</h1>
+<div class="sub">评审对象：admin（创作者变现站）对外主页链路 · 以代码为准逐项核查 · 2026-09-21</div>
+
+<div class="verdict">
+  <h2>结论：<span class="ok">内容链路是好的，<span class="bad">交付链路是缺的</span></span></h2>
+  <p>主页（coucouya）在<b>内容侧</b>的架构相当扎实——数据驱动、逐层回落、后台没配也不白屏、文章/导航/区块/置顶全部有独立端点支撑，换模板与换内容彻底解耦。</p>
+  <p>真正的问题集中在<b>「从开发态走到生产态」这一段</b>：主页至今只有 <code>npm run dev</code> 一种存在形式，没有构建产物、没有托管路径、没有守护进程；而模板能力又和 API 挤在同一个源上。<b>这不是功能缺失，是形态缺失。</b></p>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="num ok">6</div><div class="lab">公开读端点（够用且解耦）</div></div>
+  <div class="kpi"><div class="num ok">3 / 3</div><div class="lab">P0 已闭环（初评 3 项）</div></div>
+  <div class="kpi"><div class="num ok">6 / 6</div><div class="lab">P1 已闭环（初评 6 项）</div></div>
+  <div class="kpi"><div class="num bad">1</div><div class="lab">第三轮新挖出并已修的 P0（模板静态服务目录穿越）</div></div>
+  <div class="kpi"><div class="num warn">2 / 14</div><div class="lab">仍待办：模板版本回滚 · 预渲染</div></div>
+</div>
+<div class="muted" style="margin:-14px 0 22px">状态截至 2026-09-22（含第三轮定点复核）。P0/P1 全部落地并回归；P2 的 #11 变现跳转、#12 分层文档、#14 元数据校验已完成，剩 #13 模板版本回滚与 #10 的预渲染。第三轮另修 1 个 P0（目录穿越）+ 1 个 P1（缺失资源用 HTML 冒充）+ 2 个 P2。</div>
+
+<h2>零、本轮已整改（2026-09-21 当日）</h2>
+<div class="card">
+<table>
+<tr><th style="width:34px">#</th><th style="width:200px">整改项</th><th>落地内容</th><th style="width:150px">验证</th></tr>
+<tr><td>1</td><td><b>主页生产形态</b></td>
+  <td>新增 <code>coucouya/scripts/deploy_to_admin.py</code> + <code>.cmd</code>：以 <code>VITE_BASE=/t/coucouya/</code> 构建并同步到 <code>server/templates/coucouya/</code>，由后端同源伺服；<code>coucouya/vite.config.ts</code> 支持 base 注入</td>
+  <td class="ok">/t/coucouya 200<br>/t/active 302→ 规范路径</td></tr>
+<tr><td>2</td><td><b>回环地址硬编码</b></td>
+  <td>删除 <code>index.html</code> 内联跳转脚本（跳转统一在 App.tsx 单处）；<code>api.ts</code> 的 <code>CMS_ORIGIN</code> 默认改为空串（同源相对）；<code>templates.rs</code> 的 app 类 previewUrl 改为 <code>TEMPLATES_ORIGIN</code> &gt; 已部署产物相对路径 &gt; 本地端口三级解析；App.tsx 跳转加**防自跳死循环**保护</td>
+  <td class="ok">coucouya previewUrl<br>= <code>/t/coucouya</code></td></tr>
+<tr><td>3</td><td><b>模板响应安全头</b></td>
+  <td><code>/t/*</code> 增加 <code>X-Content-Type-Options: nosniff</code> 与 <code>Referrer-Policy</code>。未加 X-Frame-Options/CSP frame-ancestors —— 会打断后台 5188 跨源 iframe 的实时预览；**origin 隔离仍是根本解法**</td>
+  <td class="warn">部分缓解</td></tr>
+<tr><td>4</td><td><b>激活状态漂移</b></td>
+  <td><code>remove()</code> 改 active 后补写 <code>site_settings.home_template</code>；并修正现存漂移（DB 里还是 <code>test</code> → <code>coucouya</code>）</td>
+  <td class="ok">双端已一致</td></tr>
+<tr><td>5</td><td><b>manifest 非原子写</b></td>
+  <td>替换前先备份 <code>manifest.json.bak</code>，<code>read_manifest</code> 解析失败时自动回滚</td>
+  <td class="ok">回滚路径就位</td></tr>
+<tr><td>6</td><td><b>active 指向调试残留</b></td>
+  <td><code>active</code> 归位 <code>coucouya</code>；从注册表移除 <code>test</code> / <code>zip</code> 两个调试项（磁盘目录保留未删）</td>
+  <td class="ok">active=coucouya</td></tr>
+<tr><td>7</td><td><b>零缓存头</b></td>
+  <td><code>/t/*</code> 按类型发 <code>Cache-Control</code>（HTML <code>no-cache</code> / 子资源 <code>max-age=86400</code>）+ <code>Last-Modified</code> + <code>If-Modified-Since</code> → 304</td>
+  <td class="ok">304 实测命中</td></tr>
+<tr><td>8</td><td><b>首屏 6 次请求</b></td>
+  <td>新增 <code>GET /api/public/home</code> 聚合端点（site/sections/nav/footer/pins/articles 一次返回，子块失败单独降级）；coucouya 前端优先用它，老后端自动回落逐个拉取</td>
+  <td class="ok">1 次请求拿到 6 块</td></tr>
+<tr><td>9</td><td><b>模板目录相对 cwd</b></td>
+  <td>默认改为「从可执行文件向上逐级找 <code>templates/</code>」；启动期自检并打印 <code>dir/active/items</code>，active 目录缺失时告警</td>
+  <td class="ok">启动日志可见</td></tr>
+<tr><td>14</td><td><b>元数据无校验</b></td>
+  <td>upload / update_meta 共用 <code>check_meta()</code>：name ≤60、note ≤200、port 必须 1–65535</td>
+  <td class="ok">已生效</td></tr>
+</table>
+<div class="muted" style="margin-top:10px">
+回归：<code>cargo build</code> exit 0 · <code>cargo test</code> <b>18/18</b> · <code>tsc</code> 0 error · <code>vitest</code> <b>125/125</b> · coucouya <code>tsc</code> 0 error。
+</div>
+</div>
+
+<h2>零之二、第二轮已整改（2026-09-22）：打通「阅读 → 变现」这一跳</h2>
+<div class="card">
+<p>第一轮把主页从「只有 dev server」变成「有生产形态」，但内容<b>展示得出来、点不进去</b>——文章卡是死的，付费墙判决（<code>paid_level</code> 0–3）全在详情分支里，而主页恰恰不经过详情。这一轮补上这跳。</p>
+<table>
+<tr><th style="width:34px">#</th><th style="width:200px">整改项</th><th>落地内容</th><th style="width:150px">验证</th></tr>
+<tr><td>11</td><td><b>文章卡不落地</b><br><span class="muted">变现链路断点</span></td>
+  <td>主页新增 base 感知路由（<code>src/router.ts</code>，无三方依赖）：<code>/post/&lt;slug|id&gt;</code> → 详情视图；文章整卡变 <code>&lt;a&gt;</code>（键盘可达、可复制链接、中键新开）；详情页动态写 <code>title</code>/<code>description</code>/<code>og:*</code>，并渲染 <b>402 付费墙</b>（按 reason 区分会员/订阅/积分/邀请）与 404 兜底</td>
+  <td class="ok">点击→详情→刷新深链<br>均渲染同一篇</td></tr>
+<tr><td>—</td><td><b>正文 XSS</b><br><span class="muted">GO_LIVE_REVIEW 遗留项</span></td>
+  <td>移植白名单净化器 <code>src/sanitize.ts</code>（与 admin 同源实现），正文渲染前必过：剔除 <code>script</code>/<code>iframe</code>/<code>svg</code>、<code>on*</code>、<code>javascript:</code> 与危险 CSS；图片统一补 <code>loading="lazy"</code></td>
+  <td class="ok">渲染前必经</td></tr>
+<tr><td>—</td><td><b>别名路径被判 404</b><br><span class="muted">本轮实测踩到</span></td>
+  <td>产物按 <code>base=/t/coucouya/</code> 构建，前端从 <code>import.meta.url</code> 反推 base。原 <code>/t/active</code> 直接吐内容 → base 与 pathname 不一致 → 深链全判 404。<b>改为 302 跳转</b>到 <code>/t/&lt;slug&gt;</code>（仍在读 DB 的 <code>home_template</code>），顺带消除重复内容</td>
+  <td class="ok">/t/active 302<br>深链可解析</td></tr>
+<tr><td>10</td><td><b>主页未进 sitemap/rss</b><br><span class="muted">SEO</span></td>
+  <td>新增 <code>PUBLIC_HOME_URL</code> / <code>PUBLIC_ARTICLE_URL</code>：设置后 sitemap 首条与文章链接指向主页详情（未设置则回落 <code>{base}/read/{key}</code>，完全向后兼容）；<code>robots.txt</code> 补 <code>Disallow: /api/ /graphql /graphiql</code></td>
+  <td class="ok">两种配置均实测</td></tr>
+<tr><td>4</td><td><b>激活状态读侧未收敛</b><br><span class="muted">上轮只做了写侧</span></td>
+  <td><code>resolve_active()</code>：<code>/t/active</code> 优先读 <code>site_settings.home_template</code>（DB 不可用 / slug 不在注册表时回落 <code>manifest.active</code> 并告警），与 activate/remove 的写路径彻底配对</td>
+  <td class="ok">改 DB 即改跳转目标</td></tr>
+<tr><td>12</td><td><b>三源合并规则隐式</b></td>
+  <td><code>coucouya/README.md</code> 新增字段级职责表：默认（<code>content/home.json</code>）→ home 补丁（<code>site_settings.home</code>，浅合并）→ sections 覆盖（按 slug <b>整块替换</b>），并标注数组字段不逐项合并</td>
+  <td class="ok">已文档化</td></tr>
+<tr><td>—</td><td><b>首屏 2 次请求</b></td>
+  <td>模板跳转判定并入聚合拉取 effect，复用手上的 <code>site</code>，省掉一次 <code>/api/public/site</code></td>
+  <td class="ok">1 次请求</td></tr>
+<tr><td>—</td><td><b>favicon 404</b></td>
+  <td>补 <code>public/favicon.svg</code> 并在 <code>index.html</code> 声明；否则浏览器回落到根路径 <code>/favicon.ico</code>，在反代/同源托管下必然 404</td>
+  <td class="ok">无 4xx 资源</td></tr>
+</table>
+<div class="muted" style="margin-top:10px">
+回归：<code>cargo build</code> exit 0 · <code>cargo test</code> <b>18/18</b> · coucouya <code>tsc</code> 0 error · <code>vite build</code> exit 0 ·
+<b>真实浏览器（headless Chromium）端到端</b>：别名 302 ✓ · 卡片点击 SPA 导航 ✓ · 深链刷新一致 ✓ · 返回首页 ✓ · 未知路径 404 页 ✓ · 不存在文章 ✓ · 402 付费墙 ✓ · 无异常控制台报错。
+</div>
+</div>
+
+<h2>零之三、第三轮已整改（2026-09-22 续）：模板静态服务的安全与语义修正</h2>
+<div class="card">
+<p>这一轮是针对 <code>templates.rs</code> 里 <code>/t/&lt;slug&gt;/*</code> 静态服务的定点复核，抓到一个<b>可未认证利用的任意文件读取</b>。四处修正，新增 2 个单测锁边界。</p>
+<table>
+<tr><th style="width:34px">#</th><th style="width:190px">问题</th><th>根因与修正</th><th style="width:150px">验证</th></tr>
+<tr><td><span class="pill p0">P0</span></td><td><b>目录穿越 · 任意文件读取</b><br><span class="muted">公开路由、无需登录</span></td>
+  <td>防穿越只用了 <code>target.starts_with(&amp;base)</code>，而 <code>Path::starts_with</code> 是<b>按分量前缀</b>比较，<code>..</code> 在 Rust 里是普通分量、不参与归一化 —— <code>base.join("../x")</code> 的分量序列仍以 <code>base</code> 为前缀，判断照过。<br>
+  实测复现（4 种载荷全部命中）：<code>/t/coucouya/../manifest.json</code> <b>200</b>（绕过 <code>/t/manifest.json</code> 的显式拦截）、<code>/t/coucouya/../../Cargo.toml</code> <b>200</b>、<code>%2e%2e%2f</code> 编码变体 <b>200</b>。<br>
+  <b>修正</b>：新增 <code>rel_is_safe()</code> 按分量拒绝 <code>.</code> / <code>..</code> / 空段（同时覆盖 Windows <code>\</code> 与 <code>%5c</code> 解码结果），<code>starts_with</code> 降级为拦绝对路径注入的第二道。</td>
+  <td class="ok">4 种载荷<br>全部 400</td></tr>
+<tr><td><span class="pill p1">P1</span></td><td><b>缺失资源用 HTML 冒充</b><br><span class="muted">SPA 兜底越界</span></td>
+  <td><code>serve_file</code> 读不到文件时<b>无条件</b>回退 <code>index.html</code>，连 <code>assets/index-&lt;旧hash&gt;.js</code> 也返回 <code>200 + text/html</code>。浏览器报 <code>Refused to execute script … MIME type ('text/html')</code>，把一次干净的 404 变成难定位的脚本错误（换模板后缓存着旧哈希资源时必现）；<code>/t/coucouya/favicon.ico</code> 同样在返回 HTML。<br>
+  <b>修正</b>：新增 <code>looks_like_asset()</code> 扩展名白名单 —— 资源型缺失 <b>404</b>，导航型（含带点 slug 如 <code>ai-2.0</code>）仍走 SPA 兜底。与 <code>main.rs::spa_fallback</code> 语义对齐。</td>
+  <td class="ok">.js / .css / .ico<br>→ 404</td></tr>
+<tr><td><span class="pill p2">P2</span></td><td><b>robots.txt 被 XML 转义</b></td>
+  <td><code>robots()</code> 复用了 <code>esc_xml()</code>，而 robots.txt 是纯文本 —— base 含 <code>&amp;</code> 时会写成 <code>&amp;amp;</code> 混进 Sitemap 行。<b>修正</b>：纯文本不做转义（<code>/sitemap.xml</code>、<code>/rss.xml</code> 保持转义）。</td>
+  <td class="ok">含 &amp; 的 base<br>实测</td></tr>
+<tr><td><span class="pill p2">P2</span></td><td><code>/t/active/*</code> 把 <code>..</code> 反射进 <code>Location</code></td>
+  <td>虽同源、不构成开放重定向，但别名入口只接受规整路径更不易被误用。<b>修正</b>：复用 <code>rel_is_safe()</code> 返回 400。</td>
+  <td class="ok">已拦</td></tr>
+<tr><td><span class="pill p2">P2</span></td><td><b>后台 SPA 把带点的导航路径判成资源</b></td>
+  <td><code>main.rs::spa_fallback</code> 用 <code>path.contains('.')</code>：只要路径含点、文件又不存在，立刻 404。而后台唯一带参数的公开路由是 <code>/author/$name</code> —— 作者名带点（<code>/author/john.doe</code>）时刷新/分享链接直接 404，SPA 拿不到兜底。<br>
+  <b>修正</b>：改为「① 先试真实文件 → ② 再按资源扩展名白名单判 404 → ③ 否则回退 index.html」，复用 <code>templates::looks_like_asset</code>，与模板服务语义统一。无扩展名或未知扩展名的路径一律能回退。</td>
+  <td class="ok">/author/x.y<br>回退 index.html</td></tr>
+</table>
+<div class="muted" style="margin-top:10px">
+回归：<code>cargo build</code> exit 0 · <code>cargo test</code> <b>20/20</b>（新增 <code>rel_rejects_traversal</code>、<code>asset_boundary</code> 两个单测锁边界）<br>
+<b>模板服务（8088）</b>：5 种穿越载荷 <code>../</code> · <code>../../</code> · <code>%2e%2e%2f</code> · 双重编码 · <code>..%5c</code> <b>全部 400</b>（修复前全部 200）·
+导航深链 <code>/post/u-card-comparison</code> 200 · 带点 slug <code>/post/ai-2.0</code> 200 · 真实 <code>assets/*.js</code> 200 ·
+缺失 <code>.js</code>/<code>.css</code>/<code>.ico</code> <b>404</b>（修复前返回 HTML 200）· <code>/t/active</code> 302 → <code>/t/coucouya</code> · robots 原样输出 <code>&amp;</code>、sitemap 转义 <code>&amp;amp;</code><br>
+<b>后台 SPA 兜底</b>（以临时 <code>STATIC_DIR</code> 实测，因本机 <code>dist-app/</code> 未部署）：<code>/author/john.doe</code> <b>200 回退 index.html</b>（修复前 404）·
+<code>/author/plainname</code> 200 · <code>/stats</code> 200 · 真实 <code>/assets/real.js</code> 200 · 缺失 <code>/assets/missing.js</code> 404
+</div>
+</div>
+
+<h2>一、现状链路（核查结果）</h2>
+<div class="card">
+<div class="flow">访客 ──► http://HOST:5199  (coucouya SPA，kind=app)
+             │  /api/* 经 vite 代理 ──► 127.0.0.1:8088
+             ├── GET /api/public/site       品牌 / 主题 / homeTemplate / mainPort / home(JSON)
+             ├── GET /api/public/sections   首页区块（独立表，按 sort）
+             ├── GET /api/public/nav        导航 + 页脚（nav_links）
+             ├── GET /api/public/home-pins  置顶编排（home_pins JOIN articles）
+             ├── GET /api/public/articles   代表文章（featured=1）
+             └── GET /api/public/templates  激活模板 → 决定是否跳走
+
+模板托管 ──► http://HOST:8088/t/{slug}  (main.rs:229-232 → templates.rs::serve_file)
+             注册表 = server/templates/manifest.json（磁盘 JSON，gitignore 第 39 行）
+             激活指针 = manifest.active  +  site_settings.home_template（DB，双写）</div>
+<div class="muted" style="margin-top:10px">
+核查命令：<code>grep -nE 'route\("' src/main.rs</code> · <code>cat server/templates/manifest.json</code> · <code>grep -rniE "cache-control|etag|CompressionLayer" src/</code>（零命中）
+</div>
+</div>
+
+<h2>二、<span class="bad">P0 · 上线前必办</span>（主页当前无法上线运行）</h2>
+<div class="card">
+<table>
+<tr><th style="width:34px">#</th><th style="width:190px">缺口</th><th>为什么是阻断</th><th style="width:230px">怎么改</th></tr>
+
+<tr>
+  <td>1</td>
+  <td><b>主页没有生产形态</b><br><span class="loc">manifest.json · DEPLOYMENT.md</span></td>
+  <td>coucouya 是 <code>kind=app</code> + 硬编码端口 5199，属于「外部已注册应用」，<b>后端不伺服它</b>——<code>spa_fallback</code> 只提供 <code>web/dist</code>（运营后台，main.rs:83-108）。而 <code>coucouya/</code> 下连 <code>dist/</code> 都没有，部署文档里也只字未提 5199。结果：主页的唯一运行方式是开发服务器 <code>npm run dev</code>，没有产物、没有托管、没有守护、没有开机自启。</td>
+  <td>二选一：<br><b>A（推荐）</b>把主页也变成「可托管产物」——构建后落到 <code>server/templates/coucouya/</code>，由 <code>/t/active</code> 同源伺服，一个进程解决；<br><b>B</b>保留独立端口，补 nginx 反代 + 进程守护 + 构建脚本。</td>
+</tr>
+
+<tr>
+  <td>2</td>
+  <td><b>回环地址硬编码</b><br><span class="loc">coucouya/index.html 内联脚本<br>coucouya/src/api.ts:118</span></td>
+  <td>主页头部有一行内联 JS 直接 <code>fetch('http://127.0.0.1:8088/api/public/templates')</code> 来决定是否跳转到激活模板；<code>api.ts</code> 里 <code>CMS_ORIGIN</code> 默认值同样是 <code>http://127.0.0.1:8088</code>。生产域名下这是**跨域请求且指向服务器本机回环**，必然失败；而失败被 <code>catch</code> 静默吞掉 → 模板切换能力"看起来在、其实不在"。叠加 <code>CMS_ENV=production</code> 且未配 <code>CORS_ORIGINS</code> 时跨域被拒（main.rs:244-247），问题更隐蔽。</td>
+  <td>改同源相对路径 <code>/api/public/templates</code>（生产由同域反代承载）；确需跨源则统一走 <code>VITE_CMS_ORIGIN</code>，并在构建期注入、缺失即报错。</td>
+</tr>
+
+<tr>
+  <td>3</td>
+  <td><b>上传模板与 API 同源</b><br><span class="loc">templates.rs::serve_file<br>main.rs:229-232</span></td>
+  <td><code>/t/{slug}</code> 由 8088 本体伺服，也就是**模板包里的任意 JS 运行在 API 的源上**。而模板是后台上传的 zip（20MB、任意 HTML/JS）。同一源意味着它可以直读 <code>localStorage</code> 里的后台 token、直接调管理接口。全仓检索 <code>CSP / X-Frame-Options / nosniff</code> <b>零命中</b>，没有任何兜底。</td>
+  <td>把模板托管挪到独立 origin（子域或另一端口）；退一步至少在模板响应上加严格 <code>Content-Security-Policy</code>，并让预览走 sandbox iframe。上传模板只对 Owner 开放。</td>
+</tr>
+</table>
+</div>
+
+<h2>三、<span class="warn">P1 · 会静默出错 / 性能</span></h2>
+<div class="card">
+<table>
+<tr><th style="width:34px">#</th><th style="width:190px">缺口</th><th>影响与证据</th><th style="width:230px">怎么改</th></tr>
+
+<tr><td>4</td>
+  <td><b>激活状态双真相源</b><br><span class="loc">templates.rs:104-116, 226-254</span></td>
+  <td>「当前激活模板」存了两份：<code>manifest.active</code>（磁盘 JSON）和 <code>site_settings.home_template</code>（DB）。<code>activate()</code> 双写 ✓，但 <code>remove()</code> 只改 manifest、<b>不调 <code>set_site_kv</code></b> → 两条读路径（<code>/t/active</code> 读 manifest，主页跳转读 DB）会给出不同答案。且 manifest.json 被 gitignore，换机器/重建仓库后 active 回到 seed 值 coucouya，与 DB 漂移。</td>
+  <td>真相源收敛到 DB，manifest 只留静态元数据；或让 <code>remove()</code> 补齐同步。读路径统一走一个函数。</td></tr>
+
+<tr><td>5</td>
+  <td><b>manifest 写非原子</b><br><span class="loc">templates.rs:104-116</span></td>
+  <td>写清单走「写 .tmp → 删旧 → 改名」三步（为绕开 os error 5）。中间任何一步失败，<b>注册表整个丢失</b>——所有模板从列表消失，<code>/t/active</code> 直接 404。</td>
+  <td>改用 DB 表存注册表（顺带解决 #4）；或 rename 前保留 <code>.bak</code>，读失败时自动回滚。</td></tr>
+
+<tr><td>6</td>
+  <td><b>active 指向调试残留</b><br><span class="loc">server/templates/manifest.json</span></td>
+  <td>当前 <code>"active": "test"</code>，而 <code>templates/</code> 下还留着 <code>test/</code>、<code>zip/</code>、<code>sample/</code> 三个调试目录。主页有<b>两重</b>跳转保险（index.html 内联脚本 + App.tsx:72-84 effect），一旦地址解析成功就会把访客带去 <code>/t/test</code>。现在没跳只是恰好因为相对路径同源被判为"自身"。</td>
+  <td>清理调试模板目录 + 把 active 归位到 coucouya；跳转逻辑只保留一处（建议留 App.tsx 内的，去掉 index.html 内联脚本）。</td></tr>
+
+<tr><td>7</td>
+  <td><b>零缓存头 + 零压缩</b><br><span class="loc">全仓 grep 零命中</span></td>
+  <td><code>/t/*</code> 静态文件与 <code>/api/public/*</code> 都没有 <code>Cache-Control / ETag / Last-Modified</code>；也没有 <code>CompressionLayer</code>。每次访问都是「读磁盘 + 全量裸传」。CDN / 浏览器缓存完全接不上。</td>
+  <td>静态资源按内容哈希命名 + <code>Cache-Control: public, max-age=31536000, immutable</code>；HTML 用 ETag/短缓存；加 gzip/br 层。</td></tr>
+
+<tr><td>8</td>
+  <td><b>首屏 6 次请求无聚合</b><br><span class="loc">coucouya/src/App.tsx:89-95</span></td>
+  <td>首屏并行拉 5 个端点（site / articles / sections / nav / home-pins），再加模板列表共 6 次往返，每次都单独查库。私有部署小流量无感，但主页是最该被缓存的页面。</td>
+  <td>增加 <code>GET /api/public/home</code> 聚合端点，一次返回主页所需的全部区块（可整体打 ETag）。</td></tr>
+
+<tr><td>9</td>
+  <td><b>模板目录相对 cwd</b><br><span class="loc">templates.rs:40-44</span></td>
+  <td>默认 <code>templates</code> 是相对路径，服务从别的目录启动就找不到模板（表现为全部 404）。虽有 <code>TEMPLATES_DIR</code> 兜底，但默认值脆弱，且没有任何启动期校验告警。</td>
+  <td>默认改为「可执行文件同级目录」，并在启动时校验目录可读、manifest 可解析，异常打 ERROR 日志。</td></tr>
+</table>
+</div>
+
+<h2>四、<span class="pill p2">P2</span>内容闭环 / SEO / 治理</h2>
+<div class="card">
+<table>
+<tr><th style="width:34px">#</th><th style="width:190px">缺口</th><th>影响</th><th style="width:230px">怎么改</th></tr>
+
+<tr><td>10</td><td><b>纯 CSR，无 SSR / 预渲染</b><br><span class="ok">部分整改（09-22）</span><br><span class="muted">已可把主页与详情纳入 sitemap/rss；首屏正文仍由 JS 渲染</span></td>
+  <td>主页 HTML 交付到浏览器时只有一个空 <code>&lt;div id="root"&gt;</code>，正文全靠 JS 渲染。搜索引擎只能看到 <code>&lt;title&gt;</code>/<code>description</code>。后端虽有 <code>/sitemap.xml</code>、<code>/rss.xml</code>（main.rs:203-204, seo.rs），但那是给另一套公开站用的，<b>不包含主页内容</b>。对一个"帮有才华的人被看见"的主页，这是核心能力缺口。</td>
+  <td>最低成本：构建期预渲染静态 HTML 首屏；或把主页纳入 sitemap/rss 生成范围。</td></tr>
+
+<tr><td>11</td><td><b>文章卡片不落地</b><br><span class="ok">已整改（09-22）</span><br><span class="loc">coucouya/README「已知取舍」</span></td>
+  <td>主页文章卡点击不跳转（README 明写）。后端 <code>GET /api/public/articles/{id}</code> 早已就绪，付费墙判决（paid_level 0–3）也全在详情页分支里——<b>也就是说变现链路恰好断在这一跳上</b>。主页能展示内容，但内容无法转化为阅读、订阅或购买。</td>
+  <td>补详情路由（注意正文是 HTML，渲染前必须 sanitize——这也是 GO_LIVE_REVIEW 里的 SVG XSS 项）。</td></tr>
+
+<tr><td>12</td><td><b>首页数据三源合并规则隐式</b><br><span class="ok">已整改（09-22）</span><br><span class="loc">coucouya/README「首页数据三源合并」</span></td>
+  <td>首页内容有 3 个来源：<code>site_settings.home</code>（JSON 大对象）、<code>sections</code> 表（结构化区块）、内置 <code>content/home.json</code>（兜底）。合并是「默认 → home 补丁 → sections 按 slug 覆盖」，规则写在 <code>mergeContent</code> 里，<b>字段级归属没有文档</b>。改文案时很难判断该动哪一层。</td>
+  <td>明确并文档化分层职责；长期做法是让 <code>sections</code> 成为唯一权威，<code>home</code> JSON 逐步退役。</td></tr>
+
+<tr><td>13</td><td><b>模板无版本、无回滚</b><br><span class="loc">templates.rs::upload / activate</span></td>
+  <td>上传即覆盖式登记，激活只是切指针。<b>没有历史版本、没有一键回滚、没有变更记录</b>。后台换模板是"一锤子买卖"，切坏了只能重新上传。</td>
+  <td>保留 <code>templates/&lt;slug&gt;/@&lt;version&gt;/</code> + 指针，或至少上传前自动备份上一版。</td></tr>
+
+<tr><td>14</td><td><b>模板元数据无校验</b><br><span class="loc">templates.rs:212-220</span></td>
+  <td><code>slug</code> 有白名单校验 ✓、zip 有目录穿越防护 ✓（F5 已修），但 <code>name</code>/<code>note</code> 无长度上限、<code>port</code> 无范围校验。属于卫生问题，量级不大。</td>
+  <td>加长度与端口范围校验即可。</td></tr>
+</table>
+</div>
+
+<h2>五、已经做对的地方（不要动）</h2>
+<div class="card">
+<ul>
+<li><b>失败即回落。</b><code>api.ts</code> 里每个请求失败都返回 null/空数组，调用方逐层回落到 <code>content/home.json</code>。后台挂了主页照常能看，页脚标注「内置内容」——这是很成熟的可用性设计。</li>
+<li><b>内容与形态解耦。</b>换模板不需要动内容，改内容不需要动模板；<code>sections</code> 用独立表而非塞进 KV，新增区块无需改表结构。</li>
+<li><b>激活即指针。</b><code>activate()</code> 只切一个指针，不做数据搬迁，这个抽象是对的（问题只在指针存了两份）。</li>
+<li><b>模板托管的安全边界修过。</b><code>slug_ok</code> 白名单 + <code>extract_zip</code> 目录穿越防护 + manifest 拒绝直读，F5 那轮补得很到位。</li>
+</ul>
+</div>
+
+<h2>六、建议的推进顺序</h2>
+<div class="card">
+<table>
+<tr><th style="width:90px">批次</th><th style="width:150px">范围</th><th>具体动作</th><th style="width:110px">收益</th></tr>
+<tr><td><b>批次 1</b><br><span class="muted">上线前</span></td><td>#1 #2 #3 #6</td><td>主页产出构建产物并接入托管（或补 nginx + 守护）；回环地址改同源相对路径；清调试模板、active 归位；去掉重复跳转逻辑；上传模板移出 API 源</td><td class="ok">主页真正可上线</td></tr>
+<tr><td><b>批次 2</b><br><span class="muted">1–2 天</span></td><td>#4 #5 #7 #8</td><td>激活状态真相源收敛到 DB；注册表原子写；静态缓存头 + ETag + 压缩层；<code>/api/public/home</code> 聚合端点</td><td class="ok">不再静默漂移<br>首屏显著变快</td></tr>
+<tr><td><b>批次 3</b><br><span class="muted">已完成主体</span></td><td>#10 #11 #12 #14</td><td>✅ 文章详情路由（含 sanitize + 付费墙）｜✅ 主页与详情纳入 sitemap/rss｜✅ 三源合并分层文档化｜✅ 元数据校验<br><span class="muted">未做：#13 模板版本与回滚；#10 的预渲染（SSR/静态首屏）</span></td><td class="ok">内容闭环 + 可变现</td></tr>
+</table>
+<div class="muted" style="margin-top:10px">截至 2026-09-22 仍<b>未做</b>的项：#3 上传模板与 API 同源（需独立 origin，属基础设施层）· 静态资源压缩层（需引入新 crate，当前环境离线不便）· #10 的预渲染 · #13 模板版本/回滚。</div>
+
+<h2><span class="bad">新发现</span>（2026-09-22）：coucouya 不在版本控制下</h2>
+<div class="card">
+<p>主页的代码库 <code>F:\project\coucouya</code> <b>不是 git 仓库</b>（<code>git rev-parse</code> 报
+<code>not a git repository</code>，也无 remote）。而它现在已经不只是模板——它是产品对外的主入口，
+内含 base 感知路由、白名单 HTML 净化器、付费墙 UI、4 档主题、部署脚本等自研代码。</p>
+<p><b>风险</b>：没有历史、没有 diff、没有回滚、没有异地备份。<code>scripts/deploy_to_admin.py</code>
+把<b>构建产物</b>同步进了 admin 仓库的 <code>server/templates/coucouya/</code>，那只是压缩后的
+bundle——源码一旦误删或改坏，无法从产物还原。</p>
+<p><b>建议</b>：尽快 <code>git init</code> + 建 remote 并首次提交；<code>node_modules/</code>、
+<code>dist/</code> 保持忽略。<b>不要</b>只依赖 admin 仓库里的构建产物版本。</p>
+<p class="muted">另：<code>server/templates/coucouya/</code>（约 380&nbsp;KB 构建产物）目前在 admin 仓库里是未跟踪状态，
+需要决定是「入库（clone 即可跑，但需与源码同步）」还是「忽略（保持仓库干净，靠
+<code>scripts/deploy_to_admin.cmd</code> 生成）」。建议后者 + 在 README 写明部署步骤。</p>
+</div>
+</div>
+
+<h2>七、附录：核查命令</h2>
+<div class="card">
+<div class="flow"># 路由全景
+grep -nE 'route\("' server/src/main.rs
+
+# 模板注册表当前状态（注意 active 的值）
+cat server/templates/manifest.json
+
+# 缓存 / 压缩 / 安全头是否存在（三条均应零命中）
+grep -rniE "cache-control|etag|last-modified|CompressionLayer" server/src/
+grep -rniE "content-security-policy|x-frame-options|nosniff" server/src/
+
+# 主页构建产物是否存在
+ls coucouya/dist          # → No such file or directory
+    
+# 模板目录相对 cwd
+grep -n "templates_dir" -A 5 server/src/templates.rs</div>
+</div>
+
+<div class="muted" style="margin-top:24px">评审依据：阅读 server/src/{main,templates,public_api,site}.rs、coucouya/{index.html,src/api.ts,src/App.tsx,README.md}，并对源码做全仓检索。所有结论均可按第七节命令复现。</div>
+
+</div>
+</body>
+</html>

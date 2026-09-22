@@ -33,11 +33,65 @@ const Icon = ({ children, size = 16 }: { children: React.ReactNode; size?: numbe
 
 const PaletteIcon = () => <Icon><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></Icon>
 
-const HOME_THEMES: { id: string; name: string; swatch: [string, string, string] }[] = [
-  { id: 'duck', name: '暖奶白可可鸭', swatch: ['#FBF8F1', '#FFFFFF', '#D99B1F'] },
-  { id: 'mono', name: '极简黑白', swatch: ['#FFFFFF', '#F0F0F0', '#111111'] },
-  { id: 'emerald', name: '翡翠绿', swatch: ['#F4FBF7', '#E6F6EE', '#0F9D63'] },
-  { id: 'ocean', name: '深空蓝', swatch: ['#0A1020', '#16223B', '#3B82F6'] },
+// 公开主页的风格变体。id / swatch 必须与 coucouya/src/themes.ts 的 THEMES 保持一致
+// （那是权威定义）；新增一档需要两边同时加，否则后台选了前端不认。
+const HOME_THEMES: { id: string; name: string; swatch: [string, string, string]; group: string }[] = [
+  { id: 'duck', name: '暖奶白可可鸭', swatch: ['#FBF8F1', '#FFFFFF', '#D99B1F'], group: '品牌' },
+  { id: 'mono', name: '极简黑白', swatch: ['#FFFFFF', '#F0F0F0', '#111111'], group: '品牌' },
+  { id: 'emerald', name: '翡翠绿', swatch: ['#F4FBF7', '#E6F6EE', '#0F9D63'], group: '品牌' },
+  { id: 'ocean', name: '深空蓝', swatch: ['#0A1020', '#16223B', '#3B82F6'], group: '品牌' },
+  { id: 'poema', name: '纸感衬线', swatch: ['#FAF8F4', '#FFFFFF', '#1A1A1A'], group: '内容' },
+  { id: 'vivre', name: '杂志高对比', swatch: ['#FFFFFF', '#F5F3F0', '#C8102E'], group: '内容' },
+  { id: 'retrospect', name: '深底影像', swatch: ['#101012', '#1A1A1E', '#FAFAFA'], group: '内容' },
+  { id: 'nook', name: '暖木双栏', swatch: ['#F7F3EA', '#FFFFFF', '#8B5E3C'], group: '生活' },
+  { id: 'tsubaki', name: '椿日式', swatch: ['#FDF9F7', '#FFFFFF', '#B23A48'], group: '生活' },
+  { id: 'aether', name: '暖棕叙事', swatch: ['#FBF6EF', '#FFFFFF', '#A0522D'], group: '生活' },
+]
+
+// 公开主页的版式预设（决定区块顺序与骨架，与上面的风格正交）。
+// **这只是离线兜底**：权威目录在服务端 `server/src/presets.rs`，运行时由
+// `/api/public/site` 的 `homePresets` 下发（见下方 presetCatalog）。后端不可用、
+// 或旧版后端不带该字段时，才回落到这里，避免页面开天窗。
+// `bars` 只是后台里的骨架缩略示意，`sidebar` 为真时缩略图右侧多画一块侧栏。
+interface PresetMeta {
+  id: string
+  name: string
+  desc: string
+  bars: number[]
+  sidebar?: boolean
+}
+const FALLBACK_HOME_PRESETS: PresetMeta[] = [
+  {
+    id: 'classic',
+    name: '经典版式',
+    desc: '主视觉 → 组织 → 代表文章 → 系列 → Web3，信息最全',
+    bars: [100, 58, 84, 50, 70],
+  },
+  {
+    id: 'editorial',
+    name: '杂志编辑',
+    desc: '内容前置：大标题主视觉 + 文章栅格 + 系列分区',
+    bars: [100, 88, 72, 54, 62],
+  },
+  {
+    id: 'gallery',
+    name: '影像优先',
+    desc: '深底 + 两列大图，封面图主导，去掉旁枝',
+    bars: [58, 96, 74, 52],
+  },
+  {
+    id: 'sidebar',
+    name: '侧栏双栏',
+    desc: '主内容 + 常驻侧栏（订阅位 / 最近更新 / 目录）',
+    bars: [72, 88, 76, 64],
+    sidebar: true,
+  },
+  {
+    id: 'minimal',
+    name: '极简单栏',
+    desc: '只留主视觉与单列文章流，阅读动线最短',
+    bars: [100, 76],
+  },
 ]
 
 interface SectionRow {
@@ -684,7 +738,12 @@ function AppearanceBranding() {
   const [title, setTitle] = useState<string>('LightPress')
   const [tagline, setTagline] = useState<string>('')
   // 公开主页（coucouya）风格键：与本后台 theme 解耦，独立于 sepia/paper 等
-  const [homeTheme, setHomeTheme] = useState<string>('duck')
+  // 空串 = 不指定，跟随版式预设自带的建议风格（见 coucouya/src/App.tsx 的优先级链）
+  const [homeTheme, setHomeTheme] = useState<string>('')
+  // 公开主页的版式预设（与 homeTheme 正交：预设管排布，风格管配色）
+  const [homePreset, setHomePreset] = useState<string>('classic')
+  // 版式目录：优先用后端下发的（单一权威 server/src/presets.rs），失败回落本地兜底
+  const [presetCatalog, setPresetCatalog] = useState<PresetMeta[]>(FALLBACK_HOME_PRESETS)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -699,7 +758,12 @@ function AppearanceBranding() {
           setTemplate(b.data.template || 'default')
           setTitle(b.data.siteTitle || 'LightPress')
           setTagline(b.data.siteTagline || '')
-          setHomeTheme(b.data.homeTheme || 'duck')
+          // 不能用 || 'duck' 兜底：那会把"留空=跟随预设"这个状态吞掉，
+          // 变成一进页面就显示 duck、一保存就把它固化下来。
+          setHomeTheme(b.data.homeTheme || '')
+          setHomePreset(b.data.homePreset || 'classic')
+          const cat = b.data.homePresets
+          if (Array.isArray(cat) && cat.length) setPresetCatalog(cat as PresetMeta[])
           setLoaded(true)
         }
       })
@@ -727,6 +791,7 @@ function AppearanceBranding() {
           site_title: title,
           site_tagline: tagline,
           home_theme: homeTheme,
+          home_preset: homePreset,
         }),
       })
       toast(t('settings.appearanceSaved'), { variant: 'success' })
@@ -818,11 +883,75 @@ function AppearanceBranding() {
         </div>
       </div>
 
+      {/* 主页版式预设（Coucouya 公开主页）：决定区块顺序与骨架 */}
+      <div className="space-y-3">
+        <h3 className="text-base font-semibold mb-1">主页版式</h3>
+        <p className="text-xs text-default-400 mb-3">
+          决定首页区块的顺序与骨架（单栏 / 双栏），与下面的风格正交 —— 两者可自由组合。
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {presetCatalog.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => patch(() => setHomePreset(p.id))}
+              className={`rounded-xl border p-3 text-left transition ${
+                homePreset === p.id ? 'border-primary ring-2 ring-primary/30' : 'border-default-200'
+              }`}
+            >
+              {/* 骨架缩略：左主列按 bars 画出行块；双栏预设右侧多一块侧栏 */}
+              {/* 用内联中性灰而非 bg-default-* / h-[3px]：
+                  这套 HeroUI 类在当前版本里没生效，行块会渲染出来但完全看不见。
+                  rgba 中性灰在浅色/深色后台主题下都能读。 */}
+              <div
+                className="flex gap-1.5 rounded-lg p-2"
+                style={{ height: 48, background: 'rgba(128,128,128,0.10)' }}
+              >
+                <div className="flex flex-1 flex-col justify-between">
+                  {p.bars.map((w, i) => (
+                    <span
+                      key={i}
+                      data-preset-bar=""
+                      className="rounded-full"
+                      style={{ width: `${w}%`, height: 3, background: 'rgba(128,128,128,0.45)' }}
+                    />
+                  ))}
+                </div>
+                {p.sidebar && (
+                  <span
+                    className="rounded"
+                    style={{ width: '25%', background: 'rgba(128,128,128,0.45)' }}
+                  />
+                )}
+              </div>
+              <p className="mt-2 text-sm font-medium">{p.name}</p>
+              <p className="mt-0.5 text-xs text-default-400">{p.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* 主页风格（Coucouya 公开主页）：与本后台 theme 解耦 */}
       <div className="space-y-3">
         <h3 className="text-base font-semibold mb-1">主页风格</h3>
-        <p className="text-xs text-default-400 mb-3">公开主页（coucouya）的视觉风格，独立于本后台站点主题。</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <p className="text-xs text-default-400 mb-3">
+          公开主页（coucouya）的配色与字体，独立于本后台站点主题。共 10 档。
+        </p>
+        {/* 允许"不指定风格"：留空即让位给版式预设自带的建议风格。
+            少了这一项，这里一旦保存过一次具体风格，预设的建议就永远不生效了。 */}
+        <button
+          type="button"
+          onClick={() => patch(() => setHomeTheme(''))}
+          className={`mb-2 w-full rounded-xl border px-3 py-2 text-left transition ${
+            homeTheme ? 'border-default-200' : 'border-primary ring-2 ring-primary/30'
+          }`}
+        >
+          <p className="text-sm font-medium">跟随版式预设</p>
+          <p className="mt-0.5 text-[11px] text-default-400">
+            不指定风格，按当前版式预设的建议取值（如「杂志编辑」配大红衬线）
+          </p>
+        </button>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {HOME_THEMES.map((ht) => (
             <button
               key={ht.id}
@@ -838,6 +967,7 @@ function AppearanceBranding() {
                 ))}
               </div>
               <p className="text-sm font-medium">{ht.name}</p>
+              <p className="mt-0.5 text-[10px] text-default-400">{ht.group}</p>
             </button>
           ))}
         </div>
@@ -869,14 +999,49 @@ function AppearanceBranding() {
  * 实际对外路由由部署侧按 mainPort 指向，这里只做单一真相源的配置。
  */
 const HOME_TEMPLATES = [
-  { id: 'coucouya', name: '默认风格', desc: '现有 coucouya 首页版式', port: '5199' },
-  { id: 'fastshot', name: 'Fastshot 风格', desc: '全屏 Hero 版式（独立目录）', port: '5197' },
+  {
+    id: 'coucouya',
+    name: '默认风格',
+    desc: '现有 coucouya 首页版式',
+    port: '5199',
+    // 该模板是否支持版式预设；具体清单在渲染时从后端下发的目录读取，
+    // 不在前端另存一份（单一权威 server/src/presets.rs）。
+    hasPresets: true,
+  },
+  {
+    id: 'fastshot',
+    name: 'Fastshot 风格',
+    desc: '全屏 Hero 版式（独立目录）',
+    port: '5197',
+    hasPresets: false,
+  },
 ] as const
 
 function HomeTemplatePanel() {
   const { t } = useTranslation()
   const { has } = usePermission()
   const canEdit = has('site.settings.update')
+
+  // 版式清单从后端目录读（单一权威 server/src/presets.rs），失败回落本地兜底。
+  // 本组件与 AppearanceBranding 是并列组件，各自取一份，不共用 state。
+  const [presetIds, setPresetIds] = useState<string>(
+    FALLBACK_HOME_PRESETS.map((p) => p.id).join(' / '),
+  )
+  useEffect(() => {
+    let alive = true
+    fetch('/api/public/site')
+      .then((r) => r.json())
+      .then((b) => {
+        const cat = b && b.data ? b.data.homePresets : null
+        if (alive && Array.isArray(cat) && cat.length) {
+          setPresetIds(cat.map((p: PresetMeta) => p.id).join(' / '))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const [tpl, setTpl] = useState<string>('coucouya')
   const [mainPort, setMainPort] = useState<string>('5199')
@@ -965,6 +1130,11 @@ function HomeTemplatePanel() {
                 )}
               </div>
               <p className="mt-1 text-[11px] text-default-400">{ht.desc}</p>
+              {ht.hasPresets && presetIds && (
+                <p className="mt-1.5 text-[11px] text-default-500">
+                  版式预设 <span className="text-default-400">{presetIds}</span>
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-default-500">
                 测试端口{' '}
                 <a

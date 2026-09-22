@@ -1,8 +1,9 @@
 //! 站点级设置（主题 / 模板 / 品牌）。
 //!
 //! - `GET /api/public/site`  免认证，读 site_settings KV，返回
-//!   `{ theme, template, siteTitle, siteTagline, homeTheme, homeTemplate,
-//!      mainPort, home }`（供公开站点套用发布者设定）。
+//!   `{ theme, template, siteTitle, siteTagline, homeTheme, homePreset,
+//!      homePresets, homeTemplate, mainPort, home }`（供公开站点套用发布者设定；
+//!   `homePresets` 是版式预设目录，单一权威见 `crate::presets`）。
 //! - `PUT /api/admin/site`    需 `site.settings.update` 权限（Owner 通配），
 //!   增量 upsert 上述 KV。
 //!
@@ -41,6 +42,10 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("site_tagline", "专注内容的现代发布平台"),
     // 公开主页模板：coucouya=默认风格，fastshot=Fastshot 风格（独立目录/端口）
     ("home_template", "coucouya"),
+    // 公开主页版式预设：与 home_theme（配色）正交，决定区块顺序与骨架。
+    // 取值见 `crate::presets::CATALOG`（单一权威）；此处只存键，前端拿不到
+    // 或不合法时回落 `crate::presets::DEFAULT`。
+    ("home_preset", crate::presets::DEFAULT),
     // 主端口：上线后对外提供服务的端口；测试端口可并存多个
     ("main_port", "5199"),
     // 注册门槛：off=开放注册；on=仅凭有效邀请码注册（创作者社区私域开关）
@@ -52,6 +57,13 @@ const DEFAULTS: &[(&str, &str)] = &[
 
 /// GET /api/public/site —— 公开站点配置（免认证）
 pub async fn site(State(st): State<AppState>) -> ApiResult {
+    let data = site_value(&st).await?;
+    Ok(Json(json!({ "ok": true, "data": data })).into_response())
+}
+
+/// 站点配置的纯数据版本 —— 供 `/api/public/site` 与 `/api/public/home`
+/// 聚合端点共用，避免两处重复拼装。
+pub async fn site_value(st: &AppState) -> Result<Value, ApiError> {
     let rows = st
         .db
         .query_all_statement(sea_orm::Statement::from_sql_and_values(
@@ -83,6 +95,14 @@ pub async fn site(State(st): State<AppState>) -> ApiResult {
     // 避免与本套站点的 sepia/paper 等主题混淆。
     let home_theme = map.get("home_theme").cloned().unwrap_or_default();
 
+    // home_preset：公开主页的版式预设，与 home_theme 正交 —— 预设管排布，
+    // 风格管配色，两者可以自由组合（如 sidebar 骨架 + ocean 配色）。
+    let home_preset = map
+        .get("home_preset")
+        .cloned()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| crate::presets::DEFAULT.to_string());
+
     // home_template / main_port：首页模板与主端口（各模板测试端口并存，
     // 由后台统一配置哪个模板激活、哪个端口对外服务）。
     let home_template = map
@@ -91,25 +111,26 @@ pub async fn site(State(st): State<AppState>) -> ApiResult {
         .unwrap_or_else(|| "coucouya".into());
     let main_port = map.get("main_port").cloned().unwrap_or_else(|| "5199".into());
 
-    Ok(Json(json!({
-        "ok": true,
-        "data": {
-            "theme": map.get("theme").cloned().unwrap_or_else(|| "paper".into()),
-            "template": map.get("template").cloned().unwrap_or_else(|| "default".into()),
-            "siteTitle": map.get("site_title").cloned().unwrap_or_else(|| "LightPress".into()),
-            "siteTagline": map.get("site_tagline").cloned().unwrap_or_default(),
-            "homeTheme": home_theme,
-            "homeTemplate": home_template,
-            "mainPort": main_port,
-            "memberInviteRequired": map
-                .get("member_invite_required")
-                .cloned()
-                .unwrap_or_else(|| "off".into()),
-            "pointsSignin": map.get("points_signin").cloned().unwrap_or_else(|| "10".into()),
-            "pointsInviteReward": map.get("points_invite_reward").cloned().unwrap_or_else(|| "100".into()),
-            "home": home,
-        }
-    })).into_response())
+    Ok(json!({
+        "theme": map.get("theme").cloned().unwrap_or_else(|| "paper".into()),
+        "template": map.get("template").cloned().unwrap_or_else(|| "default".into()),
+        "siteTitle": map.get("site_title").cloned().unwrap_or_else(|| "LightPress".into()),
+        "siteTagline": map.get("site_tagline").cloned().unwrap_or_default(),
+        "homeTheme": home_theme,
+        "homePreset": home_preset,
+        // 预设目录（单一权威 crate::presets）随设置一起下发：后台 UI 直接用它
+        // 渲染版式卡片，不必再各存一份副本；字段名与前端 HOME_PRESETS 对齐。
+        "homePresets": crate::presets::as_json(),
+        "homeTemplate": home_template,
+        "mainPort": main_port,
+        "memberInviteRequired": map
+            .get("member_invite_required")
+            .cloned()
+            .unwrap_or_else(|| "off".into()),
+        "pointsSignin": map.get("points_signin").cloned().unwrap_or_else(|| "10".into()),
+        "pointsInviteReward": map.get("points_invite_reward").cloned().unwrap_or_else(|| "100".into()),
+        "home": home,
+    }))
 }
 
 /// PUT /api/admin/site —— 增量更新站点设置（Owner 权限）
@@ -125,6 +146,7 @@ pub async fn update_site(
     // （coucouya）的独立风格键，与本后台自身 theme 解耦。
     let mut pairs: Vec<(String, String)> = Vec::new();
     // home_template / main_port：首页模板（coucouya | fastshot）与对外主端口。
+    // home_preset：公开主页版式预设（取值见 crate::presets::CATALOG，写入时白名单校验）。
     // member_invite_required：注册邀请制开关（off | on）。
     for k in [
         "theme",
@@ -132,6 +154,7 @@ pub async fn update_site(
         "site_title",
         "site_tagline",
         "home_theme",
+        "home_preset",
         "home_template",
         "main_port",
         "member_invite_required",
@@ -142,6 +165,18 @@ pub async fn update_site(
             pairs.push((k.to_string(), v.to_string()));
         }
     }
+    // home_preset 必须落在预设目录内，否则拒绝写入 —— 别让脏值"保存成功"，
+    // 然后在主页被静默回落成默认版式（用户会以为设置没生效，还查不到原因）。
+    // 空串放行，视同"未设置"（读侧会回落 DEFAULT）。
+    if let Some(v) = body.get("home_preset").and_then(|x| x.as_str()) {
+        if !v.is_empty() && !crate::presets::is_valid(v) {
+            return Err(ApiError::bad(format!(
+                "未知的主页版式预设「{v}」，可选：{}",
+                crate::presets::id_list()
+            )));
+        }
+    }
+
     // home 允许传对象/数组（序列化存储）或已是 JSON 字符串（原样存储）。
     if let Some(v) = body.get("home") {
         if !v.is_null() {

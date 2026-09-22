@@ -35,6 +35,11 @@ impl ApiError {
     pub fn rate_limited(msg: impl Into<String>) -> Self {
         Self { status: StatusCode::TOO_MANY_REQUESTS, message: msg.into() }
     }
+    /// 服务端故障（500）。入站 Webhook 处理失败必须用它返 5xx ——
+    /// 让支付方按自己的退避策略重投；返 2xx 等于告诉对方"已处理"，事件就永久丢了。
+    pub fn server(msg: impl Into<String>) -> Self {
+        Self { status: StatusCode::INTERNAL_SERVER_ERROR, message: msg.into() }
+    }
 }
 
 impl IntoResponse for ApiError {
