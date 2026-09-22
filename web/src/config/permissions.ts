@@ -104,6 +104,8 @@ export const P = {
   contentSeoCreate: 'content.seo.create',
   contentSeoUpdate: 'content.seo.update',
   contentSeoDelete: 'content.seo.delete',
+  // 分析归因（只读）
+  analyticsAttributionView: 'analytics.attribution.view',
 } as const
 
 export type PermCode = (typeof P)[keyof typeof P]
@@ -122,6 +124,7 @@ const VIEW_ALL: PermString[] = [
   'automation.workflows.view', 'automation.integrations.view',
   'site.nav.view', 'site.homePins.view',
   'content.seo.view',
+  'analytics.attribution.view',
 ]
 
 /** 角色 → 权限集矩阵（Phase 3 由后端角色配置取代；语义保持一致） */

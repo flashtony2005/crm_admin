@@ -57,6 +57,7 @@ export const PRODUCT_NAV: NavNode[] = [
       { key: 'products', label: '产品', path: '/content/products', icon: 'box', desc: '产品与服务', perm: 'content.products.view' },
       { key: 'media', label: '素材', path: '/content/media', icon: 'image', desc: '图片与素材', perm: 'content.media.view' },
       { key: 'stats', label: '统计看板', path: '/stats', icon: 'chart', desc: '阅读与内容分析', perm: 'content.articles.view' },
+      { key: 'attribution', label: '归因分析', path: '/content/attribution', icon: 'target', desc: '哪篇文章带来会员与收入', perm: 'analytics.attribution.view' },
       { key: 'i18n', label: '多语言', path: '/content/i18n', icon: 'globe', desc: '界面与内容翻译', perm: 'i18n.view' },
     ],
   },

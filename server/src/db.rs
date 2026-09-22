@@ -773,6 +773,36 @@ const MIGRATIONS: &[Migration] = &[
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_membertag_unique ON member_tags(tenant_id, member_id, tag)",
         ],
     },
+    // ── 0015_attribution（分析归因：把匿名访客与注册会员串成一条线）────────
+    // 「哪篇文章带来几个会员」在数据上一直不可回答 —— 缺的不是事件量，
+    // 而是**身份连续性**：events 有 type 有 ref_id，却没有任何匿名访客标识；
+    // members 是注册之后的身份。两者之间断链，于是内容与转化的因果关系
+    // 只能靠感觉。补一个 visitor_id（前端 localStorage 里的持久 uuid），
+    // 这条线就通了，而且**零新增事实表**。
+    //
+    // 为什么不另建一张 visits 表：events 本身就是统一事件日志，
+    // 浏览器埋点与后台统计都从它读。同一事实存两处，迟早对不上 ——
+    // 而且「浏览」与「点赞/购买」的先后顺序恰恰是归因最需要的，
+    // 分表存反而让时序拼接变难。
+    //
+    // 为什么要把归因结果**固化**到 members 上，而不是每次实时反查 events：
+    // 1) 归因只该算一次 —— 首次触达是既成事实，不该随事件保留策略/清理而变；
+    // 2) 事件量大后实时 JOIN 代价高，而会员表天生就是「归因结果」的归属地；
+    // 3) 事件表若将来做归档，历史归因不会一起丢。
+    Migration {
+        version: "0015_attribution",
+        name: "0015_attribution",
+        lenient: true,
+        sqls: &[
+        "ALTER TABLE events ADD COLUMN visitor_id TEXT NOT NULL DEFAULT ''",
+        "CREATE INDEX IF NOT EXISTS idx_events_visitor ON events(tenant_id, visitor_id, type, created_at)",
+        "ALTER TABLE members ADD COLUMN visitor_id TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE members ADD COLUMN first_touch_article_id TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE members ADD COLUMN first_touch_at TEXT NOT NULL DEFAULT ''",
+        "CREATE INDEX IF NOT EXISTS idx_members_visitor ON members(tenant_id, visitor_id)",
+        "CREATE INDEX IF NOT EXISTS idx_members_first_touch ON members(tenant_id, first_touch_article_id)",
+        ],
+    },
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。

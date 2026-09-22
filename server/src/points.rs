@@ -326,7 +326,17 @@ async fn extend_plan(st: &AppState, member_id: &str, days: i64) -> Result<(), Ap
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+// ── 键名契约：camelCase + snake 别名 ────────────────────────────────
+// 全站 JSON 契约是 camelCase（通用网关 / 响应体 / 前端 TS 接口都是）。
+// 这些手写 DTO 早期按 snake_case 定义，而调用方一律传 camelCase ；
+// serde 对**未知字段静默忽略**，于是形成两类后果：
+//   · 必填字段 → Json 提取失败 → 422（调用方直接不可用，看得到）
+//   · 可选字段 → 静默变 None（**看不到，但业务已经错了**）
+// rename_all 把接受名对齐契约；alias 保留 snake 接受名，让
+// 老客户端（浏览器里缓存的旧 JS）与既有测试不必同步改。
 pub struct PurchaseReq {
+    #[serde(alias = "article_id")]
     pub article_id: String,
 }
 
@@ -442,12 +452,22 @@ pub async fn purchase_article(
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+// ── 键名契约：camelCase + snake 别名 ────────────────────────────────
+// 全站 JSON 契约是 camelCase（通用网关 / 响应体 / 前端 TS 接口都是）。
+// 这些手写 DTO 早期按 snake_case 定义，而调用方一律传 camelCase ；
+// serde 对**未知字段静默忽略**，于是形成两类后果：
+//   · 必填字段 → Json 提取失败 → 422（调用方直接不可用，看得到）
+//   · 可选字段 → 静默变 None（**看不到，但业务已经错了**）
+// rename_all 把接受名对齐契约；alias 保留 snake 接受名，让
+// 老客户端（浏览器里缓存的旧 JS）与既有测试不必同步改。
 pub struct CreateOrderReq {
     /// points_recharge 充积分 | plan 开通订阅（按 tier 计价）
+    #[serde(alias = "biz_type")]
     pub biz_type: String,
     #[serde(default)]
     pub points: Option<i64>,
-    #[serde(default)]
+    #[serde(default, alias = "tier_id")]
     pub tier_id: Option<String>,
     /// 支付渠道：manual（默认，人工确认收款）| wechat（微信 Native 扫码，P2）
     #[serde(default)]

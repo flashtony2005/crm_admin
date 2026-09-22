@@ -56,14 +56,24 @@ pub async fn track(State(st): State<AppState>, Json(body): Json<Value>) -> ApiRe
         .cloned()
         .map(|v| v.to_string())
         .unwrap_or_default();
+    // 匿名访客标识（分析归因）。前端 localStorage 里的持久 uuid，
+    // 注册时原样带给 members::register 即可把「匿名浏览 → 注册」接上。
+    // **刻意不做格式校验**：它只是本站自用的去重键，不是安全边界 ——
+    // 校验只会把某些隐私模式的浏览器挡在外面，换不回任何安全性。
+    // 但要限长，否则一个恶意客户端能往库里灌超长字符串。
+    let visitor_id = body
+        .get("visitorId")
+        .and_then(|x| x.as_str())
+        .map(|x| x.trim().chars().take(64).collect::<String>())
+        .unwrap_or_default();
     let now = crate::db::now_iso();
     let id = uuid::Uuid::new_v4().to_string();
 
     st.db
         .execute_statement(sea_orm::Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::Sqlite,
-            "INSERT INTO events (id, tenant_id, type, ref_id, ref_key, payload, created_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO events (id, tenant_id, type, ref_id, ref_key, payload, visitor_id, created_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             vec![
                 SqlValue::String(Some(id)),
                 SqlValue::String(Some(st.tenant.clone())),
@@ -71,6 +81,7 @@ pub async fn track(State(st): State<AppState>, Json(body): Json<Value>) -> ApiRe
                 SqlValue::String(Some(ref_id.clone())),
                 SqlValue::String(Some(ref_key.clone())),
                 SqlValue::String(Some(payload)),
+                SqlValue::String(Some(visitor_id)),
                 SqlValue::String(Some(now)),
             ],
         ))

@@ -19,12 +19,23 @@ use crate::{
 fn sval(s: String) -> SqlValue { SqlValue::String(Some(s)) }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+// ── 键名契约：camelCase + snake 别名 ────────────────────────────────
+// 全站 JSON 契约是 camelCase（通用网关 / 响应体 / 前端 TS 接口都是）。
+// 这些手写 DTO 早期按 snake_case 定义，而调用方一律传 camelCase ；
+// serde 对**未知字段静默忽略**，于是形成两类后果：
+//   · 必填字段 → Json 提取失败 → 422（调用方直接不可用，看得到）
+//   · 可选字段 → 静默变 None（**看不到，但业务已经错了**）
+// rename_all 把接受名对齐契约；alias 保留 snake 接受名，让
+// 老客户端（浏览器里缓存的旧 JS）与既有测试不必同步改。
 pub struct CommentCreate {
+    #[serde(alias = "article_id")]
     pub article_id: String,
-    #[serde(default)]
+    #[serde(default, alias = "parent_id")]
     pub parent_id: Option<String>,
+    #[serde(alias = "author_name")]
     pub author_name: String,
-    #[serde(default)]
+    #[serde(default, alias = "author_email")]
     pub author_email: Option<String>,
     pub content: String,
 }
@@ -33,7 +44,7 @@ pub struct CommentCreate {
 ///
 /// 携带可选会员身份：登录会员发的评论会落 `member_id` ——
 /// 这是「评论归属到人」的前提，也是 P0-3 会员档案时间线能出评论的前提。
-/// 匨名访客照旧可发（member_id 为空串）—— 评论区不能只给会员用，否则永远热不起来。
+/// 匿名访客照旧可发（member_id 为空串）—— 评论区不能只给会员用，否则永远热不起来。
 pub async fn public_create(
     State(st): State<AppState>,
     om: OptionalMember,

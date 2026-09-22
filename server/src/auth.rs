@@ -247,8 +247,19 @@ pub async fn login(
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+// ── 键名契约：camelCase + snake 别名 ────────────────────────────────
+// 全站 JSON 契约是 camelCase（通用网关 / 响应体 / 前端 TS 接口都是）。
+// 这些手写 DTO 早期按 snake_case 定义，而调用方一律传 camelCase ；
+// serde 对**未知字段静默忽略**，于是形成两类后果：
+//   · 必填字段 → Json 提取失败 → 422（调用方直接不可用，看得到）
+//   · 可选字段 → 静默变 None（**看不到，但业务已经错了**）
+// rename_all 把接受名对齐契约；alias 保留 snake 接受名，让
+// 老客户端（浏览器里缓存的旧 JS）与既有测试不必同步改。
 pub struct ChangePasswordReq {
+    #[serde(alias = "old_password")]
     pub old_password: String,
+    #[serde(alias = "new_password")]
     pub new_password: String,
 }
 

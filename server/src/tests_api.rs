@@ -260,9 +260,15 @@ async fn order_confirm_idempotent_and_invite_reward_once() {
         Some(json!({"code":"INV-A","quota":10,"ownerMemberId":a_id,"enabled":true})), Some(&o)).await;
     assert_eq!(s, StatusCode::OK, "{ic}");
 
-    // B 用邀请码注册 → B.invited_by = A
+    // B 用邀请码注册 → B.invited_by = A。
+    //
+    // 键名必须是 **camelCase**：真实调用方（admin web 的 `memberAuth.register`、
+    // 公开站注册表单）传的都是 `inviteCode`。这里曾经写 `invite_code` ——
+    // serde 对未知字段静默忽略，于是「前端传 camelCase、后端只认 snake」这个
+    // 契约错位被测试完美掩盖：邀请码被悄悄丢掉，`invited_by` 恒为空，
+    // **邀请奖励一发不出去且没有任何报错**。用真实键名才能测到真东西。
     let (s, rb) = call(app.clone(), "POST", "/api/public/members/register",
-        Some(json!({"email":"b@test.dev","password":"member1234","name":"被邀请人","invite_code":"INV-A"})), None).await;
+        Some(json!({"email":"b@test.dev","password":"member1234","name":"被邀请人","inviteCode":"INV-A"})), None).await;
     assert_eq!(s, StatusCode::OK, "{rb}");
     let b_tok = rb["data"]["token"].as_str().unwrap().to_string();
 
@@ -1177,4 +1183,391 @@ async fn smart_link_redirects_counts_and_tags() {
         tags.contains(&"vip".to_string()) && tags.contains(&"高意向".to_string()),
         "点击者应被打上链接上的标签：{tl}"
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 分析归因（P0）：把匿名访客与注册会员串成一条线
+// ═══════════════════════════════════════════════════════════════════════
+
+/// 读归因端点（顺带断言 200）
+async fn attr_json(app: &axum::Router, tok: &str) -> Value {
+    let (s, b) = call(app.clone(), "GET", "/api/admin/attribution", None, Some(tok)).await;
+    assert_eq!(s, StatusCode::OK, "归因端点应 200：{b}");
+    b
+}
+
+#[tokio::test]
+async fn attribution_binds_first_touch_article_not_last() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    // 两篇已发布文章
+    let mut ids: Vec<String> = Vec::new();
+    for (slug, title) in [("attr-first", "第一篇"), ("attr-second", "第二篇")] {
+        let (s, b) = call(
+            app.clone(),
+            "POST",
+            "/api/articles",
+            Some(json!({
+                "title": title, "slug": slug, "content": "<p>x</p>",
+                "status": "published", "visibility": "public"
+            })),
+            Some(&o),
+        )
+        .await;
+        assert_eq!(s, StatusCode::OK, "建文章 {slug}：{b}");
+        ids.push(b["data"]["id"].as_str().expect("文章 id").to_string());
+    }
+
+    // 基准（库里可能有种子会员，用增量断言避免脆）
+    let base = attr_json(&app, &o).await;
+    let attr0 = base["data"]["summary"]["attributedSignups"].as_i64().unwrap();
+    let nv0 = base["data"]["gaps"]["noVisitor"].as_i64().unwrap();
+
+    // 埋点顺序刻意**先第二篇、后第一篇**。
+    // 若实现取的是「最后一次」而不是「最早一次」，下面断言就会失败 ——
+    // 归因口径最容易写反的正是这一处，所以要让它有暴露的机会。
+    let vid = "visitor-first-touch";
+    for aid in [&ids[1], &ids[0]] {
+        let (s, b) = call(
+            app.clone(),
+            "POST",
+            "/api/public/track",
+            Some(json!({ "type": "article_view", "refId": aid, "visitorId": vid })),
+            None,
+        )
+        .await;
+        assert_eq!(s, StatusCode::OK, "埋点应成功：{b}");
+    }
+
+    // 带着同一个 visitorId 注册
+    let (s, reg) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({
+            "email": "attr@test.dev", "password": "member1234",
+            "name": "归因甲", "visitorId": vid
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "注册应成功：{reg}");
+    let mid = reg["data"]["member"]["id"].as_str().unwrap().to_string();
+
+    // 首次触达必须落到**最早**看的那篇（ids[1]），不是最后看的（ids[0]）
+    let row = st
+        .db
+        .query_one(
+            "SELECT first_touch_article_id, visitor_id FROM members WHERE id = ?",
+            vec![sv(&mid)],
+        )
+        .await
+        .unwrap()
+        .expect("会员应存在");
+    let ft = row.try_get::<String>("", "first_touch_article_id").unwrap();
+    assert_eq!(
+        ft, ids[1],
+        "首次触达必须是**最早**看过的那篇；拿到最后看的那篇说明口径写成了末次触达"
+    );
+    assert_eq!(
+        row.try_get::<String>("", "visitor_id").unwrap(),
+        vid,
+        "visitor_id 应一并固化，供后续行为接续"
+    );
+
+    // 端点聚合
+    let body = attr_json(&app, &o).await;
+    let rows = body["data"]["rows"].as_array().unwrap();
+    let r = rows
+        .iter()
+        .find(|r| r["articleId"] == ids[1].as_str())
+        .expect("归属文章应出现在归因表里");
+    assert_eq!(r["signups"].as_i64().unwrap(), 1, "归属文章应记 1 个注册：{r}");
+    assert_eq!(r["reads"].as_i64().unwrap(), 1, "{r}");
+    assert_eq!(r["visitors"].as_i64().unwrap(), 1, "{r}");
+
+    // 没被点名的那篇阅读归它、注册不归它
+    let r2 = rows
+        .iter()
+        .find(|r| r["articleId"] == ids[0].as_str())
+        .expect("第二篇也应有阅读行");
+    assert_eq!(r2["reads"].as_i64().unwrap(), 1, "{r2}");
+    assert_eq!(
+        r2["signups"].as_i64().unwrap(),
+        0,
+        "末次触达不得被计入注册：{r2}"
+    );
+
+    // 这次注册是「有 visitor 且有阅读」的，两个缺口都不该动
+    assert_eq!(body["data"]["gaps"]["noVisitor"].as_i64().unwrap(), nv0);
+    assert_eq!(body["data"]["summary"]["attributedSignups"].as_i64().unwrap(), attr0 + 1);
+
+    // 「全站去重访客」与「各文章独立访客之和」不是一回事，混用会把转化率算错：
+    // 同一个访客看了两篇 → 前者 1（去重），后者 2（每篇各算一次）。
+    // 后者可以大于会员总数，看着像「访客比人多」，其实它衡量的是内容触达总量。
+    assert_eq!(
+        body["data"]["summary"]["siteVisitors"].as_i64().unwrap(),
+        1,
+        "只来过 1 个访客，全站去重后必须是 1"
+    );
+    assert_eq!(
+        body["data"]["summary"]["sumArticleVisitors"].as_i64().unwrap(),
+        2,
+        "两篇文章各有 1 个独立访客，相加是 2 —— 它是触达总量，不是人群规模"
+    );
+}
+
+#[tokio::test]
+async fn attribution_reports_gap_instead_of_guessing() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    // 归因是内部经营数据，匿名不得读
+    let (s, _) = call(app.clone(), "GET", "/api/admin/attribution", None, None).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "匿名不得读归因");
+
+    let b0 = attr_json(&app, &o).await;
+    let nv0 = b0["data"]["gaps"]["noVisitor"].as_i64().unwrap();
+    let attr0 = b0["data"]["summary"]["attributedSignups"].as_i64().unwrap();
+
+    // ① 不带 visitorId（后台建号 / 老前端 / 隐私模式）
+    //    → 必须落进「未归因」，而不是被安静地摊到某篇文章头上。
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({ "email": "gap@test.dev", "password": "member1234", "name": "无痕" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "注册应成功：{b}");
+
+    let after = attr_json(&app, &o).await;
+    assert_eq!(
+        after["data"]["gaps"]["noVisitor"].as_i64().unwrap(),
+        nv0 + 1,
+        "无访客标识的注册应计入 noVisitor"
+    );
+    assert_eq!(
+        after["data"]["summary"]["attributedSignups"].as_i64().unwrap(),
+        attr0,
+        "无访客标识的注册不得挤进任何一篇文章的归因"
+    );
+
+    // ② 有 visitorId 但注册前没看过文章 → 归到另一个缺口 noRead。
+    //    两个缺口分开报的意义就在这里：处理方式完全不同
+    //    （一个是链路没接上要修，一个只是用户从首页直接注册，属正常）。
+    let nr0 = after["data"]["gaps"]["noRead"].as_i64().unwrap();
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({
+            "email": "blind@test.dev", "password": "member1234",
+            "name": "空手", "visitorId": "visitor-never-read"
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "注册应成功：{b}");
+
+    let after2 = attr_json(&app, &o).await;
+    assert_eq!(
+        after2["data"]["gaps"]["noRead"].as_i64().unwrap(),
+        nr0 + 1,
+        "有 visitor 无阅读的注册应计入 noRead"
+    );
+    assert_eq!(
+        after2["data"]["gaps"]["noVisitor"].as_i64().unwrap(),
+        nv0 + 1,
+        "有 visitor 的人不该再被算作无访客"
+    );
+    assert_eq!(
+        after2["data"]["summary"]["attributedSignups"].as_i64().unwrap(),
+        attr0,
+        "两次都不可归因，归属总数不该变"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 入口 DTO 的键名契约（camelCase）
+//
+// 背景：这些手写 DTO 曾经是**纯 snake_case**，而真实调用方
+// （admin web 的 `api/cms/index.ts`、公开站的 Comments.tsx）一律传 camelCase。
+// serde 对未知字段**静默忽略**，于是必填字段直接消失 → Json 提取失败 → 422。
+// 两条线上路径因此彻底不可用且没人发现：
+//   · `POST /api/public/checkout`（Stripe 会员自助升级）
+//   · `POST /api/public/comments`（后台发评论）
+// 可选字段更隐蔽：不报错，只是静默变 None，业务已经错了而日志干净。
+//
+// 这个用例刻意使用**前端真实的拼写**，而不是后端字段名 ——
+// 只有当测试说调用方的语言时，它才能发现调用方的错误。
+// ═══════════════════════════════════════════════════════════════════════
+
+/// 断言「请求体被成功解析」：422 是 axum 的 Json 提取失败（契约错位），
+/// 而我们自己的业务错误一律是 400/403/404 的 JSON。
+fn assert_parsed(s: StatusCode, what: &str) {
+    assert_ne!(
+        s,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "{what}：请求体没被解析 —— 说明前端发的键名与后端 DTO 不接受，契约又错位了"
+    );
+}
+
+#[tokio::test]
+async fn entry_dtos_accept_the_camelcase_contract() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+    let m = register_member(&app, "dto@test.dev").await;
+
+    // 一篇积分解锁文章（自己取 id 会比硬编码 slug 稳）
+    let (_, art) = call(
+        app.clone(),
+        "POST",
+        "/api/articles",
+        Some(json!({
+            "title": "契约文章", "status": "published", "visibility": "public",
+            "paidLevel": 2, "pricePoints": 100
+        })),
+        Some(&o),
+    )
+    .await;
+    let aid = art["data"]["id"].as_str().expect("文章 id").to_string();
+
+    // ① 评论：camelCase 必须**真的落对文章**，不能只是「解析通过」。
+    //    解析通过只说明字段存在；值落到别处（比如空串）照样是坏的。
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/comments",
+        Some(json!({ "articleId": aid, "authorName": "契约甲", "content": "camelCase 契约" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "评论 camelCase 应成功：{b}");
+    let cid = b["data"]["id"].as_str().expect("评论 id").to_string();
+    let (_, list) = call(
+        app.clone(),
+        "GET",
+        &format!("/api/public/comments?article={aid}"),
+        None,
+        None,
+    )
+    .await;
+    assert!(
+        list["data"].as_array().map(|a| a.iter().any(|c| c["id"] == cid.as_str())).unwrap_or(false),
+        "评论必须出现在它所属文章的列表里：{list}"
+    );
+
+    // ② 买断：给够积分，买完直接回查 `points_ledger.ref_id` ——
+    //    这是唯一能证明 articleId 的值（而非仅仅字段存在）真的落库的办法。
+    let (_, rc) = call(
+        app.clone(),
+        "POST",
+        "/api/redeem_codes",
+        Some(json!({ "code": "DTO500", "kind": "points", "value": 500, "status": "unused" })),
+        Some(&o),
+    )
+    .await;
+    assert_eq!(rc["data"]["code"], "DTO500", "{rc}");
+    let (s, rb) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/redeem",
+        Some(json!({ "code": "DTO500" })),
+        Some(&m),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{rb}");
+
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/purchase-article",
+        Some(json!({ "articleId": aid })),
+        Some(&m),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "买断 camelCase 应成功：{b}");
+    assert_eq!(b["data"]["spent"], 100, "{b}");
+
+    let mem_id: String = {
+        let (_, me) = call(app.clone(), "GET", "/api/public/members/me", None, Some(&m)).await;
+        me["data"]["member"]["id"].as_str().expect("会员 id").to_string()
+    };
+    let row = st
+        .db
+        .query_one(
+            "SELECT ref_id FROM points_ledger \
+             WHERE tenant_id = ? AND member_id = ? AND reason = 'purchase' LIMIT 1",
+            vec![sv(&st.tenant), sv(&mem_id)],
+        )
+        .await
+        .unwrap()
+        .expect("应有买断记录");
+    assert_eq!(
+        row.try_get::<String>("", "ref_id").unwrap(),
+        aid,
+        "买断记录必须指向被买的那篇文章；指向空串说明 articleId 被静默丢掉了"
+    );
+
+    // ③ 下单：camelCase 的 bizType
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/orders",
+        Some(json!({ "bizType": "points_recharge", "points": 100, "channel": "manual" })),
+        Some(&m),
+    )
+    .await;
+    assert_parsed(s, "POST /api/public/orders 的 bizType");
+    assert_eq!(s, StatusCode::OK, "下单应成功：{b}");
+    assert_eq!(b["data"]["amountCents"], 100, "{b}");
+
+    // ④ Stripe checkout：这是「会员自助升级」那条路。
+    //    套餐可以不存在（会得到 400「套餐不存在」，属正常业务错误），
+    //    但**不能**是 422 —— 那说明 tierId 根本没被读到。
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/checkout",
+        Some(json!({ "tierId": "no-such-tier", "interval": "monthly" })),
+        Some(&m),
+    )
+    .await;
+    assert_parsed(s, "POST /api/public/checkout 的 tierId");
+
+    // ⑤ 改密：用**错误的旧密码**触发业务错误即可证明解析成功，
+    //    不必真的改掉密码（改掉会影响后续用例/重复执行）。
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/me/password",
+        Some(json!({ "oldPassword": "definitely-wrong", "newPassword": "whatever1234" })),
+        Some(&o),
+    )
+    .await;
+    assert_parsed(s, "POST /api/me/password 的 oldPassword/newPassword");
+    assert_eq!(s, StatusCode::BAD_REQUEST, "旧密码错应 400：{b}");
+    assert!(
+        b["error"].as_str().unwrap_or("").contains("旧密码"),
+        "应是「旧密码不正确」而不是解析错误：{b}"
+    );
+
+    // ⑥ 反向：snake 别名必须继续可用。
+    //    浏览器里缓存的旧版 JS、以及历史上按 snake 写的第三方调用方
+    //    不该因为这次契约对齐而被打断。
+    let (s, _) = call(
+        app.clone(),
+        "POST",
+        "/api/public/comments",
+        Some(json!({ "article_id": aid, "author_name": "契约乙", "content": "snake 别名" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "snake 别名必须继续可用（老客户端兼容）");
 }

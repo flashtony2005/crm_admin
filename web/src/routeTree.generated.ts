@@ -32,6 +32,7 @@ import { Route as BusinessCustomersRouteImport } from './routes/business/custome
 import { Route as BusinessFormsRouteImport } from './routes/business/forms'
 import { Route as BusinessLeadsRouteImport } from './routes/business/leads'
 import { Route as ContentArticlesRouteImport } from './routes/content/articles'
+import { Route as ContentAttributionRouteImport } from './routes/content/attribution'
 import { Route as ContentCommentsRouteImport } from './routes/content/comments'
 import { Route as ContentI18nRouteImport } from './routes/content/i18n'
 import { Route as ContentLinksRouteImport } from './routes/content/links'
@@ -167,6 +168,11 @@ const ContentArticlesRoute = ContentArticlesRouteImport.update({
   path: '/content/articles',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentAttributionRoute = ContentAttributionRouteImport.update({
+  id: '/content/attribution',
+  path: '/content/attribution',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContentCommentsRoute = ContentCommentsRouteImport.update({
   id: '/content/comments',
   path: '/content/comments',
@@ -287,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/business/forms': typeof BusinessFormsRoute
   '/business/leads': typeof BusinessLeadsRoute
   '/content/articles': typeof ContentArticlesRoute
+  '/content/attribution': typeof ContentAttributionRoute
   '/content/comments': typeof ContentCommentsRoute
   '/content/i18n': typeof ContentI18nRoute
   '/content/links': typeof ContentLinksRoute
@@ -331,6 +338,7 @@ export interface FileRoutesByTo {
   '/business/forms': typeof BusinessFormsRoute
   '/business/leads': typeof BusinessLeadsRoute
   '/content/articles': typeof ContentArticlesRoute
+  '/content/attribution': typeof ContentAttributionRoute
   '/content/comments': typeof ContentCommentsRoute
   '/content/i18n': typeof ContentI18nRoute
   '/content/links': typeof ContentLinksRoute
@@ -376,6 +384,7 @@ export interface FileRoutesById {
   '/business/forms': typeof BusinessFormsRoute
   '/business/leads': typeof BusinessLeadsRoute
   '/content/articles': typeof ContentArticlesRoute
+  '/content/attribution': typeof ContentAttributionRoute
   '/content/comments': typeof ContentCommentsRoute
   '/content/i18n': typeof ContentI18nRoute
   '/content/links': typeof ContentLinksRoute
@@ -422,6 +431,7 @@ export interface FileRouteTypes {
     | '/business/forms'
     | '/business/leads'
     | '/content/articles'
+    | '/content/attribution'
     | '/content/comments'
     | '/content/i18n'
     | '/content/links'
@@ -466,6 +476,7 @@ export interface FileRouteTypes {
     | '/business/forms'
     | '/business/leads'
     | '/content/articles'
+    | '/content/attribution'
     | '/content/comments'
     | '/content/i18n'
     | '/content/links'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
     | '/business/forms'
     | '/business/leads'
     | '/content/articles'
+    | '/content/attribution'
     | '/content/comments'
     | '/content/i18n'
     | '/content/links'
@@ -555,6 +567,7 @@ export interface RootRouteChildren {
   BusinessFormsRoute: typeof BusinessFormsRoute
   BusinessLeadsRoute: typeof BusinessLeadsRoute
   ContentArticlesRoute: typeof ContentArticlesRoute
+  ContentAttributionRoute: typeof ContentAttributionRoute
   ContentCommentsRoute: typeof ContentCommentsRoute
   ContentI18nRoute: typeof ContentI18nRoute
   ContentLinksRoute: typeof ContentLinksRoute
@@ -739,6 +752,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentArticlesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/attribution': {
+      id: '/content/attribution'
+      path: '/content/attribution'
+      fullPath: '/content/attribution'
+      preLoaderRoute: typeof ContentAttributionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/comments': {
       id: '/content/comments'
       path: '/content/comments'
@@ -899,6 +919,7 @@ const rootRouteChildren: RootRouteChildren = {
   BusinessFormsRoute: BusinessFormsRoute,
   BusinessLeadsRoute: BusinessLeadsRoute,
   ContentArticlesRoute: ContentArticlesRoute,
+  ContentAttributionRoute: ContentAttributionRoute,
   ContentCommentsRoute: ContentCommentsRoute,
   ContentI18nRoute: ContentI18nRoute,
   ContentLinksRoute: ContentLinksRoute,

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent-First Growth CMS 方案评估与重排 · admin 2026-09-22</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#1a1d21; --ink2:#4a5259; --ink3:#868e96;
+  --line:#e3e6ea; --line2:#eef1f4;
+  --green:#15803d; --green-bg:#e8f6ec; --green-ln:#bfe3ca;
+  --amber:#b45309; --amber-bg:#fdf3e3; --amber-ln:#f0d9ab;
+  --red:#b91c1c; --red-bg:#fdecec; --red-ln:#f2c9c9;
+  --gray:#64748b; --gray-bg:#f1f3f6; --gray-ln:#dde2e8;
+  --blue:#1d4ed8; --blue-bg:#eaeffd; --blue-ln:#c3d0f7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:44px 26px 90px}
+header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:34px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+h1{font-size:31px;line-height:1.3;margin:12px 0 10px;letter-spacing:-.02em}
+.sub{color:var(--ink2);font-size:15px;margin:0}
+.meta{color:var(--ink3);font-size:13px;margin-top:14px}
+h2{font-size:21px;margin:52px 0 6px;letter-spacing:-.01em;padding-top:22px;border-top:1px solid var(--line)}
+h2 .n{color:var(--ink3);font-weight:400;margin-right:9px}
+h3{font-size:16px;margin:30px 0 8px}
+h4{font-size:14px;margin:20px 0 6px;color:var(--ink2)}
+p{margin:11px 0}
+ul,ol{margin:11px 0;padding-left:22px}
+li{margin:6px 0}
+code{background:#eef1f4;padding:1.5px 5px;border-radius:4px;font-size:12.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#334155}
+strong{font-weight:650}
+.card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:20px 22px;margin:18px 0}
+.verdict{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);
+  border-radius:11px;padding:24px 26px;margin:22px 0}
+.verdict .lead{font-size:17px;font-weight:650;line-height:1.6;margin:0 0 14px}
+.verdict p:last-child{margin-bottom:0}
+
+/* 指标看板 */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin:20px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;color:var(--ink3);margin-top:3px}
+.kpi .t{font-size:11.5px;margin-top:7px;font-weight:600}
+.kpi.bad .v{color:var(--red)} .kpi.bad .t{color:var(--red)}
+.kpi.ok .v{color:var(--green)} .kpi.ok .t{color:var(--green)}
+.kpi.warn .v{color:var(--amber)} .kpi.warn .t{color:var(--amber)}
+
+/* 状态徽标 */
+.b{display:inline-block;font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:20px;
+  border:1px solid;white-space:nowrap;line-height:1.6}
+.b-done{color:var(--green);background:var(--green-bg);border-color:var(--green-ln)}
+.b-half{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-ln)}
+.b-none{color:var(--gray);background:var(--gray-bg);border-color:var(--gray-ln)}
+.b-risk{color:var(--red);background:var(--red-bg);border-color:var(--red-ln)}
+.b-new{color:var(--blue);background:var(--blue-bg);border-color:var(--blue-ln)}
+
+table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;background:var(--card);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:#f0f2f5;text-align:left;padding:11px 13px;font-size:12.5px;font-weight:650;
+  color:var(--ink2);border-bottom:1px solid var(--line)}
+td{padding:11px 13px;border-bottom:1px solid var(--line2);vertical-align:top;line-height:1.6}
+tr:last-child td{border-bottom:none}
+td.c{text-align:center;white-space:nowrap}
+
+.note{background:var(--gray-bg);border-left:3px solid var(--gray);border-radius:0 8px 8px 0;
+  padding:13px 17px;margin:16px 0;font-size:13.5px;color:var(--ink2)}
+.warnbox{background:var(--red-bg);border-left:3px solid var(--red);border-radius:0 8px 8px 0;
+  padding:13px 17px;margin:16px 0;font-size:13.5px;color:#7f1d1d}
+.okbox{background:var(--green-bg);border-left:3px solid var(--green);border-radius:0 8px 8px 0;
+  padding:13px 17px;margin:16px 0;font-size:13.5px;color:#14532d}
+.warnbox p:first-child,.okbox p:first-child,.note p:first-child{margin-top:0}
+.warnbox p:last-child,.okbox p:last-child,.note p:last-child{margin-bottom:0}
+
+/* 链式图 */
+.chain{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:18px 0}
+.chain .it{font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:7px;border:1px solid}
+.chain .ar{color:var(--ink3);font-size:12px}
+.chain .it.d{color:var(--green);background:var(--green-bg);border-color:var(--green-ln)}
+.chain .it.h{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-ln)}
+.chain .it.n{color:var(--gray);background:var(--gray-bg);border-color:var(--gray-ln)}
+.chain .it.x{color:var(--red);background:var(--red-bg);border-color:var(--red-ln)}
+
+/* 层 */
+.layer{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin:16px 0}
+.layer .hd{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;
+  margin-bottom:6px}
+.layer .hd h3{margin:0;font-size:17px}
+.layer .gate{font-size:12.5px;color:var(--ink3)}
+.layer.l1{border-left:4px solid var(--green)}
+.layer.l2{border-left:4px solid var(--amber)}
+.layer.l3{border-left:4px solid var(--gray)}
+
+.flow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:20px;margin:20px 0;overflow-x:auto}
+.flow svg{display:block;margin:0 auto;max-width:100%;height:auto}
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink3);font-size:12.5px}
+.tag{font-size:11px;color:var(--ink3);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin-left:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">架构评估 · 方案重排</div>
+  <h1>Agent-First Growth CMS：方案评估与落地重排</h1>
+  <p class="sub">对《网站从「终点」变成「能力节点」》17 节方案 vs <code>F:\project\admin</code> 实测现状的逐条比对，及其优先级重构。</p>
+  <div class="meta">2026-09-22 · 后端 38 模块 / 91 条路由 / 迁移 0001–0014 · 数据取自运行库 <code>cms.db</code> 实测快照</div>
+</header>
+
+<div class="verdict">
+  <p class="lead">方案的方向是对的，但它把「通道」当成瓶颈，而这个项目当下的瓶颈是「供给」。</p>
+  <p>方案要做的是 <strong>Context → Intent → Capability → Action → Revenue</strong> 的映射层。而这套映射在 admin 上要成立，必须先有三个前提：<strong>有可成交的标的、有可被理解的知识实体、有可观测的信号</strong>。实测三条全部为空——<code>tiers</code> 0 行（无任何可售方案）、8 篇文章正文仅 55–97 字符（等于只有标题和一句摘要）、<code>events</code> 0 行且 <code>visitor_id</code> 列尚未迁移。</p>
+  <p>所以我的建议不是「照方案分十期做」，而是<strong>把十刀按依赖重排成三层</strong>：供给层（不依赖流量，现在做就有收益）→ 度量层（依赖供给产生流量）→ 通道层（必须由度量数据触发，<strong>不得提前</strong>）。其中方案里唯一「现在做就划算」的一刀是第二刀内容结构化，而第五/七刀（Capability 一等公民 + invoke API）在当前站点<strong>没有对应物</strong>——理由见第四节。</p>
+</div>
+
+<h2><span class="n">01</span>现状实测：已建成的部分比方案假设的多</h2>
+
+<p>先说好消息。这份方案看起来像「平地起楼」，但项目里<strong>超过一半的骨架已经上线并验证过</strong>，只是没有用方案里的名字命名。以下数字全部来自运行库实测，不是文档转录。</p>
+
+<div class="kpis">
+  <div class="kpi ok"><div class="v">3</div><div class="l">机器端点已上线</div><div class="t">/llms.txt · /agent.json · /ai/product</div></div>
+  <div class="kpi ok"><div class="v">21</div><div class="l">AI 爬虫显式声明</div><div class="t">robots.txt 已分两类声明</div></div>
+  <div class="kpi ok"><div class="v">5</div><div class="l">对外页面路由类型</div><div class="t">含 /problems /tags 体系</div></div>
+  <div class="kpi ok"><div class="v">91</div><div class="l">后端路由注册</div><div class="t">38 个模块</div></div>
+</div>
+
+<div class="kpis">
+  <div class="kpi bad"><div class="v">0</div><div class="l">可售方案 <code>tiers</code></div><div class="t">变现链路没有标的</div></div>
+  <div class="kpi bad"><div class="v">55–97</div><div class="l">文章正文字符数</div><div class="t">等于只有标题+一句摘要</div></div>
+  <div class="kpi bad"><div class="v">0</div><div class="l">行为事件 <code>events</code></div><div class="t">且 0015 未迁移</div></div>
+  <div class="kpi warn"><div class="v">8</div><div class="l">文章总数</div><div class="t">6 已发布 / 2 草稿 / 0 问题页</div></div>
+</div>
+
+<h3>已建成清单（方案里以为要做、其实已有等价物）</h3>
+<table>
+<thead><tr><th style="width:26%">能力</th><th style="width:44%">实测实现</th><th style="width:30%">与方案的关系</th></tr></thead>
+<tbody>
+<tr><td><strong>Agent Manifest</strong></td><td><code>GET /agent.json</code> 已上线，由 DB 实时派生（<code>site_settings + sections + tiers + articles</code>），含 <code>name/topics/content/plans/capabilities/actions/limits/generatedAt</code></td><td>对应第六刀，<span class="b b-done">已等价</span>差异见下</td></tr>
+<tr><td><strong>面向 LLM 的说明书</strong></td><td><code>GET /llms.txt</code> + <code>GET /ai/product</code>，<strong>同一渲染函数</strong>（防两处漂移）</td><td>对应第六刀，<span class="b b-done">已等价</span></td></tr>
+<tr><td><strong>Knowledge Object 的容器</strong></td><td><code>articles</code> 已有 <code>summary</code>（=页面上那句「直接答案」）、<code>kind</code>、<code>tags</code>、服务端注入的 JSON-LD（Article + BreadcrumbList + FAQPage）</td><td>对应第二刀，<span class="b b-half">容器在、内容空</span></td></tr>
+<tr><td><strong>发现层（搜索侧）</strong></td><td><code>/sitemap.xml</code>、<code>/rss.xml</code>、<code>/robots.txt</code>（21 个 AI 爬虫分「检索类/训练类」显式声明）、服务期头注（OG/Twitter/JSON-LD 注入 CSR 壳）</td><td>对应第三刀，<span class="b b-done">搜索侧已做</span></td></tr>
+<tr><td><strong>Capability → Policy → Action → Audit</strong></td><td><code>ai.rs::CapDef</code> 白名单（4 个能力）+ <code>POST /api/ai/invoke</code> + 缺码降级为待审批 + <code>ai_audit_log</code> 全量审计</td><td>对应第五刀，<span class="b b-half">治理骨架在、语义不对</span></td></tr>
+<tr><td><strong>Intent Analytics（等价物）</strong></td><td><code>attribution.rs</code>：匿名 <code>visitor_id</code> → 注册时固化 <code>first_touch_article_id</code> → JOIN 订单算 GMV，且<strong>把归因断层显式算出来</strong>（noVisitor / noRead 分两列报）</td><td>对应第九刀，<span class="b b-half">按「文章」归因，非按「Intent」</span></td></tr>
+<tr><td><strong>转化可测链路</strong></td><td><code>/go/{token}</code> 短链 + <code>link_clicks</code>（区分真点击与预取，UA 黑名单刻意不含 headless）</td><td>方案未提，<span class="b b-done">现成的渠道归因工具</span></td></tr>
+<tr><td><strong>付费墙的机器口径</strong></td><td><code>is_gated()</code> 唯一判据：付费文标 <code>isAccessibleForFree:false</code> 且<strong>不写 articleBody</strong>；sitemap 收录付费项、RSS 排除</td><td>方案未覆盖，<span class="b b-done">已定策略</span></td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<p><strong>一个重要区分：<code>/agent.json</code> 里的 <code>capabilities</code> 不是方案第五刀说的 Capability。</strong>现在的 6 项是 <code>read_home</code> / <code>list_articles</code> / <code>read_article</code> / <code>list_tags</code> / <code>list_plans</code> / <code>read_feed</code>——全是<strong>只读数据端点</strong>。而方案要的是「有输入输出契约、可被调用产生副作用」的产品能力（<code>start_blind_listening()</code>）。这个混淆是后面第五、七节判断的关键。</p>
+</div>
+
+<h2><span class="n">02</span>逐条映射：方案的 13 个要求落在哪一格</h2>
+
+<p>把方案的每一刀按「现在能不能做、做了有没有收益」做一次诚实归类。判定标准只有一条：<strong>是否需要先有流量或先有供给才能产生价值</strong>。</p>
+
+<table>
+<thead><tr><th style="width:19%">方案要求</th><th style="width:47%">当前状态</th><th style="width:12%" class="c">判定</th><th style="width:22%">建议时序</th></tr></thead>
+<tbody>
+<tr><td>① Context / Intent 建模</td><td>未做。<code>0003</code> 建的 <code>contexts</code> 表仍空在库里，无 FK、无消费方、无 UI</td><td class="c"><span class="b b-none">未做</span></td><td>L3，须数据触发</td></tr>
+<tr><td>② Content → Knowledge Object</td><td>容器已在（<code>summary</code> 即「直接答案」），但正文 55–97 字符，无分块</td><td class="c"><span class="b b-half">半个</span></td><td><strong>L1，立即做</strong></td></tr>
+<tr><td>③ Discovery Layer</td><td>搜索侧全套已上；对 Agent 仅「被动可发现」，无主动登记</td><td class="c"><span class="b b-half">半个</span></td><td>L3，且建议只做最小验证</td></tr>
+<tr><td>④ Product Knowledge Graph</td><td>未做。<code>products</code> 表存在但 0 行</td><td class="c"><span class="b b-none">未做</span></td><td>L3</td></tr>
+<tr><td>⑤ Capability 一等公民</td><td><code>ai.rs</code> 有白名单+审批+审计，但 4 个能力全是<strong>后台内容操作</strong>（draft/publish/seo.optimize/translate）、需登录、无 input/output schema</td><td class="c"><span class="b b-risk">语义不符</span></td><td>暂不做，见 §4</td></tr>
+<tr><td>⑥ Agent Manifest</td><td><code>/agent.json</code> 已上线且 DB 派生。<strong>缺</strong> <code>contexts</code> / <code>intents</code> / <code>evidence</code> 三段</td><td class="c"><span class="b b-done">大半</span></td><td><strong>L1，轻量补齐</strong></td></tr>
+<tr><td>⑦ Capability API + invoke</td><td>仅 <code>/api/ai/invoke</code>（内部，需 Auth）。无对外能力端点</td><td class="c"><span class="b b-none">未做</span></td><td>L3，无可调用物</td></tr>
+<tr><td>⑧ Capability 分层（Public/Demo/Free/Pro）</td><td>未做。且 <code>tiers</code>=0，连「Pro」这一档都不存在</td><td class="c"><span class="b b-none">未做</span></td><td>L1 先补 tiers</td></tr>
+<tr><td>⑨ Demo 作为 Proof of Value</td><td>无 Demo 概念。站点是内容站，无「可试用的能力」</td><td class="c"><span class="b b-risk">不适用</span></td><td>取决于产品形态</td></tr>
+<tr><td>⑩ Evidence Layer</td><td>无 evidence 表。归因层能算经营数字，但当前 <code>orders</code>=0</td><td class="c"><span class="b b-half">半个</span></td><td><strong>L1，用真实实测事实</strong></td></tr>
+<tr><td>⑪ SEO/GEO 自动生成层</td><td>结构化数据已自动（服务端从 DB 派生）；正文无自动生成</td><td class="c"><span class="b b-half">半个</span></td><td>待 ② 完成后再谈</td></tr>
+<tr><td>⑫ Intent Analytics</td><td><code>attribution.rs</code> 按文章归因（首次触达口径），但 <code>events</code>=0、0015 未迁移</td><td class="c"><span class="b b-half">半个</span></td><td>L2，先迁移跑通</td></tr>
+<tr><td>⑬ 原 CMS 核心模型两层化</td><td>未做。<strong>且本项目刚删过一套同类抽象</strong>（<code>/api/v1</code> 域模型 12 实体 + 前端 4 页，2026-09-07 删除）</td><td class="c"><span class="b b-risk">高风险</span></td><td>不建议，见 §4</td></tr>
+</tbody>
+</table>
+
+<div class="flow">
+<svg viewBox="0 0 1010 250" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,PingFang SC,sans-serif">
+  <text x="0" y="14" font-size="12.5" font-weight="700" fill="#4a5259">方案链路 13 环 · 按当前落地状态着色</text>
+  <g font-size="12" font-weight="600">
+    <rect x="0" y="30" width="96" height="34" rx="7" fill="#e8f6ec" stroke="#bfe3ca"/><text x="48" y="52" text-anchor="middle" fill="#15803d">Content→KO</text>
+    <rect x="104" y="30" width="88" height="34" rx="7" fill="#e8f6ec" stroke="#bfe3ca"/><text x="148" y="52" text-anchor="middle" fill="#15803d">Manifest</text>
+    <rect x="200" y="30" width="96" height="34" rx="7" fill="#e8f6ec" stroke="#bfe3ca"/><text x="248" y="52" text-anchor="middle" fill="#15803d">Discovery</text>
+    <rect x="304" y="30" width="104" height="34" rx="7" fill="#fdf3e3" stroke="#f0d9ab"/><text x="356" y="52" text-anchor="middle" fill="#b45309">Evidence</text>
+    <rect x="416" y="30" width="112" height="34" rx="7" fill="#fdf3e3" stroke="#f0d9ab"/><text x="472" y="52" text-anchor="middle" fill="#b45309">Cap 分层</text>
+    <rect x="536" y="30" width="112" height="34" rx="7" fill="#fdf3e3" stroke="#f0d9ab"/><text x="592" y="52" text-anchor="middle" fill="#b45309">Intent 度量</text>
+    <rect x="656" y="30" width="120" height="34" rx="7" fill="#f1f3f6" stroke="#dde2e8"/><text x="716" y="52" text-anchor="middle" fill="#64748b">Context/Intent</text>
+    <rect x="784" y="30" width="112" height="34" rx="7" fill="#f1f3f6" stroke="#dde2e8"/><text x="840" y="52" text-anchor="middle" fill="#64748b">Knowledge Graph</text>
+    <rect x="904" y="30" width="106" height="34" rx="7" fill="#fdecec" stroke="#f2c9c9"/><text x="957" y="52" text-anchor="middle" fill="#b91c1c">Cap API</text>
+  </g>
+  <g font-size="11" fill="#868e96">
+    <text x="0" y="88">绿 = 已就位或只差轻量补齐 · 黄 = 半成品/需补前提 · 灰 = 未做（可做）· 红 = 当前无对应物或高风险</text>
+  </g>
+  <!-- 三个前提 -->
+  <text x="0" y="120" font-size="12.5" font-weight="700" fill="#4a5259">方案隐含的三个前提 · 实测</text>
+  <g font-size="12">
+    <rect x="0" y="132" width="316" height="52" rx="8" fill="#fdecec" stroke="#f2c9c9"/>
+    <text x="14" y="152" font-weight="700" fill="#b91c1c">① 有可成交标的</text>
+    <text x="14" y="171" fill="#7f1d1d">tiers = 0 行 → 无任何可售方案</text>
+
+    <rect x="330" y="132" width="336" height="52" rx="8" fill="#fdecec" stroke="#f2c9c9"/>
+    <text x="344" y="152" font-weight="700" fill="#b91c1c">② 有可理解的知识实体</text>
+    <text x="344" y="171" fill="#7f1d1d">8 篇正文仅 55–97 字符（≈ 一句摘要）</text>
+
+    <rect x="680" y="132" width="330" height="52" rx="8" fill="#fdecec" stroke="#f2c9c9"/>
+    <text x="694" y="152" font-weight="700" fill="#b91c1c">③ 有可观测的信号</text>
+    <text x="694" y="171" fill="#7f1d1d">events = 0 行；0015 未迁移</text>
+  </g>
+  <rect x="0" y="200" width="1010" height="40" rx="8" fill="#f0f2f5" stroke="#e3e6ea"/>
+  <text x="14" y="218" font-size="12.5" font-weight="700" fill="#1a1d21">结论：通道层（灰+红）做出来也无人可通 —— 因为没有内容可被理解，也没有东西可被购买。</text>
+  <text x="14" y="234" font-size="11.5" fill="#4a5259">所以时序应是「先补供给 → 再建度量 → 最后扩通道」，而不是按方案编号从第一刀顺序推进。</text>
+</svg>
+</div>
+
+<h2><span class="n">03</span>三个前提为什么现在不成立（硬证据）</h2>
+
+<h3>① 没有可成交的标的：<code>tiers</code> = 0 行</h3>
+<p>这是最刺眼的一条。方案第十节讲「Agent 帮你完成产品体验，然后把人带过来成交」，第十一节讲「Capability 分层 Free/Pro」。但实测 <code>tiers</code> 表<strong>一行都没有</strong>——没有任何对外可售的订阅方案。</p>
+<p>连带效应已经在代码里显形了。<code>render_agent_json</code> 有三处分支专门处理「没有套餐」的情况：<code>plans</code> 返回空数组、<code>subscribe</code> 这个 action <strong>根本不发</strong>、<code>limits</code> 里追加一条「当前未配置订阅方案，无付费内容与付费动作可用」。同样 <code>articles</code> 全部 <code>paid_level=0</code>，意味着 <code>is_gated()</code> 永远返回 false，付费墙分支、402 三态、FAQ 抑制逻辑<strong>全都在跑空路径</strong>。</p>
+<div class="warnbox">
+<p><strong>所以 Agent 即使 100% 理解你、选择你、决定推荐你，它推荐过去之后也买不到任何东西。</strong>这一条不解决，方案第八/九/十节（Capability 分层、Demo 即 Proof of Value、Agent 带成交）讨论的全部场景都物理上不可能发生。</p>
+</div>
+
+<h3>② 没有可理解的知识实体：正文 55–97 字符</h3>
+<p>8 篇文章的 <code>content</code> 字段长度从 55 到 97 字符，而 <code>summary</code> 是 14–90 字符——<strong>正文基本就是那句摘要本身</strong>。文章标题却写着「保姆级」「全网最全」「大横评」这类承诺。</p>
+<p>这直接决定方案第二刀（Knowledge Object）的价值上限：容器已经有了（<code>summary</code> 是独立字段、<code>kind</code> 已分型、JSON-LD 由服务端派生），但<strong>里面装的东西不足以让任何 Agent 形成判断</strong>。方案第十三节说「一个真实 Intent → 一个有真实信息价值的 Knowledge Object → 多种机器/人类表达」——现在的情况是「一个真实 Intent → 一句摘要 → 多种表达同一句摘要」。</p>
+<div class="note">
+<p>这里有个已经踩过坑的细节值得记住：FAQ 的 <code>answer</code> <strong>只取 <code>summary</code></strong>（上一轮定的硬规则），理由是「从正文截段会截到半句，且给正文开一条进 JSON-LD 的旁路」。这个决定在当时是对的——但它同时意味着<strong>结构化数据的质量完全绑定在 <code>summary</code> 这一个字段上</strong>。正文不分块，GEO 输出的天花板就是那 14–90 字。</p>
+</div>
+
+<h3>③ 没有可观测的信号：<code>events</code> = 0 行，且 0015 未迁移</h3>
+<p>方案第十二节（Intent Analytics）要回答「哪些 Intent 真正产生钱」。实测：<code>events</code> 表 <strong>0 行</strong>、<code>members</code> 1 行、<code>orders</code> 0 行。</p>
+<p>更需要注意的一个状态：<code>attribution.rs</code> 与迁移 <code>0015_attribution</code> 已经写好，但<strong>运行库里没有 0015</strong>——<code>events.visitor_id</code> 与 <code>members.first_touch_article_id</code> 这两列在 <code>cms.db</code> 里还不存在（实测报 <code>no such column</code>）。而且这两个文件<strong>处于未提交状态</strong>（<code>attribution.rs</code>、<code>web/src/routes/content/attribution.tsx</code> 均为 git 未跟踪，<code>db.rs</code>/<code>main.rs</code>/<code>members.rs</code>/<code>perm.rs</code>/<code>stats.rs</code>/<code>tests_api.rs</code> 已修改未提交）。看起来是并发会话的在建工作，本次评估未触碰。</p>
+<div class="warnbox">
+<p><strong>结论：归因链路目前是「空跑」状态</strong>——即使现在有流量，<code>attribution.rs</code> 的三个查询也会因缺列直接失败。这是 L2 的第一步，而且是纯粹的收尾（代码已就绪），不是新开发。</p>
+</div>
+
+<h2><span class="n">04</span>两处必须提出的反对意见</h2>
+
+<h3>反对一：第五刀 / 第七刀在这里没有对应物</h3>
+<p>方案的核心创新是「Capability 成为一等公民」+「Capability API 让 Agent 替用户试一下」。这套设计成立的前提是：<strong>产品本身是一个可被调用的工具</strong>——方案自己的例子是 NCE-Flow 的 <code>blind_listening</code>（输入 <code>audio_id</code>+<code>user_level</code>，动作 <code>start_blind_listening()</code>，输出 <code>session</code>）。</p>
+<p>但可可鸭是<strong>内容站</strong>：它的「能力」就是「读到一篇有用的文章」。这类站点里，<code>read_article</code> 已经是最强的能力了，而它归根结底是<strong>数据读取端点</strong>，不是产品能力。硬要按方案的形状造 Capability，只会得到一批 <code>read_home</code>/<code>list_articles</code> 式的伪能力——现行 <code>/agent.json</code> 的 <code>capabilities</code> 字段正是这么长出来的。</p>
+<div class="warnbox">
+<p><strong>而伪能力比不声明更糟。</strong>上一轮已经定过这个原则并写进实现注释：「capabilities 只声明真实存在且实测 200 的只读端点……声明不存在的接口会让 Agent 调用失败并把整站判不可信，比不声明更糟。」把只读端点包装成「产品能力」是同一个错误的变体——Agent 会据此推断「这站有可调用的产品动作」，然后调用失败。</p>
+</div>
+<p>所以第五/七刀的正确处理是：<strong>不新造 Capability，而是把已有的 <code>ai.rs</code> 治理骨架（白名单 + 审批 + 审计）保留为对外开放时的现成基础设施</strong>，等站上真的出现「有输入输出契约的动作」再启用。当前该做的只有一件事：在 <code>agent.json</code> 里<b>明确区分「数据端点」与「产品能力」</b>，把 6 项从 <code>capabilities</code> 改名归到 <code>data_endpoints</code>，把 <code>capabilities</code> 留空——<strong>诚实地告诉 Agent「本站是内容站，没有可调用动作」</strong>，而不是让它自己猜。</p>
+
+<h3>反对二：第十三刀（重构核心模型）是同类风险的第二次</h3>
+<p>方案第十七节建议把原 CMS 核心模型（Page/Post/Category/Tag/Template/Theme）换成「World Model + Presentation」两层。这个抽象本身设计得不错，但本项目<strong>刚刚在这件事上付过一次学费</strong>：</p>
+<ul>
+<li>曾经做过 <code>Domain Model V1</code>：迁移 <code>0003</code> 建了 12 张表（<code>sites</code>/<code>channels</code>/<code>contents</code>/<code>contexts</code>/<code>content_contexts</code>/<code>content_channels</code>/<code>templates</code>/<code>template_versions</code>/<code>site_templates</code>/<code>themes</code>/<code>theme_versions</code>/<code>site_themes</code>），配 <code>/api/v1</code> 全契约 + 12 个 entity + 前端 4 个管理页。</li>
+<li>结果：<strong>2026-09-07 整体删除</strong>（代码侧 <code>/api/v1</code> + 12 entity + 前端 4 页全删，合并到单网关 <code>resources.rs</code> + 单条权限链）。</li>
+<li>而<strong>表还留在库里</strong>：实测 <code>contexts</code>、<code>contents</code>、<code>channels</code>、<code>sites</code> 等至今存在且全空，无 FK、无消费方、无 UI。</li>
+</ul>
+<div class="warnbox">
+<p><strong>这里有个讽刺性的巧合必须指出：方案第一刀要新增的 <code>Context</code> 对象，DB 里已经有一张空的 <code>contexts</code> 表了</strong>——它是上一次过度抽象的残留。谁要是把它当成「现成基础」去接，接的是一具骨架。</p>
+<p>更重要的推论是：<strong>这个项目已经用实测证明过，先建对象模型、后找消费方，会以删除收场。</strong>方案自己的原则（不要分别维护 SEO/GEO/Agent 内容，否则又会变成三个 CMS）完全正确——但 §17 的「World Model 两层化」恰恰是同一类风险的另一个版本：在没有真实 Intent 数据的情况下先定义 Intent 的完整模型。</p>
+</div>
+
+<h2><span class="n">05</span>补记：原文 §15 的六个技术前提，五个与实测不符</h2>
+
+<p>重读原文时发现一处上一版评估漏掉的关键点。原文 §15 开篇写「你现有：<strong>Axum / SQLx / PostgreSQL / Rauthy / Stripe / Askama</strong>」，并据此给出「不用推倒重来」「Auth / Billing / Entitlements 可以直接保留」的判断，以及一整套目录与 18 张表的数据库设计。但实测 <code>server/Cargo.toml</code> 与源码，<strong>这六项里只有一项吻合</strong>。</p>
+
+<table>
+<thead><tr><th style="width:22%">原文假设</th><th style="width:38%">项目实测</th><th style="width:40%">影响</th></tr></thead>
+<tbody>
+<tr><td><strong>Axum</strong></td><td><code>axum 0.8</code>（含 multipart）</td><td><span class="b b-done">唯一吻合</span>「不用推倒重来」这句成立</td></tr>
+<tr><td><strong>SQLx</strong></td><td><code>sea-orm 2.0</code>（features <code>sqlx-sqlite</code>）。sqlx 只作为 sea-orm 的驱动，<strong>没有直接依赖</strong></td><td>数据访问形态不同：本项目的查询走 <code>Statement::from_sql_and_values</code> + <code>Row::try_get</code>，不是 sqlx 的 <code>query!</code> 宏与编译期校验</td></tr>
+<tr><td><strong>PostgreSQL</strong></td><td><strong>SQLite</strong>（<code>server/cms.db</code>）+ Turso/libsql 双后端（<code>turso_mode.flag</code> 切换）；迁移是 <code>db.rs::MIGRATIONS</code> 内联版本化，不是 sqlx-cli</td><td>方案 §15 那 18 张表是按 PG 的心智给出的。本项目单实例、迁移内联、<code>lenient</code> 只吞预期错误——写法与代价都不同</td></tr>
+<tr><td><strong>Rauthy</strong>（外部 IdP）</td><td><strong>无此依赖</strong>。自研 <code>auth.rs</code>：<code>jsonwebtoken 9</code> + <code>argon2</code>，三级角色 + 登录限速（<code>login_locks</code>）</td><td>「Auth 可以直接保留」成立，但保留的是<strong>自研 JWT 体系</strong>，不是 OIDC/IdP 集成。任何涉及外部身份提供商的实施细节都不适用</td></tr>
+<tr><td><strong>Stripe</strong></td><td><strong>Cargo.toml 里没有 stripe crate</strong>。Stripe 是手写 HTTP（<code>reqwest</code> 打 <code>api.stripe.com</code> + 自研签名验签）。而真正的主力是<strong>微信支付 API v3</strong>：<code>wechat_pay.rs</code> 用 <code>rsa</code> 签名验签 + <code>aes-gcm</code> 回调解密 + <code>qrcode</code> 出码</td><td>「Billing 已设计完整」在本项目要对到<strong>微信支付的订单/发货/兑码/退款链路</strong>上。<strong>连带发现</strong>：<code>tiers</code> 表带 <code>stripe_price_id</code> 列——两套支付渠道共用一张套餐表，配 tiers 时这条约束要先想清楚</td></tr>
+<tr><td><strong>Askama</strong>（服务端模板）</td><td><strong>无此依赖</strong>。前端是 CSR SPA（Vite + React），产物由 <code>templates.rs</code> 伺服；另有 <code>async-graphql</code>（原文未提）</td><td>方案设想的「服务端渲染 + 模板层」不存在。HTML 由前端构建，<strong>服务端只做头注注入</strong>——Agent Layer 的注入机制（不改磁盘产物、改了后台配置立即生效）正是为这个架构设计的</td></tr>
+</tbody>
+</table>
+
+<p>这不是文字纠错，它带来三条执行层面的推论：</p>
+
+<ol>
+<li><strong>原文 §15 的目录设计本身就是一次抽象。</strong>它列了 15 个二级模块（<code>auth/ billing/ entitlements/ context/ intent/ knowledge/ discovery/ products/ capabilities/ evidence/ actions/ agent/ content/ analytics/ jobs/</code>），而本项目已经收敛为<strong>单网关 <code>resources.rs</code> + 38 个平铺模块</strong>（无二级目录）。引入 15 个目录与本项目「单网关、单权限链」的既有收敛方向<strong>相反</strong>——这与 §4 反对二是同一个问题在工程结构层的版本。</li>
+<li><strong>§15 的 18 张新表里，<code>contexts</code> 与 <code>products</code> 已经存在。</strong>两者都是 <code>0003</code> 留下的空表（无 FK、无消费方、无 UI）。所以按方案动手的第一步<strong>不是「新建 contexts 表」，而是先决定这两张空表是删还是复用</strong>——否则会出现两张同名、语义不同的表。</li>
+<li><strong>「Auth / Billing / Entitlements 可以直接保留」这句结论是对的，但要保留的东西与方案想象的不同</strong>：是自研 JWT + 微信支付订单链，不是 Rauthy + Stripe 订阅。这不改变「不需要重写任何一块」的判断，但会影响所有涉及订阅生命周期、权益计算、支付回执的实施细节。</li>
+</ol>
+
+<div class="note">
+<p>这条补记<strong>不改变 §06 的三层重排结论</strong>，只增加一个前置动作：<strong>任何照方案 §15 动手的人，第一步都得先把技术栈映射到实测清单上</strong>，否则会按一套并不存在的基础设施写代码。这也正是把「实测优先于文档」当成铁律的原因——原文作者并不知道这个项目的真实底座。</p>
+</div>
+
+<h2><span class="n">06</span>重排计划：三层九步</h2>
+
+<p>把方案的十刀按<strong>依赖关系</strong>而非编号重排。每一层的门槛写清楚了——<strong>门槛不满足就不进入下一层</strong>，这是本计划与传统分期方案的关键区别。</p>
+
+<div class="layer l1">
+  <div class="hd"><h3>L1 · 供给层</h3><div class="gate">门槛：无（现在就能做，且做了立刻有收益）</div></div>
+  <p>只做一件事：<strong>让站上真的有「东西」——可卖的、可读的、可验证的。</strong>这一层的所有动作都不依赖流量，也不新增任何抽象模型。</p>
+
+  <h4>S1 · 补齐可售方案（最高优先，需要你的定价决策）</h4>
+  <ul>
+    <li>给 <code>tiers</code> 配置真实方案（先 1–2 档即可）。配置完成后会自动产生连锁效果：<code>/agent.json</code> 的 <code>plans</code> 从空数组变成真实数据、<code>subscribe</code> action 开始输出、<code>limits</code> 里那条「无付费动作可用」自动消失、FAQ 的 <code>faq_from_facts</code> 开始产出价格类问答。</li>
+    <li><strong>这是整条变现链路的开关。</strong>在它打开之前，付费墙代码、402 三态、订单发货、兑码核销全部处于「跑空路径」状态——测不出问题，也验证不了。</li>
+  </ul>
+
+  <h4>S2 · 正文补实 + 语义分块（方案第二刀的落地形态）</h4>
+  <ul>
+    <li>给 <code>articles</code> 加一个 <code>blocks</code> JSON 列（<strong>不建新表、不改现有查询</strong>），按语义分块：<code>answer</code>（直接答案，即现有 summary）/ <code>steps</code>（步骤）/ <code>evidence</code>（实测事实）/ <code>caveat</code>（适用条件与不适用场景）。</li>
+    <li>产出路径：后台文章编辑器改成分块录入 → 一套数据同时喂 HTML 渲染、JSON-LD、<code>llms.txt</code>、<code>agent.json</code>。这正是方案要的「一个模型，多种呈现」，但载体是<strong>现有 articles 表的一个新列</strong>，不是一套新的 Knowledge 表。</li>
+    <li><strong>为什么值得现在做</strong>：它是方案里唯一「不依赖流量、且直接提升机器可理解性」的一刀。而且它解决的正是 §3② 那个问题——GEO 输出的天花板目前被 <code>summary</code> 一个字段锁死。</li>
+    <li><strong>硬约束</strong>：<code>TableDef</code> 加列必须配集成测试。这个项目曾因 <code>TableDef</code> 漏列，导致 <code>articles</code> 的 <code>visibility</code>/<code>paid_level</code>/<code>price_points</code> 被网关静默丢弃、付费墙失效。<strong>新列同样会走这条路径，必须测试覆盖。</strong></li>
+  </ul>
+
+  <h4>S3 · 首批 5 篇问题页（已在待办里，纯内容零工程）</h4>
+  <ul>
+    <li><code>kind='problem'</code> 通道、<code>/problems</code> 总览与详情页、<code>content_url()</code> AC 分流全部已通，但实测 <strong>0 篇 <code>problem</code></strong>。这是零代码成本、纯内容填充。</li>
+    <li>素材来源已定：X 上被追问最多的问题（<code>@KeKeYa88</code> 的曝光是最可靠的信号源）。<strong>每页必须含至少一处只属于发布者的实测事实</strong>（开过哪张卡、被拒那次、实测损耗数字）——否则就是可复制的模板垃圾。</li>
+    <li>合规口径沿用既定策略：跨境支付/加密主题只讲实测路径与损耗，不做收益承诺。首批保持 <code>public</code>/<code>paid_level=0</code>（作为流量入口）。</li>
+  </ul>
+
+  <h4>S4 · <code>agent.json</code> 诚实化与轻量补齐（方案第六刀的收敛版）</h4>
+  <ul>
+    <li><strong>改名</strong>：现有 6 项只读端点从 <code>capabilities</code> 移到 <code>data_endpoints</code>；<code>capabilities</code> 留空数组 + 一句说明「本站为内容站，无对外可调用动作」。理由见 §4 反对一。</li>
+    <li><strong>补 <code>contexts</code></strong>：不新建表，由已发布的 <code>tags</code>（5 个，已是完整主题数据：name/slug/description）派生。现有 <code>topics</code> 已是它的弱化版，<code>contexts</code> 只是把它结构化（带 slug + description + 文章数）。</li>
+    <li><strong>补 <code>intents</code></strong>：同样从已有数据派生——<code>tags</code> × <code>kind</code> 的组合（如「港卡」×「问题页」=「港卡怎么选」）。<strong>不发没有内容支撑的 Intent</strong>，避免声明一个点进去是空的意图。</li>
+    <li><strong>补 <code>evidence</code></strong>：<strong>只放能自证的数字</strong>（已发布篇数、标签覆盖的主题数、实测事实条数）。<strong>订单数为 0 时不发</strong>——发 0 是负信号，会主动劝退 Agent。这条原则与 <code>faq_from_facts</code>「没套餐时不编造价格问题」一致。</li>
+  </ul>
+</div>
+
+<div class="layer l2">
+  <div class="hd"><h3>L2 · 度量层</h3><div class="gate">门槛：L1 的 S1+S3 完成（站上开始有可被发现的内容与可被购买的东西）</div></div>
+  <p>这一层的目的只有一个：<strong>用最低成本判断「Agent 到底有没有来」</strong>。注意——不是「建一套 Analytics」，而是<strong>复用已经做好的东西去回答这一个问题</strong>。</p>
+
+  <h4>S5 · 迁移 0015 + 跑通归因（收尾，非新开发）</h4>
+  <ul>
+    <li><code>attribution.rs</code> 已写完（含一段很扎实的设计说明：为什么用「首次触达」而非「末次触达」——末次触达会被站内推荐位、热门榜、相关阅读每一次内部跳转改写，最终几乎所有转化都归到少数流量入口，真正的获客入口被淹掉）。缺的只是把 <code>0015</code> 应用到运行库。</li>
+    <li><strong>前置动作</strong>：先确认这两个未跟踪文件是否是并发会话的在建工作（<code>git status</code> 已显示未提交）。若是，等它落地，不要并行改同一批文件。</li>
+    <li>跑通后的第一个真实产出：<code>gaps</code> 里的 <code>noVisitor</code>/<code>noRead</code> 两列会把「链路没接上」和「接了但用户没看文章就注册」分开报——处理方式完全不同，合成一个数字就只能靠猜。</li>
+  </ul>
+
+  <h4>S6 · 用 404 日志当 Intent 信号的代理（方案第十二节的零流量入口）</h4>
+  <ul>
+    <li><code>not_found_log</code> 已上线（已收 1 条），重定向表 <code>redirects</code> 已上线但 0 行，后台已有双标签页 + 一键转 301。</li>
+    <li><strong>改进点</strong>：把「有人（或 Agent）请求了但站内没有的路径」当成<strong>需求信号</strong>收集。这是整个系统里<strong>唯一不需要用户行为数据就能获得 Intent 信号</strong>的入口——而它已经建好了，只是目前只被当作 SEO 卫生问题看待。</li>
+    <li>具体做法：后台给 <code>not_found_log</code> 加一个「按路径聚类」视图，标出「高频未命中路径」。这些路径直接就是下一批问题页的选题清单。</li>
+  </ul>
+
+  <h4>S7 · 让 AI 渠道可测（复用 Smart Links，不建 Discovery Layer）</h4>
+  <ul>
+    <li><code>/go/{token}</code> + <code>link_clicks</code> 已经在跑（区分真点击与预取，UA 黑名单刻意不含 headless 因为自家 e2e 就跑在 headless Chromium 上）。</li>
+    <li><strong>改进点</strong>：给 <code>llms.txt</code> / <code>agent.json</code> 里输出的 URL 挂上带 token 的短链。这样就能回答方案的第三刀真正要问的问题——<strong>「Agent 是否真的来读了、读了多少次」</strong>。</li>
+    <li><strong>为什么不用自建 Discovery Layer</strong>：方案第三刀建议的 <code>discovery/</code>（context/intent/knowledge/candidates/ranking/recommendation）是一个搜索引擎的架构。要验证「Agent 有没有发现我」，一条带 token 的 URL 就能回答；自建索引层要回答同一个问题，成本高出两三个数量级，而且<strong>它解决的问题（在候选池里排序）只在「有人来搜」时才存在</strong>。</li>
+  </ul>
+</div>
+
+<div class="layer l3">
+  <div class="hd"><h3>L3 · 通道层</h3><div class="gate">门槛：L2 观测到<b>非零</b>的 Agent 来源访问（不是预测、不是推测，是日志里的真实记录）</div></div>
+  <p>这一层才是方案的主体（Context/Intent 一等对象、Knowledge Graph、Capability API、Discovery 主动登记）。我的建议是：<strong>现在连设计都先不做，但把触发条件写死在 L2 的验收标准里。</strong></p>
+  <ul>
+    <li><strong>触发条件 A</strong>（对应 Context/Intent 一等对象）：L2 的 404 聚类里出现<strong>同一意图的多个不同问法</strong>，且这些问法没有对应页面。这证明「Intent 是独立于页面的实体」——这个证据成立，才值得为它建表。</li>
+    <li><strong>触发条件 B</strong>（对应 Capability API）：站上出现<strong>真的有 invoke 语义</strong>的东西（有输入、有输出、有副作用）。可可鸭当前没有，所以不触发。若将来接入 NCE-Flow 那类工具型产品，<code>ai.rs</code> 的白名单+审批+审计骨架可直接复用为对外能力网关。</li>
+    <li><strong>触发条件 C</strong>（对应 Knowledge Graph / Discovery Layer）：≥1 个真实产品（不是内容）且 ≥10 篇有实质内容的知识对象。<code>products</code> 表当前 0 行。</li>
+  </ul>
+  <div class="okbox">
+    <p><strong>这一层的设计原则已经由 L1 的 S4 铺垫好了</strong>：<code>agent.json</code> 里的 <code>contexts</code>/<code>intents</code>/<code>evidence</code> 三段在 L1 就用<strong>派生</strong>方式给出（从 tags/articles 推），而不是新建表。这样 L3 真正要建表时，已经有真实的消费方在等着——而不是先建表再找谁用。<strong>这正是 0003 域模型那次教训的反向操作。</strong></p>
+  </div>
+</div>
+
+<div class="flow">
+<svg viewBox="0 0 1010 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,PingFang SC,sans-serif">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#868e96"/>
+    </marker>
+  </defs>
+  <text x="0" y="14" font-size="12.5" font-weight="700" fill="#4a5259">三层九步 · 门槛驱动（不满足门槛不进入下一层）</text>
+
+  <!-- L1 -->
+  <rect x="0" y="30" width="322" height="230" rx="10" fill="#f7fdf9" stroke="#bfe3ca"/>
+  <text x="16" y="52" font-size="13.5" font-weight="700" fill="#15803d">L1 · 供给层</text>
+  <text x="16" y="70" font-size="11" fill="#15803d">门槛：无 · 现在就能做</text>
+  <g font-size="11.5" fill="#14532d">
+    <rect x="14" y="82" width="294" height="34" rx="6" fill="#fff" stroke="#bfe3ca"/>
+    <text x="26" y="96" font-weight="700">S1 补 tiers</text><text x="26" y="110" font-size="10.5" fill="#15803d">变现链路的开关 · 需定价决策</text>
+    <rect x="14" y="122" width="294" height="34" rx="6" fill="#fff" stroke="#bfe3ca"/>
+    <text x="26" y="136" font-weight="700">S2 blocks 语义分块</text><text x="26" y="150" font-size="10.5" fill="#15803d">加一列，不建新表 · 必须配集成测试</text>
+    <rect x="14" y="162" width="294" height="34" rx="6" fill="#fff" stroke="#bfe3ca"/>
+    <text x="26" y="176" font-weight="700">S3 首批 5 篇问题页</text><text x="26" y="190" font-size="10.5" fill="#15803d">纯内容 · 需你的 X 原话与实测事实</text>
+    <rect x="14" y="202" width="294" height="34" rx="6" fill="#fff" stroke="#bfe3ca"/>
+    <text x="26" y="216" font-weight="700">S4 agent.json 诚实化</text><text x="26" y="230" font-size="10.5" fill="#15803d">拆 capabilities · 派生 contexts/intents</text>
+  </g>
+
+  <!-- L2 -->
+  <rect x="344" y="30" width="322" height="230" rx="10" fill="#fffdf7" stroke="#f0d9ab"/>
+  <text x="360" y="52" font-size="13.5" font-weight="700" fill="#b45309">L2 · 度量层</text>
+  <text x="360" y="70" font-size="11" fill="#b45309">门槛：S1 + S3 完成</text>
+  <g font-size="11.5" fill="#78350f">
+    <rect x="358" y="82" width="294" height="34" rx="6" fill="#fff" stroke="#f0d9ab"/>
+    <text x="370" y="96" font-weight="700">S5 迁移 0015 跑通归因</text><text x="370" y="110" font-size="10.5" fill="#b45309">收尾工作 · 代码已就绪 · 先确认非他人在建</text>
+    <rect x="358" y="122" width="294" height="34" rx="6" fill="#fff" stroke="#f0d9ab"/>
+    <text x="370" y="136" font-weight="700">S6 404 日志 → Intent 信号</text><text x="370" y="150" font-size="10.5" fill="#b45309">零流量下唯一可得的意图信号</text>
+    <rect x="358" y="162" width="294" height="34" rx="6" fill="#fff" stroke="#f0d9ab"/>
+    <text x="370" y="176" font-weight="700">S7 AI 渠道带 token 可测</text><text x="370" y="190" font-size="10.5" fill="#b45309">复用 /go/{token} · 替代自建 Discovery</text>
+    <rect x="358" y="202" width="294" height="52" rx="6" fill="#fff" stroke="#f0d9ab"/>
+    <text x="370" y="220" font-weight="700" font-size="11.5">验收：日志里出现非零的</text>
+    <text x="370" y="236" font-size="11.5" font-weight="700">Agent 来源访问记录</text>
+    <text x="370" y="250" font-size="10.5" fill="#b45309">看不到 → 回到 L1 补内容，不进入 L3</text>
+  </g>
+
+  <!-- L3 -->
+  <rect x="688" y="30" width="322" height="230" rx="10" fill="#f7f8fa" stroke="#dde2e8"/>
+  <text x="704" y="52" font-size="13.5" font-weight="700" fill="#475569">L3 · 通道层</text>
+  <text x="704" y="70" font-size="11" fill="#64748b">门槛：L2 观测到非零 Agent 访问</text>
+  <g font-size="11.5" fill="#334155">
+    <rect x="702" y="82" width="294" height="46" rx="6" fill="#fff" stroke="#dde2e8"/>
+    <text x="714" y="98" font-weight="700">条件 A · Context/Intent 建模</text>
+    <text x="714" y="114" font-size="10.5" fill="#64748b">触发：同一意图出现多种不同问法</text>
+    <rect x="702" y="134" width="294" height="46" rx="6" fill="#fff" stroke="#dde2e8"/>
+    <text x="714" y="150" font-weight="700">条件 B · Capability API</text>
+    <text x="714" y="166" font-size="10.5" fill="#64748b">触发：站上出现真有 invoke 语义的东西</text>
+    <rect x="702" y="186" width="294" height="46" rx="6" fill="#fff" stroke="#dde2e8"/>
+    <text x="714" y="202" font-weight="700">条件 C · Knowledge Graph</text>
+    <text x="714" y="218" font-size="10.5" fill="#64748b">触发：≥1 产品 + ≥10 篇实质内容</text>
+  </g>
+  <text x="704" y="250" font-size="10.5" fill="#94a3b8">当前三个条件均不满足 → 先不设计</text>
+
+  <line x1="326" y1="145" x2="340" y2="145" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="670" y1="145" x2="684" y2="145" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="0" y="284" font-size="11" fill="#868e96">注：箭头是「门槛」不是「自动流转」——L2 若观测为零，正确动作是回到 L1 补内容，而不是带着空数据去做 L3。</text>
+</svg>
+</div>
+
+<h2><span class="n">07</span>明确不做清单</h2>
+
+<p>有观点地列清楚哪些不做，比列要做什么更能防止走偏。以下五条我建议<strong>明确否决</strong>，理由都来自本项目自己的实测教训。</p>
+
+<table>
+<thead><tr><th style="width:30%">不建议做</th><th style="width:70%">理由</th></tr></thead>
+<tbody>
+<tr><td><strong>另做一套独立 GEO 系统</strong></td><td>方案自己也说了这一点（「不要分别维护 SEO 内容、GEO 内容、Agent 内容，否则最后又会变成三个 CMS」）。这不是理论担忧——<code>0003</code> 域模型的 12 张空表就在库里躺着。</td></tr>
+<tr><td><strong>把只读端点包装成 Capability</strong></td><td>会导致 Agent 推断「本站有可调用动作」然后调用失败，比不声明更糟。现行 <code>capabilities</code> 的 6 项应改归 <code>data_endpoints</code>，<code>capabilities</code> 留空并说明缘由。</td></tr>
+<tr><td><strong>自建 Discovery Layer（索引/排序/推荐）</strong></td><td>要回答的问题是「Agent 有没有发现我」，一条带 token 的 URL（现成的 <code>/go/{token}</code>）就能答。排序问题只在「有人来搜」时才存在，当前 0 流量，排序对象为空。</td></tr>
+<tr><td><strong>按方案 §17 重构核心模型为两层</strong></td><td>本项目刚删过一套同类抽象（<code>/api/v1</code> + 12 entity + 前端 4 页），且留下了 12 张空表作反例。<strong>先建对象模型、后找消费方，在这个项目上已被实测证明会以删除收场。</strong></td></tr>
+<tr><td><strong>用 AI 批量生成 SEO 页面</strong></td><td>方案第十二节自己设了原则「不是批量生成垃圾 SEO 页面」。而实测现状（正文 55–97 字符）恰恰意味着：自动生成的上游原料本身是空的，生成出来只会是同一句摘要的 N 个变体。<strong>自动生成层（第十一刀）的前提是 S2 完成，不是相反。</strong></td></tr>
+</tbody>
+</table>
+
+<h2><span class="n">08</span>需要你拍板的三个决策点</h2>
+
+<div class="card">
+<h4>决策 1 · <code>tiers</code> 什么时候配、配什么？<span class="b b-new">阻塞整条变现链路</span></h4>
+<p>这是唯一一个<strong>必须由你决定、且技术侧无法代劳</strong>的点：定价与方案划分。它阻塞的东西比看起来多——<code>plans</code> 空数组、<code>subscribe</code> action 不发、付费墙走空路径、订单全链路无法验证。哪怕先配 1 档占位方案，也能让整条链路从「不可测」变成「可测」。</p>
+</div>
+
+<div class="card">
+<h4>决策 2 · <code>blocks</code> 语义分块现在就做，还是先纯补正文？</h4>
+<p>两条路各有代价：<strong>先做分块</strong>后写内容，可以一次录入到位，但后台编辑器要改（后端加列 + TableDef + 集成测试 + 前端编辑器，约 1 个批次）；<strong>先补正文</strong>（用现有 <code>content</code> 字段直接写长）见效最快，但将来分块时 8 篇内容要返工重录。</p>
+<p>我的倾向是<strong>先做分块</strong>——因为返工的内容是「只属于发布者的实测事实」，那是你最稀缺的原料，不应该录两遍。</p>
+</div>
+
+<div class="card">
+<h4>决策 3 · <code>attribution.rs</code> / <code>0015</code> 那批未提交改动，是并发会话在做吗？</h4>
+<p>实测显示 <code>attribution.rs</code>、<code>web/src/routes/content/attribution.tsx</code> 为 git 未跟踪，<code>db.rs</code>/<code>main.rs</code>/<code>members.rs</code>/<code>perm.rs</code>/<code>stats.rs</code>/<code>tests_api.rs</code> 已修改未提交，而运行库缺少 <code>0015</code> 的列。这符合「另一个会话正在做归因层、尚未收尾」的特征。</p>
+<p>按项目既有约定（重链接前必 <code>taskkill</code>、勿反复拉起、避免互相 <code>os error 5</code>），<strong>本次评估未触碰这些文件、也未编译后端</strong>。如果那是你在别处推进的工作，S5 应等它落地；如果不是，我可以接手收尾。</p>
+</div>
+
+<h2><span class="n">09</span>一句话总结</h2>
+
+<div class="verdict">
+<p class="lead">方案把 CMS 从「管内容」升级到「管理意图到行动的映射」，方向是对的；但在这台机器上，当前缺少的不是映射层，而是<strong>被映射的东西</strong>。</p>
+<p>已经建成的部分比方案假设的多得多——Agent Manifest、llms.txt、AI 爬虫声明、服务端头注、JSON-LD、付费墙机器口径、Smart Links、归因链路，这些几乎覆盖了方案第三、六、九刀的形态。真正缺的是三样：<strong>一个可售方案（tiers=0）、一批有实质内容的文章（正文 55–97 字符）、一条能记录访问的链路（events=0 且 0015 未迁移）</strong>。</p>
+<p>所以正确的动作顺序是 <strong>L1 供给（S1–S4）→ L2 度量（S5–S7）→ L3 通道（门槛触发）</strong>，而不是照方案编号从第一刀往下推。<strong>Context/Intent 一等对象该做，但要在 404 日志里真的出现「同一意图的多种问法」之后再建表</strong>——那时建出来的表有真实消费方等着，而不是像 <code>0003</code> 留下的那 12 张空表。</p>
+<p><strong>动手前的最后一个提醒</strong>（见 §05）：原文 §15 假设的六项技术前提里，只有 <code>Axum</code> 一项与实测吻合，SQLx / PostgreSQL / Rauthy / Stripe / Askama 五项都不对——实际是 <strong>sea-orm + SQLite/Turso + 自研 JWT + 微信支付 + CSR SPA</strong>。照着 §15 的目录与表设计直接开工，等于按一套不存在的基础设施写代码；而且那 15 个二级目录本身就是一次结构抽象，与本项目「单网关 + 单权限链」的收敛方向相反。</p>
+</div>
+
+<footer>
+<p>评估基准：<code>F:\project\admin</code> 运行库 <code>server/cms.db</code> 实测快照 + 后端源码静态核对（38 模块 / 91 条路由注册 / 迁移 0001–0014 已应用，0015 代码就绪未迁移）。<br>
+被评估原文：<code>D:\Backup\Documents\粘贴文本.txt</code>（17 节，与首轮评估对象逐字一致）。<br>
+关联文档：<code>docs/AGENT_GROWTH_ALIGNMENT_2026-09-22.html</code>（上一轮 17 节方案对齐）· <code>docs/AGENT_LAYER_IMPLEMENTATION_2026-09-22.html</code>（段 0–2 实施记录）· <code>docs/WORDPRESS_BENCHMARK_2026-09-22.html</code>（增长层 P0 四条依据）<br>
+本次评估未编译后端、未改动任何代码或数据。</p>
+</footer>
+
+</div>
+</body>
+</html>

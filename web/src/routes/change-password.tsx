@@ -25,7 +25,7 @@ function ChangePasswordPage() {
     try {
       await api('/api/me/password', {
         method: 'POST',
-        body: JSON.stringify({ old_password: oldPw, new_password: newPw }),
+        body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }),
       })
       // 本地同步清除标记（服务端已置 0）
       useAuthStore.setState({

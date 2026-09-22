@@ -345,7 +345,7 @@ function LoginScreen({ onOk }: { onOk: (token: string) => void }) {
     if (pw.newPw.length < 8) return alert('新密码至少 8 位')
     if (pw.newPw !== pw.confirmPw) return alert('两次输入不一致')
     const r: any = await mreq('/api/me/password', {
-      method: 'POST', body: JSON.stringify({ old_password: login.password, new_password: pw.newPw }),
+      method: 'POST', body: JSON.stringify({ oldPassword: login.password, newPassword: pw.newPw }),
     })
     if (r.ok === false) return alert(r.error || '修改失败')
     setNeedMcp(false)
@@ -1136,7 +1136,7 @@ function ProfileTab({ token, role, onLogout }: { token: string; role: string; on
     if (pw.newPw !== pw.confirmPw) return alert('两次输入不一致')
     if (pw.newPw === pw.oldPw) return alert('新密码不能与旧密码相同')
     const r: any = await mreq('/api/me/password', {
-      method: 'POST', body: JSON.stringify({ old_password: pw.oldPw, new_password: pw.newPw }),
+      method: 'POST', body: JSON.stringify({ oldPassword: pw.oldPw, newPassword: pw.newPw }),
     })
     if (r.ok === false) return alert(r.error || '修改失败')
     alert('密码已更新'); setEditing(false); setPw({ oldPw: '', newPw: '', confirmPw: '' })

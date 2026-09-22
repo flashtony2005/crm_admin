@@ -165,7 +165,7 @@ export const communityApi = {
   async purchaseArticle(articleId: string): Promise<{ alreadyOwned?: boolean; spent?: number; balance?: number }> {
     const r = await request<{ data: { alreadyOwned?: boolean; spent?: number; balance?: number } }>(
       '/api/public/members/purchase-article',
-      { method: 'POST', headers: { 'Content-Type': 'application/json', ...memberHeaders() }, body: JSON.stringify({ article_id: articleId }) },
+      { method: 'POST', headers: { 'Content-Type': 'application/json', ...memberHeaders() }, body: JSON.stringify({ articleId }) },
     )
     return r.data
   },
@@ -185,7 +185,7 @@ export const communityApi = {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...memberHeaders() },
-        body: JSON.stringify({ biz_type: bizType, points: opts?.points, tier_id: opts?.tierId, channel: opts?.channel }),
+        body: JSON.stringify({ bizType, points: opts?.points, tierId: opts?.tierId, channel: opts?.channel }),
       },
     )
     return r.data

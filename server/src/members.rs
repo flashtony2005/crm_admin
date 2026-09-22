@@ -80,13 +80,29 @@ fn member_claims(id: &str, email: &str, tenant: &str) -> crate::auth::Claims {
 }
 
 #[derive(Deserialize)]
+// 键名契约：**camelCase**（与通用网关 / 全站 JSON 契约一致）。
+//
+// 这里曾经是纯 snake_case，而实际调用方（admin web 的 `memberAuth.register`
+// 与公开站注册表单）传的都是 `inviteCode`/`visitorId` —— serde 对未知字段
+// **静默忽略**，于是两个键双双丢失：
+//   · 邀请制开启时，用户明明填了码却被拒「注册需要邀请码」；
+//   · 邀请制关闭时，`invited_by` 恒为空 → **邀请关系永远建立不起来，
+//     邀请奖励一发不出去**（资损，且无任何报错）。
+// 修掉的同时用 `alias` 保留 snake_case 接受名：老调用方不该因为这次
+// 契约对齐而被打断。
+#[serde(rename_all = "camelCase")]
 pub struct MemberRegister {
     pub email: String,
     pub name: Option<String>,
     pub password: String,
     /// 邀请码：member_invite_required=on 时必填；off 时可空
-    #[serde(default)]
+    #[serde(default, alias = "invite_code")]
     pub invite_code: Option<String>,
+    /// 匿名访客标识（分析归因）：由公开站 localStorage 持久化并随注册提交。
+    /// 有了它，「这个会员是被哪篇文章带进来的」才第一次可回答。
+    /// 可选 —— 老版本前端、后台建号、隐私模式都可能没有。
+    #[serde(default, alias = "visitor_id")]
+    pub visitor_id: Option<String>,
 }
 
 /// 读注册门槛开关：site_settings.member_invite_required ∈ on/1/true 视为开启
@@ -187,10 +203,50 @@ pub async fn register(State(st): State<AppState>, Json(req): Json<MemberRegister
     let id = Uuid::new_v4().to_string();
     let now = now_iso();
     let name = req.name.clone().unwrap_or_else(|| email.clone());
+    // ── 归因：把匿名访客的「首次触达文章」固化到会员上 ──────────────────
+    // 取**最早**一条 article_view。归因要回答的是「哪一篇把他带进来的」，
+    // 取最后一次会被站内推荐位、热门榜、回访反复改写 —— 那反映的是
+    // 「促成」而非「获客」，直接指导不了「接下来该多写什么」。
+    // 两个口径都有用，但不能混成一个数字，所以这里只固化首次触达。
+    //
+    // 顺序上**先读后写、随 INSERT 一次落库**：注册是主流程，不该出现
+    // 「会员已建、归因没写上」的中间态。查不到浏览记录（例如直接打开
+    // 注册页）就只留 visitor_id —— 归因留空会被统计成「未归因」，
+    // 而这正是应该被看见的缺口，不该悄悄算到某篇文章头上。
+    let (vid_final, first_aid, first_at) = match req
+        .visitor_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        Some(v) => {
+            let v: String = v.chars().take(64).collect();
+            let row = st
+                .db
+                .query_one(
+                    "SELECT ref_id, created_at FROM events \
+                     WHERE tenant_id = ? AND visitor_id = ? AND type = 'article_view' AND ref_id <> '' \
+                     ORDER BY created_at ASC, rowid ASC LIMIT 1",
+                    vec![sval(st.tenant.clone()), sval(v.clone())],
+                )
+                .await
+                .unwrap_or(None);
+            match row {
+                Some(r) => (
+                    v,
+                    r.try_get::<String>("", "ref_id").unwrap_or_default(),
+                    r.try_get::<String>("", "created_at").unwrap_or_default(),
+                ),
+                None => (v, String::new(), String::new()),
+            }
+        }
+        None => (String::new(), String::new(), String::new()),
+    };
     st.db
         .execute(
-            "INSERT INTO members (id, tenant_id, email, name, password_hash, status, plan, invited_by, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, ?, 1, 'free', ?, ?, ?)",
+            "INSERT INTO members (id, tenant_id, email, name, password_hash, status, plan, invited_by, \
+             visitor_id, first_touch_article_id, first_touch_at, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, ?, 1, 'free', ?, ?, ?, ?, ?, ?)",
             vec![
                 sval(id.clone()),
                 sval(st.tenant.clone()),
@@ -198,6 +254,9 @@ pub async fn register(State(st): State<AppState>, Json(req): Json<MemberRegister
                 sval(name.clone()),
                 sval(hash_password(&req.password)),
                 sval(invited_by.clone()),
+                sval(vid_final),
+                sval(first_aid),
+                sval(first_at),
                 sval(now.clone()),
                 sval(now.clone()),
             ],

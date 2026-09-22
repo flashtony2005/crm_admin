@@ -47,8 +47,9 @@ export async function updateProfile(data: UpdateProfileRequest): Promise<UpdateP
 }
 
 export interface ChangePasswordRequest {
-  old_password: string
-  new_password: string
+  // 键名就是发给后端的键名：后端 DTO 已 rename_all = "camelCase"。
+  oldPassword: string
+  newPassword: string
 }
 
 /** 修改当前登录用户的密码 */

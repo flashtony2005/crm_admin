@@ -434,7 +434,7 @@ function SecuritySection() {
 
   const pwdMutation = useMutation({
     mutationFn: async (data: { oldPassword: string; newPassword: string }) => {
-      return changePassword({ old_password: data.oldPassword, new_password: data.newPassword })
+      return changePassword({ oldPassword: data.oldPassword, newPassword: data.newPassword })
     },
     onSuccess: () => {
       toast(t('settings.passwordChanged'), { variant: 'success' })

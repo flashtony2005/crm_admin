@@ -41,6 +41,7 @@ mod state;
 mod templates;
 mod seo_redirect;
 mod smart_links;
+mod attribution;
 mod members;
 mod comments;
 mod newsletter;
@@ -244,6 +245,8 @@ pub fn build_router(st: AppState) -> Router {
         // 站点设置管理（Owner）：主题 / 模板 / 品牌
         .route("/api/admin/site", put(site::update_site))
         .route("/api/admin/stats", get(stats::stats))
+        // 分析归因：内容 → 会员 → 收入（只读，需 analytics.attribution.view）
+        .route("/api/admin/attribution", get(attribution::overview))
         // GraphQL（只读）
         .route("/graphql", get(graphql_api::graphql_handler).post(graphql_api::graphql_handler))
         .route("/graphiql", get(graphql_api::graphiql))

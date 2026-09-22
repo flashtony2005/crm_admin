@@ -26,6 +26,8 @@ pub const P: &[(&str, &str)] = &[
     ("contentSeoCreate", "content.seo.create"),
     ("contentSeoUpdate", "content.seo.update"),
     ("contentSeoDelete", "content.seo.delete"),
+    // 分析归因（哪篇文章带来几个会员）—— 只读，无写面
+    ("analyticsAttributionView", "analytics.attribution.view"),
 ];
 
 /// 角色键
@@ -130,6 +132,8 @@ impl Role {
                 "content.seo.create",
                 "content.seo.update",
                 "content.seo.delete",
+                // 分析归因：只读。编辑者需要它来回答「该多写什么」
+                "analytics.attribution.view",
                 // ── Domain Model V1（Agent-first 领域模型）──
                 // 编辑器可生产内容与上下文、配置渠道；
                 // 但**站点配置 / 模板 / 主题 / 发布**刻意不授予写权限——
@@ -159,6 +163,8 @@ impl Role {
                 "site.homePins.view",
                 // SEO：只读
                 "content.seo.view",
+                // 分析归因：只读
+                "analytics.attribution.view",
                 // ── Domain Model V1：只读（Viewer 不得改动任何领域数据）──
             ]
             .iter()
