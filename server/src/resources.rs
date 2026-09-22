@@ -82,6 +82,11 @@ pub static TABLES: &[TableDef] = &[
             ("locale","locale",Col::Text),
             ("paid_level","paidLevel",Col::Int),
             ("price_points","pricePoints",Col::Int),
+            // 内容类型（迁移 0011）：post = 文章，problem = 问题页。
+            // 必须登记进 TableDef —— 历史教训：漏列会让通用网关**静默丢弃**
+            // 该字段（articles 的 visibility/paid_level 就这么丢过一次），
+            // 表现为「后台保存成功但字段不变」，极难排查。
+            ("kind","kind",Col::Text),
         ],
     },
     TableDef {
@@ -352,6 +357,43 @@ pub static TABLES: &[TableDef] = &[
             ("article_id","articleId",Col::Text),("channel","channel",Col::Text),
             ("external_url","externalUrl",Col::TextNull),("status","status",Col::Text),
             ("dispatched_at","dispatchedAt",Col::TextNull),("note","note",Col::TextNull),
+        ],
+    },
+    // ── SEO（P0-1：重定向 + 404 监控，对标 Rank Math）──
+    // perm_prefix 用新码 content.seo：它不属于内容生产（文章/标签）也不属于商业层，
+    // 而是站点的**入口资产治理**。放进 content.* 会让「内容运营」与「URL 资产」混在一个权限口上。
+    TableDef {
+        key: "redirects", table: "redirects", perm_prefix: "content.seo",
+        create_perm: None, update_perm: None, delete_perm: None,
+        columns: cols![
+            ("from_path","fromPath",Col::Text),("to_path","toPath",Col::Text),
+            ("code","code",Col::Int),("note","note",Col::Text),
+            ("hits","hits",Col::Int),("enabled","enabled",Col::Bool),
+        ],
+    },
+    // ── Smart Links（P0-4：点链接自动打标签）──
+    // 与 redirects 同属 content.seo：两者都是「站点的入口资产」而非内容本身。
+    // 放在这里而不是新开 perm_prefix，是因为能用它的人本来就是同一批
+    // （做 SEO / 增长的人），多开一个权限码只会让矩阵变长而不增加控制力。
+    TableDef {
+        key: "links", table: "smart_links", perm_prefix: "content.seo",
+        create_perm: None, update_perm: None, delete_perm: None,
+        columns: cols![
+            ("token","token",Col::Text),("url","url",Col::Text),
+            ("label","label",Col::Text),("tags","tags",Col::Text),
+            ("enabled","enabled",Col::Bool),("clicks","clicks",Col::Int),
+            ("prefetch","prefetch",Col::Int),
+            ("last_click_at","lastClickAt",Col::TextNull),
+        ],
+    },
+    TableDef {
+        key: "notfound", table: "not_found_log", perm_prefix: "content.seo",
+        create_perm: Some("content.seo.create"), update_perm: Some("content.seo.update"),
+        delete_perm: Some("content.seo.delete"),
+        columns: cols![
+            ("path","path",Col::Text),("referer","referer",Col::Text),
+            ("ua","ua",Col::Text),("hits","hits",Col::Int),
+            ("last_seen","lastSeen",Col::Text),("resolved","resolved",Col::Bool),
         ],
     },
 

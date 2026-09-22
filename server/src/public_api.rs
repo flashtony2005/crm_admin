@@ -62,6 +62,8 @@ fn row_json(r: &Row, with_content: bool) -> Value {
         "meta_title": so(r, "meta_title"),
         "meta_description": so(r, "meta_description"),
         "locale": so(r, "locale"),
+        // 内容类型：前端据此选版式（文章 vs 问题页）
+        "kind": so(r, "kind"),
         "visibility": so(r, "visibility"),
         "featured": r.try_get::<i64>("", "featured").unwrap_or(0) != 0,
         "scheduled_at": so(r, "scheduled_at"),
@@ -191,6 +193,8 @@ async fn articles_value(
     let tag = params.get("tag").map(|s| s.trim()).filter(|s| !s.is_empty());
     let locale = params.get("locale").map(|s| s.trim()).filter(|s| !s.is_empty() && *s != "all");
     let author = params.get("author").map(|s| s.trim()).filter(|s| !s.is_empty());
+    // ?kind=problem 只看问题页；不传则不过滤，文章流行为完全不变。
+    let kind = params.get("kind").map(|s| s.trim()).filter(|s| !s.is_empty());
     let featured_only = params.get("featured").map(|s| s == "1").unwrap_or(false);
     // ?limit= 控制返回条数（默认 100，上限 200，供首页「显示条数」配置消费）
     let limit = params
@@ -201,7 +205,7 @@ async fn articles_value(
     let mut sql = String::from(
         "SELECT id, title, slug, summary, author, tags, featured_image, \
          published_at, meta_title, meta_description, locale, visibility, featured, scheduled_at, \
-         canonical_url, paid_level, price_points, updated_at FROM articles \
+         canonical_url, paid_level, price_points, kind, updated_at FROM articles \
          WHERE tenant_id = ? AND status = 'published'",
     );
     let mut args = vec![SqlValue::String(Some(st.tenant.clone()))];
@@ -219,6 +223,11 @@ async fn articles_value(
     }
     if featured_only {
         sql.push_str(" AND featured = 1");
+    }
+    if let Some(k) = kind {
+        // COALESCE：极旧库还没有 kind 列时按 post 处理，不因缺列把文章全漏掉
+        sql.push_str(" AND COALESCE(kind, 'post') = ?");
+        args.push(SqlValue::String(Some(k.to_string())));
     }
     sql.push_str(" ORDER BY featured DESC, COALESCE(published_at, updated_at) DESC LIMIT ?");
     args.push(SqlValue::BigInt(Some(limit)));
@@ -246,7 +255,7 @@ pub async fn article_detail(
 ) -> ApiResult {
     let sql = "SELECT id, title, slug, summary, author, tags, featured_image, \
                published_at, meta_title, meta_description, updated_at, content, visibility, locale, \
-               featured, scheduled_at, canonical_url, paid_level, price_points FROM articles \
+               featured, scheduled_at, canonical_url, paid_level, price_points, kind FROM articles \
                WHERE tenant_id = ? AND status = 'published' AND (id = ? OR slug = ?) LIMIT 1";
     let rows = st
         .db

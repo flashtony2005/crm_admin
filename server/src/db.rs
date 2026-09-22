@@ -625,6 +625,154 @@ const MIGRATIONS: &[Migration] = &[
         "CREATE INDEX IF NOT EXISTS idx_webhook_event_status ON webhook_events(tenant_id, status, created_at)",
         ],
     },
+    // ── 0011_article_kind（段 3：问题页面体系的承载列）──────────────────
+    // 问题页不是「同一种文章的另一种排版」，而是**另一种内容意图**：一个页面
+    // 只回答一个问题。不给类型判据，就只能靠标签名做 LIKE 子串匹配
+    // （`articles?tag=` 现在正是这么干的）—— 名字一改就断链，且 20+ 条问题页
+    // 混在文章流里，无法被 sitemap / 列表 / 导航分别对待。
+    // 默认 'post' 保证既有行语义不变（零回填）。
+    Migration {
+        version: "0011_article_kind",
+        name: "0011_article_kind",
+        lenient: true,
+        sqls: &[
+        "ALTER TABLE articles ADD COLUMN kind TEXT NOT NULL DEFAULT 'post'",
+        "CREATE INDEX IF NOT EXISTS idx_articles_kind ON articles(tenant_id, kind, status)",
+        ],
+    },
+    // ── 0012_seo_redirects（P0-1：重定向表 + 404 监控）────────────────
+    // 对标 Rank Math 免费版的重定向管理。为什么现在是刚需：迁移 0011 刚加了
+    // kind 列（文章能在 /post/ 与 /problems/ 之间迁移），问题页正在铺开，
+    // sitemap 刚从 7 条修到 12 条 —— **URL 面本身在快速变化**。
+    // 没有重定向表，改一次 slug 就是一次不报警、查不到的资产流失。
+    // not_found_log 的 path 建唯一索引：同一条死链只累加 hits，
+    // 避免后台列表被同一条链接刷满（采用方向由前端主动上报，量会大）。
+    Migration {
+        version: "0012_seo_redirects",
+        name: "0012_seo_redirects",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS redirects (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            from_path TEXT NOT NULL,
+            to_path TEXT NOT NULL,
+            code INTEGER NOT NULL DEFAULT 301,
+            note TEXT NOT NULL DEFAULT '',
+            hits INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_redirect_unique ON redirects(tenant_id, from_path)",
+        "CREATE INDEX IF NOT EXISTS idx_redirect_enabled ON redirects(tenant_id, enabled)",
+        "CREATE TABLE IF NOT EXISTS not_found_log (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            path TEXT NOT NULL,
+            referer TEXT NOT NULL DEFAULT '',
+            ua TEXT NOT NULL DEFAULT '',
+            hits INTEGER NOT NULL DEFAULT 0,
+            last_seen TEXT NOT NULL DEFAULT '',
+            resolved INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_nf_unique ON not_found_log(tenant_id, path)",
+        "CREATE INDEX IF NOT EXISTS idx_nf_resolved ON not_found_log(tenant_id, resolved, hits)",
+        ],
+    },
+    // ── 0013_community_min（P0-2：社区最小闭环 —— 反应 / 举报 / 通知）────
+    // 对标 FluentCommunity 的最小可用集：反应 + 楼中楼 + @提及 + 举报。
+    // 楼中楼的 parent_id 列已在 0004 就位（写入/读取都已支持），本次补的是
+    // 「下半场」：没有反应就没有「读者对读者」，没有通知就不会有人回来看。
+    //
+    // comment_reactions / comment_reports 的唯一索引都带 member_id：
+    // 防重复投票与防重复举报是**库层保证**，不靠应用层先查后写
+    // （后者在并发下必然漏。且该项目已有「唯一冲突被 Turso 吞成 Ok(0)」的前车之鉴）。
+    Migration {
+        version: "0013_community_min",
+        name: "0013_community_min",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS comment_reactions (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            comment_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_creaction_unique ON comment_reactions(tenant_id, comment_id, member_id, kind)",
+        "CREATE INDEX IF NOT EXISTS idx_creaction_comment ON comment_reactions(tenant_id, comment_id)",
+        "CREATE TABLE IF NOT EXISTS comment_reports (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            comment_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            reason TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_creport_unique ON comment_reports(tenant_id, comment_id, member_id)",
+        "CREATE INDEX IF NOT EXISTS idx_creport_comment ON comment_reports(tenant_id, comment_id)",
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            member_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL DEFAULT '',
+            ref_kind TEXT NOT NULL DEFAULT '',
+            ref_id TEXT NOT NULL DEFAULT '',
+            read_at TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE INDEX IF NOT EXISTS idx_notif_member ON notifications(tenant_id, member_id, created_at)",
+        ],
+    },
+    Migration {
+        // P0-4：Smart Links。三张表各司其职 ——
+        // smart_links 是「我要发出去的链接」，link_clicks 是「谁点过」，
+        // member_tags 是「点过之后这个人被打上了什么」。
+        // 计数与明细分开：列表页只读 smart_links 的两个计数器，
+        // 明细表可以随体积增长清理而不影响任何前台数字。
+        version: "0014_smart_links",
+        name: "0014_smart_links",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS smart_links (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            token TEXT NOT NULL,
+            url TEXT NOT NULL DEFAULT '',
+            label TEXT NOT NULL DEFAULT '',
+            tags TEXT NOT NULL DEFAULT '',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            clicks INTEGER NOT NULL DEFAULT 0,
+            prefetch INTEGER NOT NULL DEFAULT 0,
+            last_click_at TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_smartlink_token ON smart_links(tenant_id, token)",
+        "CREATE TABLE IF NOT EXISTS link_clicks (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            link_id TEXT NOT NULL,
+            member_id TEXT NOT NULL DEFAULT '',
+            referer TEXT NOT NULL DEFAULT '',
+            ua TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE INDEX IF NOT EXISTS idx_linkclick_link ON link_clicks(tenant_id, link_id, created_at)",
+        "CREATE TABLE IF NOT EXISTS member_tags (
+            id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL DEFAULT 't_demo',
+            member_id TEXT NOT NULL,
+            tag TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_membertag_unique ON member_tags(tenant_id, member_id, tag)",
+        ],
+    },
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。

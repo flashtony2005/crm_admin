@@ -21,6 +21,11 @@ pub const P: &[(&str, &str)] = &[
     ("siteHomePinsDelete", "site.homePins.delete"),
     // F4：作废旧 token（改密 / 管理员踢下线）—— Owner 专属
     ("teamUsersUpdate", "team.users.update"),
+    // SEO（P0-1）：重定向与 404 监控——站点入口资产治理
+    ("contentSeoView", "content.seo.view"),
+    ("contentSeoCreate", "content.seo.create"),
+    ("contentSeoUpdate", "content.seo.update"),
+    ("contentSeoDelete", "content.seo.delete"),
 ];
 
 /// 角色键
@@ -120,6 +125,11 @@ impl Role {
                 "site.homePins.create",
                 "site.homePins.update",
                 "site.homePins.delete",
+                // SEO：重定向与 404 监控（editor 可管：它直接影响内容发布后的可访问性）
+                "content.seo.view",
+                "content.seo.create",
+                "content.seo.update",
+                "content.seo.delete",
                 // ── Domain Model V1（Agent-first 领域模型）──
                 // 编辑器可生产内容与上下文、配置渠道；
                 // 但**站点配置 / 模板 / 主题 / 发布**刻意不授予写权限——
@@ -147,6 +157,8 @@ impl Role {
                 "site.nav.view",
                 // 主页置顶文章：只读
                 "site.homePins.view",
+                // SEO：只读
+                "content.seo.view",
                 // ── Domain Model V1：只读（Viewer 不得改动任何领域数据）──
             ]
             .iter()

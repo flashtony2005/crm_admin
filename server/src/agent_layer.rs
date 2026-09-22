@@ -288,6 +288,9 @@ pub struct ArticleBrief {
     pub updated_at: String,
     pub tags: Vec<String>,
     pub paid: bool,
+    /// 内容类型：`post`（文章）或 `problem`（问题页）。决定对外 URL 与
+    /// 结构化数据形态（问题页额外发 FAQPage）。
+    pub kind: String,
 }
 
 /// 可售套餐
@@ -351,6 +354,18 @@ pub fn site_url_for_active(active: &str) -> String {
 /// 实测教训：`/read/<key>` 在未设 `STATIC_DIR` 的部署下直接 404 —— 让机器
 /// 读的说明书指向死链，比不给 URL 更糟。
 pub fn article_url_for(site_url: &str, key: &str) -> String {
+    article_url_for_kind(site_url, key, "post")
+}
+
+/// 按内容类型取对外 URL：`problem` → `/problems/<key>`，其余 → `/post/<key>`。
+///
+/// `PUBLIC_ARTICLE_URL` 模板**只对文章生效** —— 它是「文章详情挂哪里」的配置。
+/// 拿它去拼问题页会把两类内容塞进同一个 URL 空间，等于在 URL 层把 `kind`
+/// 刚建立的类型判据抹掉（Sitemap、内链、面包屑会跟着一起错）。
+pub fn article_url_for_kind(site_url: &str, key: &str, kind: &str) -> String {
+    if kind == "problem" {
+        return format!("{}/problems/{}", site_url.trim_end_matches('/'), key);
+    }
     if let Ok(t) = std::env::var("PUBLIC_ARTICLE_URL") {
         let t = t.trim();
         if !t.is_empty() {
@@ -514,7 +529,7 @@ pub async fn facts(st: &AppState, site_url: &str) -> Result<Facts, String> {
         .db
         .query_all(
             "SELECT id, title, slug, summary, tags, published_at, updated_at, \
-                    visibility, paid_level FROM articles \
+                    visibility, paid_level, COALESCE(kind, 'post') AS kind FROM articles \
              WHERE tenant_id = ? AND status = 'published' \
              ORDER BY COALESCE(published_at, updated_at) DESC LIMIT 60",
             vec![SqlValue::String(Some(st.tenant.clone()))],
@@ -533,11 +548,14 @@ pub async fn facts(st: &AppState, site_url: &str) -> Result<Facts, String> {
         };
         let visibility = s(r, "visibility");
         let paid_level = n(r, "paid_level");
+        let kind = s(r, "kind");
+        let kind = if kind.trim().is_empty() { "post".to_string() } else { kind };
         articles.push(ArticleBrief {
-            url: article_url_for(site_url, &key),
+            url: article_url_for_kind(site_url, &key, &kind),
             key,
             id,
             slug,
+            kind,
             title: s(r, "title"),
             summary: collapse_ws(&s(r, "summary")),
             published_at: so(r, "published_at"),
@@ -614,7 +632,8 @@ pub async fn article_full(
         .db
         .query_all(
             "SELECT id, title, slug, summary, content, tags, author, published_at, updated_at, \
-                    visibility, paid_level, meta_title, meta_description, canonical_url, \
+                    visibility, paid_level, COALESCE(kind, 'post') AS kind, \
+                    meta_title, meta_description, canonical_url, \
                     featured_image FROM articles \
              WHERE tenant_id = ? AND status = 'published' AND (id = ? OR slug = ?) LIMIT 1",
             vec![
@@ -635,12 +654,15 @@ pub async fn article_full(
     } else {
         slug.clone()
     };
+    let kind = s(r, "kind");
+    let kind = if kind.trim().is_empty() { "post".to_string() } else { kind };
     Ok(Some(ArticleFull {
         brief: ArticleBrief {
-            url: article_url_for(site_url, &k),
+            url: article_url_for_kind(site_url, &k, &kind),
             key: k,
             id,
             slug,
+            kind,
             title: s(r, "title"),
             summary: collapse_ws(&s(r, "summary")),
             published_at: so(r, "published_at"),
@@ -803,6 +825,33 @@ fn faq_from_facts(f: &Facts) -> Option<Value> {
     Some(json!({ "@context": "https://schema.org", "@type": "FAQPage", "mainEntity": qa }))
 }
 
+/// 问题页的 FAQPage：**单条**问答 —— 问题取页面标题，答案取 `summary`。
+///
+/// 为什么答案只认 `summary`（页面上那段「直接答案」），不拿正文充数：
+/// 结构化数据里的 `acceptedAnswer` 必须是**页面上真实可见且完整**的一句答案。
+/// 从正文里截 400 字，很可能截到半句（"第一步我们先……"），既是低质答案，
+/// 也给了正文一条进入结构化数据的旁路 —— 而正文是可能被付费墙挡住的部分。
+/// `summary` 为空就直接不发：问题页的内容约定就是「先写直接答案」，
+/// 没有答案就不该声称有（与 `faq_from_facts` 的「不编造」同一原则）。
+fn problem_faq(question: &str, direct_answer: &str) -> Option<Value> {
+    let answer = direct_answer.trim();
+    if answer.is_empty() {
+        return None;
+    }
+    Some(json!({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [{
+            "@type": "Question",
+            "name": question,
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": answer
+            }
+        }]
+    }))
+}
+
 /// 文章详情页头注
 pub fn build_article_head(f: &Facts, a: &ArticleFull) -> HeadInjection {
     let title = if a.meta_title.trim().is_empty() {
@@ -878,13 +927,39 @@ pub fn build_article_head(f: &Facts, a: &ArticleFull) -> HeadInjection {
         art["articleBody"] = json!(truncate_chars(&plain, JSONLD_BODY_LIMIT));
     }
 
+    // 面包屑要反映站点真实层级：问题页多一层「问题」集合。
+    // 把问题页平铺成「站点 → 页面」，Agent 就会当它是普通文章 ——
+    // 页面的类型信号在结构化数据这一层又丢了。
+    let is_problem = a.brief.kind == "problem";
+    let title_pos = if is_problem { 3 } else { 2 };
+    // FAQ 必须**在这里**算好：下面 HeadInjection.title 会把 title move 走，
+    // 放到构造之后再借用就是 use-after-move。
+    // 问题页的机器侧价值就在 FAQ：Q = 页面 H1，A = 正文首段 —— 两者都在页面上
+    // 真实可见，符合结构化数据的「内容一致」要求。付费页一律不发：
+    // 那等于把答案白送给爬虫，绕过付费墙。
+    let problem_faq_json = if is_problem && !a.brief.paid {
+        problem_faq(&title, &a.brief.summary).map(|v| v.to_string())
+    } else {
+        None
+    };
+    let mut crumbs_items = vec![json!({
+        "@type": "ListItem", "position": 1, "name": f.title, "item": f.site_url
+    })];
+    if is_problem {
+        crumbs_items.push(json!({
+            "@type": "ListItem",
+            "position": 2,
+            "name": "问题",
+            "item": format!("{}/problems", f.site_url.trim_end_matches('/')),
+        }));
+    }
+    crumbs_items.push(json!({
+        "@type": "ListItem", "position": title_pos, "name": a.brief.title, "item": canonical
+    }));
     let crumbs = json!({
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
-        "itemListElement": [
-            { "@type": "ListItem", "position": 1, "name": f.title, "item": f.site_url },
-            { "@type": "ListItem", "position": 2, "name": a.brief.title, "item": canonical },
-        ]
+        "itemListElement": crumbs_items
     });
 
     HeadInjection {
@@ -906,7 +981,13 @@ pub fn build_article_head(f: &Facts, a: &ArticleFull) -> HeadInjection {
         },
         locale: Some("zh_CN".into()),
         extra_meta: extra,
-        jsonld: vec![art.to_string(), crumbs.to_string()],
+        jsonld: {
+            let mut v = vec![art.to_string(), crumbs.to_string()];
+            if let Some(faq) = problem_faq_json {
+                v.push(faq);
+            }
+            v
+        },
         noscript: Some(noscript_article(f, a, &plain)),
     }
 }
@@ -1822,7 +1903,10 @@ pub async fn head_for(st: &AppState, slug: &str, rest: &str) -> Option<HeadInjec
 fn article_key_from_path(rel: &str) -> Option<String> {
     let mut it = rel.split('/');
     let head = it.next()?;
-    if !matches!(head, "post" | "read" | "articles") {
+    // `problems` 与 post/read/articles 同属「内容详情」前缀 —— 问题页同样要拿到
+    // 真实头注，否则爬虫看到的只是空壳。URL 的具体形态由内容 kind 决定
+    // （见 `article_url_for_kind`），不由此处路径决定。
+    if !matches!(head, "post" | "read" | "articles" | "problems") {
         return None;
     }
     let key = it.next()?;
@@ -1855,6 +1939,7 @@ mod tests {
                 slug: "u-card".into(),
                 key: "u-card".into(),
                 url: "https://example.com/post/u-card".into(),
+                kind: "post".into(),
                 title: "U 卡横评".into(),
                 summary: "6 张主流 U 卡对比。".into(),
                 published_at: "2026-09-01T00:00:00Z".into(),
@@ -1872,6 +1957,7 @@ mod tests {
                 slug: "paid-post".into(),
                 key: "paid-post".into(),
                 url: "https://example.com/post/paid-post".into(),
+                kind: "post".into(),
                 title: "会员专享：港卡开户".into(),
                 summary: "开户门槛与审核速度对比。".into(),
                 published_at: "2026-09-01T00:00:00Z".into(),
@@ -2024,6 +2110,10 @@ mod tests {
         assert!(article_key_from_path("post/a/b").is_none());
         assert!(article_key_from_path("post/").is_none());
         assert!(article_key_from_path("about").is_none());
+        // 问题页深链也必须被识别，否则爬虫只拿到空壳
+        assert_eq!(article_key_from_path("problems/u-card").as_deref(), Some("u-card"));
+        assert!(article_key_from_path("problems/a/b").is_none());
+        assert!(article_key_from_path("problems/").is_none());
     }
 
     /// agent.json / llms.txt 必须自洽：无套餐时不编造价格
@@ -2036,5 +2126,67 @@ mod tests {
         let md = render_llms(&f);
         assert!(md.contains("当前未配置付费方案"));
         assert!(md.contains("u-card"));
+    }
+
+    /// 问题页 URL 必须分流到 /problems，且不吃 PUBLIC_ARTICLE_URL 模板
+    #[test]
+    fn problem_url_is_not_article_space() {
+        let u = article_url_for_kind("https://example.com", "how-to-subscribe", "problem");
+        assert_eq!(u, "https://example.com/problems/how-to-subscribe");
+        let post = article_url_for_kind("https://example.com", "how-to-subscribe", "post");
+        assert_eq!(post, "https://example.com/post/how-to-subscribe");
+        // 未知 kind 一律按文章处理（宽容：旧库 kind 为空不应变成 /problems）
+        assert_eq!(article_url_for_kind("https://example.com", "x", ""), "https://example.com/post/x");
+    }
+
+    /// 免费问题页：发 FAQPage（Q=标题、A=首段），面包屑多一层「问题」
+    #[test]
+    fn problem_page_emits_faq_and_layered_breadcrumb() {
+        let f = facts_fixture();
+        let mut a = art(false);
+        a.brief.kind = "problem".into();
+        a.brief.title = "安卓手机怎么订阅 ChatGPT Plus？".into();
+        a.brief.url = article_url_for_kind(&f.site_url, "how-to-subscribe", "problem");
+        a.brief.summary = "先用对应区账号或礼品卡付款，不必持有海外银行卡。".into();
+        a.content = "<p>第一步：注册海外区账号。第二步：充值礼品卡。</p>".into();
+
+        let h = build_article_head(&f, &a);
+        let joined = h.jsonld.join("\n");
+        assert!(h.canonical.as_deref().unwrap().ends_with("/problems/how-to-subscribe"));
+        assert!(joined.contains("FAQPage"), "{joined}");
+        assert!(joined.contains("安卓手机怎么订阅"), "{joined}");
+        // 答案必须是页面上的「直接答案」（summary），不是正文节选 ——
+        // 免费页的 Article.articleBody 本来就会带正文，所以这里只断言
+        // FAQ 里出现的是 summary 那句，不能反过来断言「全文无正文」。
+        assert!(joined.contains("先用对应区账号或礼品卡付款"), "{joined}");
+        assert!(joined.contains("\"position\":2"), "问题集合层缺失：{joined}");
+        assert!(joined.contains("\"position\":3"), "内容层缺失：{joined}");
+    }
+
+    /// 付费问题页：不发 FAQPage、不写正文 —— FAQ 会把答案白送给爬虫
+    #[test]
+    fn paid_problem_page_withholds_faq_and_body() {
+        let f = facts_fixture();
+        let mut a = art(true);
+        a.brief.kind = "problem".into();
+        let h = build_article_head(&f, &a);
+        let joined = h.jsonld.join("\n");
+        assert!(!joined.contains("FAQPage"), "{joined}");
+        assert!(!joined.contains("SECRET_BODY"));
+        // 注意 JSON 里的引号 —— 实际文本是 isAccessibleForFree":false
+        assert!(joined.contains("isAccessibleForFree\":false"), "{joined}");
+    }
+
+    /// 没写「直接答案」的问题页不发 FAQPage
+    /// —— 避免「结构正确、内容为空/半句」的实体被判低质。
+    #[test]
+    fn problem_without_direct_answer_skips_faq() {
+        let f = facts_fixture();
+        let mut a = art(false);
+        a.brief.kind = "problem".into();
+        a.brief.summary = String::new();
+        a.content = "<p>正文很长但没有一句能独立回答问题的结论。</p>".into();
+        let h = build_article_head(&f, &a);
+        assert!(!h.jsonld.join("\n").contains("FAQPage"));
     }
 }

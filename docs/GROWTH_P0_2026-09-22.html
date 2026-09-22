@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>增长层 P0 四条落地报告 · 2026-09-22</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+    --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+    --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+    --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+    --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.72;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:46px 26px 90px}
+  h1{font-size:27px;font-weight:700;margin:0 0 10px;letter-spacing:-.3px}
+  h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+  h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+    color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+  h3{font-size:14.5px;font-weight:600;margin:22px 0 8px}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0;padding-left:21px}
+  li{margin:5px 0}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+    background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+  pre{background:#1e2229;color:#e6e9ee;padding:13px 15px;border-radius:9px;overflow:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6}
+  pre .c{color:#8b929e}
+  .meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+  .lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+    border-radius:10px;padding:17px 21px;margin:0 0 22px}
+  .mcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px;margin:18px 0 6px}
+  .mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+  .mcard .v{font-size:23px;font-weight:700;letter-spacing:-.5px}
+  .mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:20px;margin-right:5px}
+  .t-red{background:var(--redbg);color:var(--red)}
+  .t-amber{background:var(--amberbg);color:var(--amber)}
+  .t-green{background:var(--greenbg);color:var(--green)}
+  .t-blue{background:var(--bluebg);color:var(--blue)}
+  .t-purple{background:var(--purplebg);color:var(--purple)}
+  .t-gray{background:var(--graybg);color:var(--tx2)}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#f0f1f4;font-weight:600;font-size:12.5px;color:var(--tx2)}
+  tr:last-child td{border-bottom:none}
+  td.ok{color:var(--green);font-weight:600}
+  .note{background:var(--amberbg);border:1px solid #f0dcb8;border-radius:10px;padding:13px 17px;margin:13px 0;font-size:13px}
+  .note b{color:var(--amber)}
+  .good{background:var(--greenbg);border:1px solid #cbe8da;border-radius:10px;padding:13px 17px;margin:13px 0;font-size:13px}
+  .good b{color:var(--green)}
+  .bad{background:var(--redbg);border:1px solid #f5cfc9;border-radius:10px;padding:13px 17px;margin:13px 0;font-size:13px}
+  .bad b{color:var(--red)}
+  .quote{border-left:2px solid var(--line2);padding:2px 0 2px 15px;color:var(--tx2);margin:10px 0;font-size:13px}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.9;color:var(--tx2)}
+  .flow b{color:var(--tx)}
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);color:var(--tx3);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>增长层 P0 四条落地报告</h1>
+  <p class="meta">
+    项目：admin 私有化创作者变现站（CMS + 付费会员 + 社区）· 单实例单站点<br>
+    范围：<code>docs/WORDPRESS_BENCHMARK_2026-09-22.html</code> 13 条建议中的 <strong>P0 四条</strong>（均不依赖内容素材）<br>
+    日期：2026-09-22 · 依据：真实编译 + 真实端口 + 真实浏览器
+  </p>
+
+  <div class="lead">
+    <p style="margin-top:0"><strong>一句话结论</strong>：四条 P0 全部落地并逐项验证通过 —— 后端 <code>cargo test</code> <strong>66/66</strong>、
+    端到端 HTTP 断言 <strong>28/28</strong>、双前端 <code>tsc</code> 0 error、无头浏览器渲染 0 控制台错误。
+    本轮同时<strong>发现并修掉了 4 个既有缺陷</strong>，其中 2 个是上一轮自己留下的（含一条"测试方向写反、等于给 bug 盖章"）。</p>
+    <p style="margin-bottom:0">选这四条的理由：它们都不需要等用户提供内容素材，且分别补上了三个真实空白 ——
+    <strong>入口资产无人治理</strong>、<strong>会员之间零互动</strong>、<strong>发出去的链接无从归因</strong>；外加把已有数据汇成一个会员档案。</p>
+  </div>
+
+  <div class="mcards">
+    <div class="mcard"><div class="k">cargo test</div><div class="v">66/66</div><div class="s">原 44 → 66</div></div>
+    <div class="mcard"><div class="k">端到端 HTTP 断言</div><div class="v">28/28</div><div class="s">真实端口 + 真实 DB</div></div>
+    <div class="mcard"><div class="k">新增迁移</div><div class="v">3</div><div class="s">0012 / 0013 / 0014</div></div>
+    <div class="mcard"><div class="k">新增表</div><div class="v">7</div><div class="s">重定向·404·反应·举报·通知·短链·标签</div></div>
+    <div class="mcard"><div class="k">修掉既有缺陷</div><div class="v">4</div><div class="s">含 2 个自留</div></div>
+  </div>
+
+  <h2><span class="num">1</span>P0-1 重定向管理器 + 404 监控</h2>
+  <p>对标 Rank Math 免费版做的那件事。之所以把它排第一：我们<strong>正在主动制造 URL 变动</strong> —— 迁移 0011 加了 <code>kind</code> 列，
+  文章可以在 <code>/post/&lt;key&gt;</code> 与 <code>/problems/&lt;key&gt;</code> 之间迁移；sitemap 刚扩过。
+  没有 301，旧地址就是 404，而这类流失<strong>既不报警也查不到</strong>。</p>
+
+  <div class="flow">
+    <b>出</b>：访问 <code>/post/old-slug</code> → <code>templates::serve_file</code> 在 <b>SPA 兜底之前</b> 查重定向<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;→ 命中 → 301/302/307/308/410（累加 <code>hits</code>）<br>
+    <b>入</b>：前端渲染出「未找到」兜底态 → <code>POST /api/public/not-found</code> → <code>not_found_log</code> 按路径 upsert
+  </div>
+
+  <h3>两个必须记住的架构事实</h3>
+  <ul>
+    <li><strong>重定向只能放服务端</strong>：爬虫不执行 JS。放在前端路由层，对搜索引擎与 AI 爬虫等于不存在。</li>
+    <li><strong>CSR 站点服务端收不到 404</strong>：服务端对任意导航路径都回 <code>index.html</code>，
+      所以 404 只能由<strong>前端主动上报</strong>。这是 CSR 架构的固有代价，不是实现选择。</li>
+  </ul>
+
+  <h3>路径口径</h3>
+  <p>统一存<strong>完整请求路径</strong>（含 <code>/t/&lt;slug&gt;</code> 前缀），匹配时先试完整路径、未命中再试剥掉前缀的站点相对路径。
+  这样后台「一键转 301」可以直接把 404 日志里的 path 落成 <code>from_path</code>，零转换且与匹配逻辑天然一致。</p>
+
+  <h2><span class="num">2</span>P0-2 评论区升级为社区最小闭环</h2>
+  <p>原状态：<strong>公开站连评论组件都没有</strong>。评论区只有「读者对作者」，没有「读者对读者」，因此不产生任何留存。
+  这是会员站 —— 会员留存即收入留存。</p>
+
+  <table>
+    <tr><th style="width:150px">能力</th><th>实现要点</th></tr>
+    <tr><td>反应（点赞/有用）</td><td><strong>切换语义</strong>（点两下回到原状），不是只加不减；匿名一律 401 —— 匿名可刷的计数不是信号，是噪声</td></tr>
+    <tr><td>楼中楼</td><td>复用 0004 已建的 <code>parent_id</code>；回复落库时给对方发通知，否则楼中楼只有发起方知道，不成对话</td></tr>
+    <tr><td>@提及</td><td>只按<strong>昵称精确相等</strong>匹配本站会员并去重：模糊匹配会把消息发给无关人，<strong>通知错人比没通知更坏</strong></td></tr>
+    <tr><td>举报</td><td>同一人重复举报不新增（靠唯一索引，不靠应用层先查后写）；<strong>达阈值 3 自动转 pending</strong> 进审核队列</td></tr>
+    <tr><td>审核队列</td><td>补上权限（此前<strong>只要登录就能改审核状态</strong>）+ 按<strong>举报数降序</strong>排（按时间排会让被举报的沉到第 200 条之后）</td></tr>
+    <tr><td>会员身份</td><td><code>OptionalMember</code> 提取器<strong>永不拒绝</strong>：过期令牌当匿名而非报错，不该让访客连评论都读不了</td></tr>
+  </table>
+
+  <div class="note">
+    <b>明确不做</b>：私信、活动流。社区体量不够时，<strong>空的活动流比没有更伤</strong> —— 它向每个新访客证明"这里没人"。
+    这条判断同样重要：抄功能形态容易，抄得住"什么时候不该做"才难。
+  </div>
+
+  <h2><span class="num">3</span>P0-3 会员 360° 档案时间线</h2>
+  <p>零新表 —— 数据早就在库里，只是没人把它们聚到一个人身上。聚合 <code>orders</code> / <code>points_ledger</code> /
+  <code>comments</code> / <code>events</code>（带 <code>type LIKE 'member.%'</code> 白名单）+ <code>members.created_at</code>，
+  后台会员列表加「动态」入口。</p>
+  <div class="bad">
+    <b>刻意排除</b>：<code>form_submissions</code>。它<strong>没有 <code>member_id</code> 列</strong> ——
+    硬按邮箱去猜归属，会把别人的表单记录挂到这个会员头上。<strong>宁缺，不错归属</strong>。
+  </div>
+
+  <h2><span class="num">4</span>P0-4 Smart Links</h2>
+  <p>私有化站点没有 Google Analytics，也没有第三方像素。「我发出去的那条链接到底有没有人点、点的都是谁」，
+  只能靠自己伺服一个 <code>/go/{token}</code> 来回答。它是本站<strong>唯一</strong>能拿到的用户行为信号。</p>
+  <p>挂在<strong>服务端根路径</strong>而非任何前缀下：短链要能贴进邮件、微信群、短信 —— 那些地方没有 <code>/t/&lt;slug&gt;</code> 这种 base 概念。</p>
+
+  <h3>三条非显然的设计决定</h3>
+  <table>
+    <tr><th style="width:210px">决定</th><th>不这么做会怎样</th></tr>
+    <tr>
+      <td>302 必须带 <code>Cache-Control: no-store</code></td>
+      <td>302 本身可缓存。一旦被中间层缓存，后续点击根本不到服务端 ——
+        <strong>跳转照旧成功、计数静默停在第一个人的数字上</strong>。最难发现的一类坏。</td>
+    </tr>
+    <tr>
+      <td>预取<strong>照旧跳转、只是不计数</strong></td>
+      <td>邮件网关和 IM 会先抓一遍链接做预览。跳错比不跳伤害大，所以观测可以缺、功能不能缺。
+        计数拆成 <code>clicks</code> / <code>prefetch</code> 两列：混在一起，
+        一封发给 200 人的邮件在无人点开时就能显示"200 次点击"。</td>
+    </tr>
+    <tr>
+      <td>判真人靠 <code>Sec-Fetch-Mode: navigate</code>，<strong>UA 黑名单不含 <code>headless</code></strong></td>
+      <td>UA 黑名单只兜老式网关。<strong>刻意不把 <code>headless</code> 列进去</strong> ——
+        我们自己的端到端验证就跑在 headless Chromium 上，列进去会让真实点击在自测里也统计不到。
+        <strong>验证手段把被测行为屏蔽掉，是最容易蒙混过关的一种错。</strong></td>
+    </tr>
+  </table>
+  <p>点击者会被自动打上链接上配置的标签（<code>member_tags</code>，幂等靠唯一索引），并在 P0-3 的档案时间线里露出 ——
+  两个功能在这里接上了：<strong>标签不给任何人看，就等于没打过</strong>。</p>
+
+  <h2><span class="num">5</span>本轮发现并修掉的既有缺陷</h2>
+  <p>这四条都不是"新功能没写完"，而是既有代码里的洞 —— 写新代码时才会踩到。</p>
+
+  <table>
+    <tr><th style="width:56px">#</th><th style="width:230px">缺陷</th><th>为什么之前没被发现</th></tr>
+    <tr>
+      <td>1</td>
+      <td><code>redirects.tsx</code> 一直有 tsc 错误</td>
+      <td><strong>上一轮（P0-1）根本没跑 tsc</strong>。根因：<code>CrudService.create</code> 的入参是「完整实体」，
+        <code>hits</code>/<code>enabled</code> 这类服务端字段也必须显式给初值。写 P0-4 页面时同类错误一起暴露。</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>评论集成用例的 <strong>setup 与断言方向相反</strong></td>
+      <td>用例写「<strong>甲</strong>发评论 <code>@阿乙</code>」却断言「被 @ 的<strong>甲</strong>收到通知」。
+        实际通知正确地发给了乙 → 用例失败。但<strong>如果当初实现也恰好写反了，用例会通过，缺陷被永久掩盖</strong>。
+        已拆成「甲发无 @ 评论 + 乙发评论 <code>@阿甲</code>」，方向唯一。</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><code>parse_mentions</code> 停用符漏了 <code>.</code></td>
+      <td>点号在昵称里罕见、在域名里必现。<code>a@b.com</code> 会解析出 <code>b.com</code> 去查会员表。</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>后台资源列表把 <code>url</code> 渲染成 <code>&lt;a href&gt;</code></td>
+      <td>后端已拒绝把 <code>javascript:</code> 用作跳转目标，但<strong>后台列表自己的 <code>&lt;a href&gt;</code></strong>
+        点一下仍会在后台执行 —— 跳转防护救不了这个面。已改为非 http(s) 只显示文本并标「非法」。</td>
+    </tr>
+  </table>
+
+  <div class="bad">
+    <b>第 2 条值得单独记</b>：写涉及「方向」的断言时（谁通知谁、标签打给谁、计数算在谁头上），
+    <strong>setup 与断言必须指向同一个人</strong>，并在注释里写清方向。
+    方向写反的测试不只是没覆盖到 —— 它会<strong>给缺陷盖章</strong>，比没有测试更危险。
+  </div>
+
+  <h2><span class="num">6</span>验证方式与证据</h2>
+
+  <h3>后端：端到端 HTTP 断言 28/28</h3>
+  <p>起真库（Turso shim 8081 → cms-server 8088），用 <code>F:/tmp/e2e_verify.sh</code> 一次性跑完。断言刻意覆盖几类"不看一定会漏"的：</p>
+  <table>
+    <tr><th style="width:250px">断言类别</th><th>具体检查</th></tr>
+    <tr><td>新路由不被 SPA 兜底吃掉</td><td><code>/go/&lt;不存在的 token&gt;</code> 必须 <strong>404</strong>；掉进 <code>spa_fallback</code> 会返 <strong>200</strong> + index.html，表现为"短链失效时跳到首页"，错得无声无息</td></tr>
+    <tr><td>响应头</td><td>重定向断言 <code>Location</code> <strong>与</strong> <code>Cache-Control: no-store</code>，不只看状态码</td></tr>
+    <tr><td>计数的正负两侧</td><td>真人 +1、预取不计，两个数都要读</td></tr>
+    <tr><td>匿名 / 越权侧</td><td>匿名 <code>react</code> → 401；非法 <code>kind</code> → 400</td></tr>
+    <tr><td>建后回读</td><td>建完资源 <code>GET</code> 回读确认字段真值（网关静默忽略未知键，只信 create 的 200 会被骗）</td></tr>
+    <tr><td>回归面</td><td><code>/llms.txt</code>、<code>/agent.json</code>、<code>/robots.txt</code>、<code>/sitemap.xml</code> 全 200</td></tr>
+  </table>
+
+  <h3>前端：两处构建门禁</h3>
+  <ul>
+    <li>运营后台 <code>tsc -p tsconfig.app.json --noEmit</code> → 0 error；<code>vite build</code> 成功，
+      并确认 TanStack Router 插件真的生成了 <code>'/content/links'</code> 路由（比 tsc 更强的信号）。</li>
+    <li>公开站 <code>tsc</code> 0 error；<code>scripts/deploy_to_admin.py</code> 重新部署，产物含新评论区。</li>
+  </ul>
+
+  <h3>CSR 页面：真实无头浏览器</h3>
+  <p><code>curl</code> 对 CSR 只能拿到空 <code>&lt;div id="root"&gt;</code>，所以改用本机缓存的 headless Chromium（零下载）：</p>
+  <table>
+    <tr><th style="width:280px">检查项</th><th>实测</th></tr>
+    <tr><td>文章正文渲染完成</td><td class="ok">通过（<code>article h1</code> 出现，标题与 API 一致）</td></tr>
+    <tr><td><code>#comments</code> 评论区存在</td><td class="ok">通过</td></tr>
+    <tr><td>发布框 / 登录按钮 / 昵称输入</td><td class="ok">三项均在</td></tr>
+    <tr><td>点「登录/注册」后面板展开</td><td class="ok">邮箱 + 密码输入框各 1 个</td></tr>
+    <tr><td>深链刷新后仍在</td><td class="ok">通过</td></tr>
+    <tr><td>控制台 error / ≥400 请求</td><td class="ok">0 / 0</td></tr>
+  </table>
+
+  <h2><span class="num">7</span>收尾状态与遗留</h2>
+  <ul>
+    <li>后端 exe 已重建并跑起（8081 shim + 8088）；端到端造的测试数据已用 API 清掉。</li>
+    <li><strong>会员与评论没有删除端点</strong>，库里留下几条 <code>e2e*</code> 记录 —— 已确认不影响功能，仅作说明。</li>
+    <li>公开站已重新部署，产物含新评论区。</li>
+    <li><strong>未提交 git</strong>：admin 与 coucouya 共十余个文件改动，按惯例等确认后再推。</li>
+  </ul>
+
+  <div class="note">
+    <b>给下一轮的三条提示</b>
+    <ol style="margin:6px 0 0">
+      <li>新增页面<strong>写完就跑 tsc</strong>（本轮两个页面的类型错误都是"写的时候没跑"留下的）。</li>
+      <li>涉及方向的断言，setup 与断言指向同一人；<code>ok()</code> 会包一层 <code>data</code>，列表断言必须取 <code>["data"]</code>。</li>
+      <li>沙箱下 <code>vite build</code> 会被批量删除保护拦死（<code>web/dist/assets</code> 100+ 文件 &gt; 阈值 50）——
+        换一个不存在的 <code>--outDir</code> 即可绕过，不要为此加 sandbox 绕过标志。</li>
+    </ol>
+  </div>
+
+  <p style="margin-top:26px"><span class="tag t-green">P0-1 完成</span>
+    <span class="tag t-green">P0-2 完成</span>
+    <span class="tag t-green">P0-3 完成</span>
+    <span class="tag t-green">P0-4 完成</span>
+    <span class="tag t-gray">13 条建议中余下 9 条待排序</span></p>
+
+  <footer>
+    详细落地记录：<code>.workbuddy/memory/2026-09-22.md</code> §15 ·
+    可复用配方：skill <code>admin-rust-build-handoff</code> v12 / v13 ·
+    对标依据：<code>docs/WORDPRESS_BENCHMARK_2026-09-22.html</code>
+  </footer>
+
+</div>
+</body>
+</html>

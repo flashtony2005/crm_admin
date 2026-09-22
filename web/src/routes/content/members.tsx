@@ -195,8 +195,141 @@ function InviteCodesPanel() {
   )
 }
 
+interface TimelineEvent {
+  at: string
+  kind: 'join' | 'order' | 'points' | 'comment' | 'event'
+  title: string
+  detail: string
+  amountCents: number | null
+  ref: string
+}
+
+const KIND_STYLE: Record<string, { dot: string; label: string }> = {
+  join: { dot: 'bg-emerald-500', label: '加入' },
+  order: { dot: 'bg-indigo-500', label: '订单' },
+  points: { dot: 'bg-amber-500', label: '积分' },
+  comment: { dot: 'bg-sky-500', label: '评论' },
+  event: { dot: 'bg-gray-400', label: '事件' },
+}
+
+function fmtMoney(cents: number): string {
+  return `¥${(cents / 100).toFixed(2)}`
+}
+
+/**
+ * 会员档案时间线（P0-3）—— 对标 FluentCRM 的 360° 联系人档案。
+ *
+ * 关键在「一条轴」：订单、积分、评论、事件分散在四张表里，分四处看就只剩
+ * 数据，合起来才是「这个人发生过什么」。所以聚合在后端做，前端只负责呈现。
+ */
+function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onClose: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [events, setEvents] = useState<TimelineEvent[]>([])
+  const [info, setInfo] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    if (!member) return
+    let alive = true
+    setLoading(true)
+    setEvents([])
+    setInfo(null)
+    void (async () => {
+      try {
+        const r = await request<{
+          ok: boolean
+          data: { member: Record<string, unknown>; events: TimelineEvent[] }
+        }>(`/api/members/${encodeURIComponent(member.id)}/timeline`)
+        if (!alive) return
+        setInfo(r.data.member)
+        setEvents(r.data.events ?? [])
+      } catch (e) {
+        if (alive) toast.danger(e instanceof Error ? e.message : '加载动态失败')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [member])
+
+  if (!member) return null
+
+  const plan = String(info?.plan ?? member.plan ?? 'free')
+  const status = Number(info?.status ?? member.status)
+  const expires = String(info?.planExpiresAt ?? '')
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <aside className="relative flex h-full w-full max-w-[460px] flex-col bg-os-bg-card shadow-xl">
+        <header className="border-b border-os-border p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-os-text-primary">{member.name || member.email}</p>
+              <p className="truncate text-xs text-os-text-muted">{member.email}</p>
+            </div>
+            <Button variant="ghost" size="sm" onPress={onClose}>
+              关闭
+            </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-os-purple-bg px-2 py-0.5 text-os-purple-text">套餐 {plan}</span>
+            <span className="rounded-full bg-os-neutral-bg px-2 py-0.5 text-os-neutral-text">
+              {status === 1 ? '正常' : '停用'}
+            </span>
+            {expires ? (
+              <span className="rounded-full bg-os-warning-bg px-2 py-0.5 text-os-warning-text">
+                到期 {fmtDate(expires)}
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading ? (
+            <p className="text-sm text-os-text-muted">加载中…</p>
+          ) : events.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-os-text-muted">暂无动态</p>
+              <p className="mt-1 text-xs text-os-text-muted">订单、积分变动、评论都会出现在这里</p>
+            </div>
+          ) : (
+            <ol className="relative ml-1.5 border-l border-os-border">
+              {events.map((e, i) => {
+                const style = KIND_STYLE[e.kind] ?? KIND_STYLE.event
+                return (
+                  <li key={`${e.at}-${i}`} className="mb-4 ml-4">
+                    <span className={`absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full ${style.dot}`} />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-os-text-primary">{e.title}</span>
+                      <span className="rounded bg-os-bg-hover px-1.5 py-0.5 text-[11px] text-os-text-muted">
+                        {style.label}
+                      </span>
+                      {e.amountCents ? (
+                        <span className="text-[11px] font-medium text-os-text-secondary">
+                          {fmtMoney(e.amountCents)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {e.detail ? (
+                      <p className="mt-0.5 break-words text-xs text-os-text-secondary">{e.detail}</p>
+                    ) : null}
+                    <p className="mt-1 text-[11px] text-os-text-muted">{fmtDate(e.at)}</p>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </div>
+      </aside>
+    </div>
+  )
+}
+
 function MembersPage() {
   const [search, setSearch] = useState('')
+  const [timelineFor, setTimelineFor] = useState<Member | null>(null)
   const t = useCmsCollection(membersApi, ['cms-members'], { searchFields: ['email', 'name', 'plan'], serverPaged: true })
 
   const columns: CmsColumn<Member>[] = [
@@ -235,8 +368,14 @@ function MembersPage() {
         emptyIcon="👥"
         emptyTitle="还没有会员"
         emptyHint="会员在公开站的「会员」页面自助注册"
+        actions={(row) => (
+          <Button variant="ghost" size="sm" onPress={() => setTimelineFor(row)}>
+            动态
+          </Button>
+        )}
       />
       <InviteCodesPanel />
+      <MemberTimelineDrawer member={timelineFor} onClose={() => setTimelineFor(null)} />
     </div>
   )
 }

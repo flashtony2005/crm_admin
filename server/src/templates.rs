@@ -709,6 +709,21 @@ async fn serve_file(slug: &str, rest: &str, req: &HeaderMap, st: Option<&AppStat
     if !rel_is_safe(rel) {
         return StatusCode::BAD_REQUEST.into_response();
     }
+
+    // ── 站点级重定向（P0-1）：必须在 SPA 兜底**之前**查一次 ──
+    // 为什么在服务端而不在前端路由：**爬虫不执行 JS** ——
+    // 前端路由层的 301 对搜索引擎与 AI 爬虫等于不存在。
+    // 只对**导航型**路径查库：静态资源（.js/.css/图片）量大且不会被重定向，
+    // 让它们继续走纯文件 IO，不为每个资源请求打一次 DB。
+    // 根路径（rel 为空）不参与：主页不该被一条规则吞掉。
+    if let Some(st) = st {
+        if !rel.is_empty() && !looks_like_asset(rel) {
+            let full = format!("/t/{slug}/{rel}");
+            if let Some((to, code)) = crate::seo_redirect::lookup(st, &full).await {
+                return crate::seo_redirect::redirect_response(&to, code, slug);
+            }
+        }
+    }
     let target = if rel.is_empty() {
         idx_path.clone()
     } else {

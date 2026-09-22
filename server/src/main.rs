@@ -39,6 +39,8 @@ mod site;
 mod stats;
 mod state;
 mod templates;
+mod seo_redirect;
+mod smart_links;
 mod members;
 mod comments;
 mod newsletter;
@@ -189,6 +191,10 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/public/members/login", post(members::login))
         .route("/api/public/members/me", get(members::me).post(members::update_me))
         .route("/api/public/members/plans", get(members::plans))
+        // 会员档案时间线（P0-3）：后台会员详情用。把订单 / 积分 / 评论 / 事件
+        // 汇到**一条时间轴** —— FluentCRM 的 360° 档案之所以有用，是因为
+        // 「这个人发生过什么」只存在于合并之后，分四处看就不叫档案。
+        .route("/api/members/{id}/timeline", get(members::timeline))
         // 创作者社区 P1：积分钱包 / 签到 / 兑码 / 积分买断 / 订单（人工确认收款）
         .route("/api/public/members/wallet", get(points::wallet))
         .route("/api/public/members/orders", get(points::my_orders))
@@ -208,6 +214,15 @@ pub fn build_router(st: AppState) -> Router {
         .route("/api/admin/orders/{id}/confirm", post(points::confirm_order))
         // 评论（公开列表/发布 + Admin 审核）
         .route("/api/public/comments", get(comments::public_list).post(comments::public_create))
+        // 社区最小闭环（P0-2）：反应 / 举报 / 站内通知。
+        // 反应与举报**要求会员身份** —— 匿名可刷的计数不是信号，是噪声。
+        .route("/api/public/comments/{id}/react", post(comments::react))
+        .route("/api/public/comments/{id}/report", post(comments::report))
+        .route("/api/public/members/notifications", get(comments::my_notifications))
+        .route("/api/public/members/notifications/read", post(comments::mark_notifications_read))
+        // SEO 重定向与 404 监控（P0-1）：前端在「未找到」兜底态主动上报。
+        // 开放是必要的：匿名访客与爬虫才是 404 的主要产生者。
+        .route("/api/public/not-found", post(seo_redirect::not_found_report))
         .route("/api/comments", get(comments::admin_list))
         .route("/api/comments/{id}/status", post(comments::moderate))
         // 邮件订阅（公开订阅/退订 + Admin 群发）
@@ -267,6 +282,12 @@ pub fn build_router(st: AppState) -> Router {
         // 静态服务：按 slug 或按当前激活模板提供模板文件（/t/<slug>/*、/t/active/*）
         .route("/t/{slug}", get(templates::serve_index))
         .route("/t/{slug}/{*rest}", get(templates::serve_one))
+        // P0-4 Smart Links：/go/{token} 是我们对外发的短链。
+        // **必须挂在根路径**：它要能贴进邮件、IM、短信，那些地方没有
+        // `/t/<slug>` 这种 base 概念；也必须在 SPA 兜底之前命中，
+        // 否则未知 token 会掉进 spa_fallback 返回 200 的 index.html，
+        // 短链失效时表现为「跳到首页」而不是「404」——错得无声无息。
+        .route("/go/{token}", get(smart_links::go))
         .route("/t/active", get(templates::serve_active_index))
         .route("/t/active/{*rest}", get(templates::serve_active))
         // 提升 JSON 请求体上限：默认 2MB，文章正文内联 base64 图片易超限，

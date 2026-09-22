@@ -106,10 +106,10 @@ pub(crate) fn esc_xml(s: &str) -> String {
 async fn published_articles(
     st: &AppState,
     only_free: bool,
-) -> Result<Vec<(String, String, String, String, String, String, bool)>, String> {
+) -> Result<Vec<(String, String, String, String, String, String, bool, String)>, String> {
     let mut sql = String::from(
         "SELECT id, title, summary, updated_at, featured_image, slug, \
-                visibility, paid_level \
+                visibility, paid_level, COALESCE(kind, 'post') AS kind \
          FROM articles WHERE tenant_id = ? AND status = 'published'",
     );
     if only_free {
@@ -140,7 +140,9 @@ async fn published_articles(
         let visibility = r.try_get::<String>("", "visibility").unwrap_or_default();
         let paid_level = r.try_get::<i64>("", "paid_level").unwrap_or(0);
         let paid = crate::agent_layer::is_gated(&visibility, paid_level);
-        out.push((id, title, summary, updated, img, slug, paid));
+        let kind = r.try_get::<String>("", "kind").unwrap_or_default();
+        let kind = if kind.trim().is_empty() { "post".to_string() } else { kind };
+        out.push((id, title, summary, updated, img, slug, paid, kind));
     }
     Ok(out)
 }
@@ -152,6 +154,18 @@ fn url_key(id: &str, slug: &str) -> String {
     } else {
         slug.to_string()
     }
+}
+
+/// 内容对外 URL：按类型分流 —— `problem` 走 `/problems/<key>`，其余沿用 `article_url`。
+///
+/// 分流点只留这一处：`article_url` 的 `PUBLIC_ARTICLE_URL` 兜底是「文章详情挂哪里」
+/// 的配置，问题页不属于那个 URL 空间 —— 混进去等于在 URL 层抹掉刚由 `kind`
+/// 建立的类型判据，sitemap / 内链 / 面包屑会跟着一起错。
+pub(crate) fn content_url(home: &str, key: &str, kind: &str) -> String {
+    if kind == "problem" {
+        return format!("{}/problems/{}", home.trim_end_matches('/'), key);
+    }
+    article_url(home, key)
 }
 
 /// GET /sitemap.xml
@@ -180,12 +194,34 @@ pub async fn sitemap(State(st): State<AppState>) -> impl IntoResponse {
         // （`/t/<slug>/` 现在也能用了 —— 见 `main.rs::spa_fallback` 的归一化分支。）
         esc_xml(&home)
     ));
-    for (id, _title, _summary, updated, _img, slug, _paid) in urls {
+    for (id, _title, _summary, updated, _img, slug, _paid, kind) in urls {
         let key = url_key(&id, &slug);
         body.push_str(&format!(
             "  <url><loc>{}</loc><lastmod>{}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n",
-            esc_xml(&article_url(&home, &key)),
+            esc_xml(&content_url(&home, &key, &kind)),
             esc_xml(&updated)
+        ));
+    }
+    // 主题聚合页 /tags/{slug}（对应前端 router.ts 的 tag 路由）。
+    // 后台已维护 tags.description —— 等于**零内容成本**的收录面扩张：
+    // 每个主题一个稳定 URL，描述取自 tags 表，页面由前端按 tag.name 聚合文章。
+    // 查不到 tags 表（极旧库）时 unwrap_or_default 退化为空表，不影响其余条目。
+    let tag_rows = st
+        .db
+        .query_all(
+            "SELECT slug FROM tags WHERE tenant_id = ? ORDER BY name COLLATE NOCASE LIMIT 200",
+            vec![SqlValue::String(Some(st.tenant.clone()))],
+        )
+        .await
+        .unwrap_or_default();
+    for r in tag_rows {
+        let slug = r.try_get::<String>("", "slug").unwrap_or_default();
+        if slug.trim().is_empty() {
+            continue;
+        }
+        body.push_str(&format!(
+            "  <url><loc>{}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n",
+            esc_xml(&format!("{}/tags/{}", home.trim_end_matches('/'), slug))
         ));
     }
     body.push_str("</urlset>\n");
@@ -223,8 +259,11 @@ pub async fn rss(State(st): State<AppState>) -> impl IntoResponse {
         esc_xml("基于 Rust 的开源 CMS 内容发布"),
         esc_xml(&base)
     ));
-    for (id, title, summary, updated, _img, slug, _paid) in items {
+    for (id, title, summary, updated, _img, slug, _paid, kind) in items {
         let key = url_key(&id, &slug);
+        // 问题页与文章同为内容，RSS 一并收录；但链接形态必须按 kind 分流，
+        // 否则订阅器会点到 /post/<问题页> 这种错路径（页面在，但 URL 语义错）。
+        let link = content_url(&home, &key, &kind);
         let pub_date = DateTime::parse_from_rfc3339(&updated)
             .map(|d| d.to_rfc2822())
             .unwrap_or_else(|_| updated.clone());
@@ -232,7 +271,7 @@ pub async fn rss(State(st): State<AppState>) -> impl IntoResponse {
         body.push_str(&format!("    <title>{}</title>\n", esc_xml(&title)));
         body.push_str(&format!(
             "    <link>{}</link>\n",
-            esc_xml(&article_url(&home, &key))
+            esc_xml(&link)
         ));
         body.push_str(&format!("    <guid isPermaLink=\"false\">{}</guid>\n", esc_xml(&id)));
         body.push_str(&format!("    <pubDate>{}</pubDate>\n", esc_xml(&pub_date)));

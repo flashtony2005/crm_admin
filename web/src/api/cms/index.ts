@@ -22,6 +22,7 @@ import type {
   Integration, InviteCode, Lead, LocaleMessages, MediaItem, Member,
   FulfillTask, MemberProfile, Order, Page, PayConfigInfo, Product, ReconResp, RedeemCode,
   RetryFulfillResp, Subscriber, Tag, Tier,
+  Redirect, NotFoundLog, SmartLink,
   WalletInfo, WebhookSubscription, WorkflowDef,
 } from './types'
 
@@ -38,6 +39,18 @@ export const pagesApi = CMS_MODE === 'real'
 export const tagsApi = CMS_MODE === 'real'
   ? httpCollection<Tag>('tags')
   : collection<Tag>('tags', [])
+// SEO（P0-1）：重定向规则与 404 监控。两者都用通用 CRUD 网关，
+// 权限码 content.seo.* 与后端 perm.rs 镜像。
+// Smart Links（P0-4）同族：都是「站点入口资产」，共用 content.seo.* 权限。
+export const redirectsApi = CMS_MODE === 'real'
+  ? httpCollection<Redirect>('redirects')
+  : collection<Redirect>('redirects', [])
+export const notFoundApi = CMS_MODE === 'real'
+  ? httpCollection<NotFoundLog>('notfound')
+  : collection<NotFoundLog>('notfound', [])
+export const linksApi = CMS_MODE === 'real'
+  ? httpCollection<SmartLink>('links')
+  : collection<SmartLink>('links', [])
 export const productsApi = CMS_MODE === 'real'
   ? httpCollection<Product>('products')
   : collection<Product>('products', seedProducts)

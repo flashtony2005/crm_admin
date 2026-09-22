@@ -34,12 +34,14 @@ import { Route as BusinessLeadsRouteImport } from './routes/business/leads'
 import { Route as ContentArticlesRouteImport } from './routes/content/articles'
 import { Route as ContentCommentsRouteImport } from './routes/content/comments'
 import { Route as ContentI18nRouteImport } from './routes/content/i18n'
+import { Route as ContentLinksRouteImport } from './routes/content/links'
 import { Route as ContentMediaRouteImport } from './routes/content/media'
 import { Route as ContentMembersRouteImport } from './routes/content/members'
 import { Route as ContentNewsletterRouteImport } from './routes/content/newsletter'
 import { Route as ContentOrdersRouteImport } from './routes/content/orders'
 import { Route as ContentPagesRouteImport } from './routes/content/pages'
 import { Route as ContentProductsRouteImport } from './routes/content/products'
+import { Route as ContentRedirectsRouteImport } from './routes/content/redirects'
 import { Route as ContentSubscriptionsRouteImport } from './routes/content/subscriptions'
 import { Route as ContentTagsRouteImport } from './routes/content/tags'
 import { Route as ContentWebhooksRouteImport } from './routes/content/webhooks'
@@ -175,6 +177,11 @@ const ContentI18nRoute = ContentI18nRouteImport.update({
   path: '/content/i18n',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentLinksRoute = ContentLinksRouteImport.update({
+  id: '/content/links',
+  path: '/content/links',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContentMediaRoute = ContentMediaRouteImport.update({
   id: '/content/media',
   path: '/content/media',
@@ -203,6 +210,11 @@ const ContentPagesRoute = ContentPagesRouteImport.update({
 const ContentProductsRoute = ContentProductsRouteImport.update({
   id: '/content/products',
   path: '/content/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentRedirectsRoute = ContentRedirectsRouteImport.update({
+  id: '/content/redirects',
+  path: '/content/redirects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContentSubscriptionsRoute = ContentSubscriptionsRouteImport.update({
@@ -277,12 +289,14 @@ export interface FileRoutesByFullPath {
   '/content/articles': typeof ContentArticlesRoute
   '/content/comments': typeof ContentCommentsRoute
   '/content/i18n': typeof ContentI18nRoute
+  '/content/links': typeof ContentLinksRoute
   '/content/media': typeof ContentMediaRoute
   '/content/members': typeof ContentMembersRoute
   '/content/newsletter': typeof ContentNewsletterRoute
   '/content/orders': typeof ContentOrdersRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/redirects': typeof ContentRedirectsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
@@ -319,12 +333,14 @@ export interface FileRoutesByTo {
   '/content/articles': typeof ContentArticlesRoute
   '/content/comments': typeof ContentCommentsRoute
   '/content/i18n': typeof ContentI18nRoute
+  '/content/links': typeof ContentLinksRoute
   '/content/media': typeof ContentMediaRoute
   '/content/members': typeof ContentMembersRoute
   '/content/newsletter': typeof ContentNewsletterRoute
   '/content/orders': typeof ContentOrdersRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/redirects': typeof ContentRedirectsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
@@ -362,12 +378,14 @@ export interface FileRoutesById {
   '/content/articles': typeof ContentArticlesRoute
   '/content/comments': typeof ContentCommentsRoute
   '/content/i18n': typeof ContentI18nRoute
+  '/content/links': typeof ContentLinksRoute
   '/content/media': typeof ContentMediaRoute
   '/content/members': typeof ContentMembersRoute
   '/content/newsletter': typeof ContentNewsletterRoute
   '/content/orders': typeof ContentOrdersRoute
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
+  '/content/redirects': typeof ContentRedirectsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
@@ -406,12 +424,14 @@ export interface FileRouteTypes {
     | '/content/articles'
     | '/content/comments'
     | '/content/i18n'
+    | '/content/links'
     | '/content/media'
     | '/content/members'
     | '/content/newsletter'
     | '/content/orders'
     | '/content/pages'
     | '/content/products'
+    | '/content/redirects'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
@@ -448,12 +468,14 @@ export interface FileRouteTypes {
     | '/content/articles'
     | '/content/comments'
     | '/content/i18n'
+    | '/content/links'
     | '/content/media'
     | '/content/members'
     | '/content/newsletter'
     | '/content/orders'
     | '/content/pages'
     | '/content/products'
+    | '/content/redirects'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
@@ -490,12 +512,14 @@ export interface FileRouteTypes {
     | '/content/articles'
     | '/content/comments'
     | '/content/i18n'
+    | '/content/links'
     | '/content/media'
     | '/content/members'
     | '/content/newsletter'
     | '/content/orders'
     | '/content/pages'
     | '/content/products'
+    | '/content/redirects'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
@@ -533,12 +557,14 @@ export interface RootRouteChildren {
   ContentArticlesRoute: typeof ContentArticlesRoute
   ContentCommentsRoute: typeof ContentCommentsRoute
   ContentI18nRoute: typeof ContentI18nRoute
+  ContentLinksRoute: typeof ContentLinksRoute
   ContentMediaRoute: typeof ContentMediaRoute
   ContentMembersRoute: typeof ContentMembersRoute
   ContentNewsletterRoute: typeof ContentNewsletterRoute
   ContentOrdersRoute: typeof ContentOrdersRoute
   ContentPagesRoute: typeof ContentPagesRoute
   ContentProductsRoute: typeof ContentProductsRoute
+  ContentRedirectsRoute: typeof ContentRedirectsRoute
   ContentSubscriptionsRoute: typeof ContentSubscriptionsRoute
   ContentTagsRoute: typeof ContentTagsRoute
   ContentWebhooksRoute: typeof ContentWebhooksRoute
@@ -727,6 +753,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentI18nRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/links': {
+      id: '/content/links'
+      path: '/content/links'
+      fullPath: '/content/links'
+      preLoaderRoute: typeof ContentLinksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/media': {
       id: '/content/media'
       path: '/content/media'
@@ -767,6 +800,13 @@ declare module '@tanstack/react-router' {
       path: '/content/products'
       fullPath: '/content/products'
       preLoaderRoute: typeof ContentProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content/redirects': {
+      id: '/content/redirects'
+      path: '/content/redirects'
+      fullPath: '/content/redirects'
+      preLoaderRoute: typeof ContentRedirectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/content/subscriptions': {
@@ -861,12 +901,14 @@ const rootRouteChildren: RootRouteChildren = {
   ContentArticlesRoute: ContentArticlesRoute,
   ContentCommentsRoute: ContentCommentsRoute,
   ContentI18nRoute: ContentI18nRoute,
+  ContentLinksRoute: ContentLinksRoute,
   ContentMediaRoute: ContentMediaRoute,
   ContentMembersRoute: ContentMembersRoute,
   ContentNewsletterRoute: ContentNewsletterRoute,
   ContentOrdersRoute: ContentOrdersRoute,
   ContentPagesRoute: ContentPagesRoute,
   ContentProductsRoute: ContentProductsRoute,
+  ContentRedirectsRoute: ContentRedirectsRoute,
   ContentSubscriptionsRoute: ContentSubscriptionsRoute,
   ContentTagsRoute: ContentTagsRoute,
   ContentWebhooksRoute: ContentWebhooksRoute,

@@ -98,6 +98,12 @@ export const P = {
   teamRolesView: 'team.roles.view',
   teamRolesManage: 'team.roles.manage',
   settingsManage: 'settings.manage',
+  // SEO（P0-1：重定向 + 404 监控。独立域而非 content.* —— 它管的是
+  // 「站点入口资产」而不是内容生产，混在一个权限口上会切错授权面）
+  contentSeoView: 'content.seo.view',
+  contentSeoCreate: 'content.seo.create',
+  contentSeoUpdate: 'content.seo.update',
+  contentSeoDelete: 'content.seo.delete',
 } as const
 
 export type PermCode = (typeof P)[keyof typeof P]
@@ -115,6 +121,7 @@ const VIEW_ALL: PermString[] = [
   'business.customers.view', 'business.leads.view', 'business.forms.view',
   'automation.workflows.view', 'automation.integrations.view',
   'site.nav.view', 'site.homePins.view',
+  'content.seo.view',
 ]
 
 /** 角色 → 权限集矩阵（Phase 3 由后端角色配置取代；语义保持一致） */
@@ -142,6 +149,8 @@ export const ROLE_PERMS: Record<RoleKey, PermString[]> = {
     // 站点导航/页脚链接 + 主页置顶（与后端 perm.rs Editor 矩阵镜像）
     'site.nav.view', 'site.nav.create', 'site.nav.update', 'site.nav.delete',
     'site.homePins.view', 'site.homePins.create', 'site.homePins.update', 'site.homePins.delete',
+    // SEO：重定向与 404 监控（editor 可管 —— 它直接决定内容发布后的可访问性）
+    'content.seo.view', 'content.seo.create', 'content.seo.update', 'content.seo.delete',
   ],
   viewer: [...VIEW_ALL, 'content.sections.view'],
 }

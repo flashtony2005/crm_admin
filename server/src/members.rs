@@ -3,14 +3,14 @@
 //! （管理员 Auth 提取器只接受 owner/editor/viewer；会员令牌无法访问管理端点）。
 
 use argon2::{password_hash::{PasswordHash, PasswordVerifier}, Argon2};
-use axum::{extract::{FromRef, State}, Json};
+use axum::{extract::{FromRef, Path, State}, Json};
 use sea_orm::{Statement, Value as SqlValue};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::{
-    auth::{hash_password, sign, verify, Auth},
+    auth::{ensure, hash_password, sign, verify, Auth},
     db::now_iso,
     error::{ok, ApiError, ApiResult},
     state::AppState,
@@ -322,3 +322,252 @@ fn internal(e: impl std::fmt::Display) -> ApiError {
 // 防止未使用告警
 #[allow(dead_code)]
 fn _use(_: Auth) {}
+
+
+// ─────────────────────── 会员档案时间线（P0-3）───────────────────────
+
+/// 订单类型 → 标题
+fn order_title(biz: &str) -> &'static str {
+    match biz {
+        "plan" => "订阅购买",
+        "points_recharge" => "积分充值",
+        _ => "订单",
+    }
+}
+
+fn order_status_label(s: &str) -> &'static str {
+    match s {
+        "paid" => "已支付",
+        "pending" => "待支付",
+        "closed" => "已关闭",
+        "refunded" => "已退款",
+        _ => "状态未知",
+    }
+}
+
+fn comment_status_label(s: &str) -> &'static str {
+    match s {
+        "approved" => "已通过",
+        "pending" => "待审核",
+        "rejected" => "已驳回",
+        _ => "",
+    }
+}
+
+/// 按**字符**截断（不是字节）—— 中文按字节切会切出半个字。
+fn clip(s: &str, n: usize) -> String {
+    let t: String = s.chars().take(n).collect();
+    if s.chars().count() > n {
+        format!("{t}...")
+    } else {
+        t
+    }
+}
+
+/// 从一行里安全取字符串：列缺失 / NULL 都回落空串。
+/// 时间线是「尽力而为」的聚合视图 —— 少一个字段不该让整页失败。
+fn gets(r: &crate::cmsdb::Row, col: &str) -> String {
+    r.try_get::<String>("", col).unwrap_or_default()
+}
+
+fn geti(r: &crate::cmsdb::Row, col: &str) -> i64 {
+    r.try_get::<i64>("", col).unwrap_or(0)
+}
+
+/// 取多行；查询失败返回空集而不是让整个时间线报错。
+async fn rows(db: &crate::cmsdb::CmsDb, sql: &str, args: Vec<SqlValue>) -> Vec<crate::cmsdb::Row> {
+    db.query_all_statement(Statement::from_sql_and_values(
+        sea_orm::DatabaseBackend::Sqlite,
+        sql,
+        args,
+    ))
+    .await
+    .unwrap_or_default()
+}
+
+/// GET /api/members/{id}/timeline —— 会员档案时间线（后台，需 content.members.view）。
+///
+/// 为什么是「聚合」而不是让前端分别查四张表：FluentCRM 的 360° 档案之所以有用，
+/// 是因为它把分散的行为放在**同一条时间轴**上。「这个人发生过什么」本身就是
+/// 信息，而它只存在于合并之后 —— 分四处看就不叫档案。
+///
+/// 数据来源全部是**已有表**（零新表、零迁移）：`orders` / `points_ledger` /
+/// `comments` / `events`，加 `members.created_at` 作为起点。
+///
+/// **刻意不含表单提交**：`form_submissions` 没有 `member_id`，只能拿 JSON 里的
+/// 邮箱做模糊匹配 —— 各表单字段名不统一，匹配必然误配。把别人的提交挂到这个
+/// 会员名下比少一项更坏，所以不做。
+pub async fn timeline(
+    State(st): State<AppState>,
+    auth: Auth,
+    Path(id): Path<String>,
+) -> ApiResult {
+    ensure(&auth, "content.members.view")?;
+    let t = st.tenant.clone();
+
+    let mrow = st
+        .db
+        .query_one(
+            "SELECT id, email, name, plan, status, plan_expires_at, invited_by, created_at
+               FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
+            vec![sval(id.clone()), sval(t.clone())],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    // 会员不存在要 404，而不是给一条空时间线 —— 后者会被读成
+    // 「这个人没有任何行为」，与「id 传错了」区分不开。
+    let Some(m) = mrow else {
+        return Err(ApiError::not_found("会员不存在"));
+    };
+
+    let mut ev: Vec<Value> = Vec::new();
+    let joined = gets(&m, "created_at");
+
+    // 起点：加入时间。没有它，时间线会显得「凭空开始有订单」。
+    if !joined.is_empty() {
+        let inviter = gets(&m, "invited_by");
+        ev.push(json!({
+            "at": joined,
+            "kind": "join",
+            "title": "加入会员",
+            "detail": if inviter.is_empty() { String::new() } else { format!("邀请码 {inviter}") },
+            "amountCents": Value::Null,
+            "ref": "",
+        }));
+    }
+
+    // 订单：订阅 / 积分。已支付的用 paid_at 作发生时间 —— 那才是钱到账的时刻，
+    // 用 created_at 会把「下单」与「付款」排错顺序。
+    for r in rows(
+        &st.db,
+        "SELECT order_no, biz_type, amount_cents, status, channel, plan_days, paid_at, created_at
+           FROM orders WHERE tenant_id = ? AND member_id = ?
+          ORDER BY created_at DESC LIMIT 50",
+        vec![sval(t.clone()), sval(id.clone())],
+    )
+    .await
+    {
+        let status = gets(&r, "status");
+        let created = gets(&r, "created_at");
+        let paid = gets(&r, "paid_at");
+        let at = if status == "paid" && !paid.is_empty() { paid } else { created };
+        let days = geti(&r, "plan_days");
+        let mut detail = format!(
+            "{} · {} · {}",
+            gets(&r, "order_no"),
+            gets(&r, "channel"),
+            order_status_label(&status)
+        );
+        if days > 0 {
+            detail.push_str(&format!(" · {days} 天"));
+        }
+        ev.push(json!({
+            "at": at,
+            "kind": "order",
+            "title": order_title(&gets(&r, "biz_type")),
+            "detail": detail,
+            "amountCents": geti(&r, "amount_cents"),
+            "ref": gets(&r, "order_no"),
+        }));
+    }
+
+    // 积分流水
+    for r in rows(
+        &st.db,
+        "SELECT delta, balance_after, reason, note, created_at
+           FROM points_ledger WHERE tenant_id = ? AND member_id = ?
+          ORDER BY created_at DESC LIMIT 50",
+        vec![sval(t.clone()), sval(id.clone())],
+    )
+    .await
+    {
+        let delta = geti(&r, "delta");
+        let note = gets(&r, "note");
+        ev.push(json!({
+            "at": gets(&r, "created_at"),
+            "kind": "points",
+            "title": if delta >= 0 { format!("积分 +{delta}") } else { format!("积分 {delta}") },
+            "detail": format!(
+                "{}{} · 余额 {}",
+                gets(&r, "reason"),
+                if note.is_empty() { String::new() } else { format!(" · {note}") },
+                geti(&r, "balance_after")
+            ),
+            "amountCents": Value::Null,
+            "ref": "",
+        }));
+    }
+
+    // 评论（内容互动）
+    for r in rows(
+        &st.db,
+        "SELECT id, article_id, content, status, created_at
+           FROM comments WHERE tenant_id = ? AND member_id = ?
+          ORDER BY created_at DESC LIMIT 50",
+        vec![sval(t.clone()), sval(id.clone())],
+    )
+    .await
+    {
+        let status = gets(&r, "status");
+        ev.push(json!({
+            "at": gets(&r, "created_at"),
+            "kind": "comment",
+            "title": "发表评论",
+            "detail": format!("{} · {}", clip(&gets(&r, "content"), 60), comment_status_label(&status)),
+            "amountCents": Value::Null,
+            "ref": gets(&r, "article_id"),
+        }));
+    }
+
+    // 会员域事件。**必须带类型白名单**：events 表的 ref_id 是多义的
+    // （文章浏览事件里它是文章 ID），不设白名单就会把「id 恰好相同」的
+    // 无关事件挂到这个会员名下 —— 时间线上出现别人的行为比空着更坏。
+    for r in rows(
+        &st.db,
+        "SELECT type, ref_key, created_at FROM events
+          WHERE tenant_id = ? AND ref_id = ? AND type LIKE 'member.%'
+          ORDER BY created_at DESC LIMIT 50",
+        vec![sval(t.clone()), sval(id.clone())],
+    )
+    .await
+    {
+        let ty = gets(&r, "type");
+        ev.push(json!({
+            "at": gets(&r, "created_at"),
+            "kind": "event",
+            "title": clip(ty.trim_start_matches("member."), 40),
+            "detail": gets(&r, "ref_key"),
+            "amountCents": Value::Null,
+            "ref": gets(&r, "ref_key"),
+        }));
+    }
+
+    // 倒序：最新的在前。ISO 时间串可直接字典序比较（本项目统一写 UTC ISO）。
+    ev.sort_by(|a, b| {
+        let ka = a.get("at").and_then(|v| v.as_str()).unwrap_or("");
+        let kb = b.get("at").and_then(|v| v.as_str()).unwrap_or("");
+        kb.cmp(ka)
+    });
+    let total = ev.len();
+    ev.truncate(100);
+
+    let expires = gets(&m, "plan_expires_at");
+    // P0-4 打的标签落在会员身上，档案是它唯一的出口 ——
+    // 标签不给任何人看，就等于没打过。
+    let tags = crate::smart_links::member_tags(&st, &id).await;
+    ok(json!({
+        "member": {
+            "id": gets(&m, "id"),
+            "email": gets(&m, "email"),
+            "name": gets(&m, "name"),
+            "plan": gets(&m, "plan"),
+            "status": geti(&m, "status"),
+            "planExpiresAt": expires,
+            "invitedBy": gets(&m, "invited_by"),
+            "createdAt": joined,
+        },
+        "tags": tags,
+        "events": ev,
+        "total": total,
+    }))
+}

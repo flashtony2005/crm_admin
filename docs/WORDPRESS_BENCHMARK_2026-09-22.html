@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordPress 模块对标 — admin / CouCouYa（2026-09-22）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --line:#e4e6ea; --line2:#d4d7dd;
+  --tx:#1c1f24; --tx2:#5b6270; --tx3:#8b929e;
+  --red:#c0392b; --redbg:#fdecea; --amber:#a8670a; --amberbg:#fdf3e2;
+  --green:#1c7a4a; --greenbg:#e8f5ee; --blue:#1f5fa8; --bluebg:#e9f1fb;
+  --purple:#5b45a8; --purplebg:#efecfb; --graybg:#f0f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:25px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:18px;font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2 .num{display:inline-block;width:23px;height:23px;line-height:23px;text-align:center;background:var(--tx);
+  color:#fff;border-radius:6px;font-size:12px;margin-right:9px;vertical-align:2px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:8px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:#eef0f3;padding:1.5px 5px;border-radius:4px;color:#334}
+.meta{color:var(--tx3);font-size:12.5px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0}
+.lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--tx);
+  border-radius:10px;padding:16px 20px;margin:16px 0}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.mcard .k{font-size:12px;color:var(--tx2);margin-bottom:5px}
+.mcard .v{font-size:21px;font-weight:600;letter-spacing:-.3px}
+.mcard .s{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.t-red{background:var(--redbg);color:var(--red)}
+.t-amber{background:var(--amberbg);color:var(--amber)}
+.t-green{background:var(--greenbg);color:var(--green)}
+.t-blue{background:var(--bluebg);color:var(--blue)}
+.t-purple{background:var(--purplebg);color:var(--purple)}
+.t-gray{background:var(--graybg);color:var(--tx2)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+th{background:#fafbfc;text-align:left;font-weight:600;font-size:12.5px;color:var(--tx2);
+  padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid #f0f1f4;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+ul{margin:8px 0;padding-left:20px}
+li{margin:5px 0}
+.def{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+.def .hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+.def .hd .sev{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+.def .hd .ttl{font-weight:600;font-size:14px}
+.def .bd{padding:14px 18px}
+.loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);
+  background:#f5f6f8;display:inline-block;padding:2px 7px;border-radius:4px;margin:2px 0}
+.fix{background:var(--greenbg);border:1px solid #cbe7d8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.fix b{color:var(--green)}
+.warn{background:var(--amberbg);border:1px solid #f0dcb8;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.warn b{color:var(--amber)}
+.bad{background:var(--redbg);border:1px solid #f0c8c2;border-radius:8px;padding:11px 14px;margin-top:11px;font-size:13px}
+.bad b{color:var(--red)}
+pre{background:#1e2228;color:#d8dee8;border-radius:9px;padding:13px 15px;overflow-x:auto;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;margin:11px 0}
+pre .ok{color:#7ddc9a}
+pre .no{color:#f08a7c}
+pre .cm{color:#7a8698}
+.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--graybg);color:var(--tx2);
+  font-family:ui-monospace,Menlo,Consolas,monospace;margin-right:4px}
+.bar{display:flex;align-items:center;gap:9px;margin:7px 0;font-size:12.5px}
+.bar .lbl{width:210px;color:var(--tx2);flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{flex:1;height:16px;background:#eceef2;border-radius:4px;overflow:hidden;position:relative}
+.bar .fill{height:100%;border-radius:4px}
+.bar .val{width:78px;text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--tx2);flex:none}
+.q{border-left:2px solid var(--line2);padding:2px 0 2px 12px;margin:7px 0;font-size:13px}
+.q b{font-weight:600}
+.step{display:flex;gap:12px;margin:12px 0;align-items:flex-start}
+.step .no{flex:none;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+  background:var(--tx);color:#fff;font-size:12px;font-weight:600;margin-top:1px}
+.step .bd{flex:1}
+.step .bd b{display:block;margin-bottom:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>WordPress 模块对标：哪些值得抄，哪些是坑</h1>
+<div class="meta">
+  admin / CouCouYa · 2026-09-22 · 调研口径：WordPress 6.x 生态（官方目录 + 厂商文档 + 2026 年评测），
+  对照我方 <code>web/src/routes/</code> 41 个路由页与 <code>nav.ts</code> 的 8 个一级模块
+</div>
+
+<div class="lead">
+  <p><b>一句话结论：真正值得抄的不是 WordPress 的"功能清单"，而是它把三件事做成了结构 ——
+  ① 设计令牌集中管理（<code>theme.json</code>），② 内容按语义分块（块 = 结构化数据源），
+  ③ 权限/付费按"规则"而非"页面"声明。</b></p>
+  <p>按这三条量我们：第 ① 条我们<b>已等价实现</b>（coucouya 的 L1 风格 10 档 + L2 版式 5 预设就是 style variations）；
+  第 ② 条我们<b>完全没做</b>，而这正是 GEO 最缺的一块；
+  第 ③ 条我们刚在阶段 0 补了「到期时间」但还没做「规则」。</p>
+  <p>另有三个模块是我们的<b>真实空白</b>：<b>社区（只剩审核）</b>、<b>联系人档案（只有群发）</b>、<b>分析归因（只有趋势图）</b>。
+  反过来，<b>Agent Layer / GEO、AI 工作台、事件幂等</b>这三处我们领先 WordPress 生态整整一代 ——
+  三大 SEO 插件 2025 年才补上 <code>llms.txt</code>，我们已经做到"付费内容不写 articleBody"的细粒度。</p>
+</div>
+
+<div class="g4">
+  <div class="mcard"><div class="k">值得抄（分三档）</div><div class="v">13</div><div class="s">P0 四条 · P1 六条 · P2 三条</div></div>
+  <div class="mcard"><div class="k">明确不建议抄</div><div class="v">4</div><div class="s">含"插件堆叠"这条结构性反模式</div></div>
+  <div class="mcard"><div class="k">我方已领先</div><div class="v">4</div><div class="s">GEO / AI 工作台 / 事件幂等 / 审计</div></div>
+  <div class="mcard"><div class="k">最大空白</div><div class="v">社区</div><div class="s">评论页仅 3 处「审核」逻辑</div></div>
+</div>
+
+<h2><span class="num">1</span>总表：十个模块逐项对照</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:15%">模块</th><th style="width:38%">WordPress 生态的标杆做法（具体产品）</th><th style="width:32%">我方现状</th><th style="width:15%">判定</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>设计系统</b></td>
+      <td><code>theme.json</code> 把颜色/字号/间距抽成设计令牌，一次改动全站生效；主题提供 <b>style variations</b>（Twenty Twenty-Five 自带约 12 套）</td>
+      <td>coucouya 的 <b>L1 风格 10 档 + L2 版式 5 预设</b>，后端 <code>presets.rs</code> 做写入白名单 —— <b>机制上等价</b></td>
+      <td><span class="tag t-green">已等价</span></td>
+    </tr>
+    <tr>
+      <td><b>内容块</b></td>
+      <td>块编辑器：<b>FAQ / HowTo / 对比 / 表格</b> 是语义块，schema 由块结构直接派生，不靠人写</td>
+      <td>无"块"概念；问题页的 FAQPage 是<b>从 <code>summary</code> 手写推导</b>出来的，内容一改就得记得同步</td>
+      <td><span class="tag t-red">建议抄</span></td>
+    </tr>
+    <tr>
+      <td><b>版式库</b></td>
+      <td>Stackable 375+ 设计（import 后仍是普通块，可继续改）；Otter 100+ 模板；Spectra 配 Astra 的 starter templates</td>
+      <td>首页走 <b>sections 表 + 3 种版式预设</b>；模板走 zip 上传 + 主端口分配</td>
+      <td><span class="tag t-amber">部分抄</span></td>
+    </tr>
+    <tr>
+      <td><b>付费墙</b></td>
+      <td>MemberPress <b>Smart Rules</b>：按页面/分类/标签/帖子内部分内容 gate；<b>Drip</b> 按日期或"加入后天数"分批放行；<b>dunning</b> 失败扣款自动重试找回流失；Group/Corporate 席位</td>
+      <td>阶段 0 后已修 4 条 P0；现为 <code>visibility</code> + <code>paid_level</code>（订阅/积分/邀请三态）+ 到期时间。字段在 <code>members</code> 与 <code>tiers</code></td>
+      <td><span class="tag t-red">建议抄</span></td>
+    </tr>
+    <tr>
+      <td><b>社区</b></td>
+      <td>Jetonomy（免费）：4 类空间 —— 论坛 / <b>Q&amp;A 采纳答案</b> / 点子投票 / 动态流，配 <b>6 级信任自动治理</b>；FluentCommunity：Spaces + 反应 + <b>楼中楼</b> + @提及 + 私信 + 排行榜</td>
+      <td><code>content/comments.tsx</code> 全文只命中 3 处「审核」——<b>无回复、无点赞、无嵌套、无举报</b>。会员之间零互动</td>
+      <td><span class="tag t-red">最大空白</span></td>
+    </tr>
+    <tr>
+      <td><b>成员资产</b></td>
+      <td>成员目录 + 个人主页 + 徽章 + 排行榜（FluentCommunity / BuddyBoss 标配）</td>
+      <td>无成员主页、无徽章、无等级展示。后台只有一张会员表</td>
+      <td><span class="tag t-amber">抄轻量版</span></td>
+    </tr>
+    <tr>
+      <td><b>邮件 / CRM</b></td>
+      <td>FluentCRM <b>360° 联系人档案</b>（购买记录 + 课程进度 + 会员等级汇到一个视图）+ <b>可视化自动化编排</b> + <b>Smart Links</b>（点某链接自动打标签/触发流程）+ 动态分组</td>
+      <td>newsletter.tsx 只有「群发」与「退订」；<b>但 <code>automation/WorkflowEditor.tsx</code> 已有 481 行编排器</b>——引擎在，缺"联系人"这个对象</td>
+      <td><span class="tag t-red">接线成本最低</span></td>
+    </tr>
+    <tr>
+      <td><b>表单</b></td>
+      <td>Fluent Forms：<b>对话式表单免费</b>（一屏一问，Typeform 式）+ 多步 + <b>部分提交捕获</b>（填一半跑了也留下数据）+ Save &amp; Resume + 条件逻辑免费</td>
+      <td><code>business/forms</code> + <code>f.$formId.tsx</code> 已存在；未见对话式 / 部分提交 / 断点续填</td>
+      <td><span class="tag t-amber">部分抄</span></td>
+    </tr>
+    <tr>
+      <td><b>SEO / Schema</b></td>
+      <td>Rank Math 免费版就带 <b>404 监控 + 重定向管理（301/302/307/410）</b> + 15 种以上 schema 生成器 + 内置 GA4/GSC 面板；Yoast 的<b>红黄绿灯内容评分</b></td>
+      <td>Agent Layer 已有 <code>/llms.txt</code> / <code>/agent.json</code> / 按路径注入 JSON-LD / robots 声明 21 个 AI 爬虫 / 付费边界。<b>但未见 404 监控与重定向表</b>，编辑期无内容评分</td>
+      <td><span class="tag t-amber">抄 2 项</span></td>
+    </tr>
+    <tr>
+      <td><b>分析</b></td>
+      <td>分析就在后台（Rank Math 内置面板）；<b>内容衰减追踪</b>（Content Decay）告诉你哪篇文章正在掉流量</td>
+      <td><code>stats.tsx</code> 285 行，只有阅读趋势图。<b>没有「哪篇文章带来几个会员」的归因</b></td>
+      <td><span class="tag t-amber">建议抄</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2><span class="num">2</span>值得抄的十三条（按投入产出排序）</h2>
+
+<h3>P0 — 低成本高回报（每条 1–2 天量级）</h3>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">P0-1</span><span class="ttl">重定向管理器 + 404 监控 —— 我最推荐的一条</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：Rank Math 把它放在<b>免费版</b>（Yoast 要 Premium 才有）。逻辑是：任何 URL 变动都会永久丢权重，所以插件帮你记录"谁在访问不存在的地址"并一键 301。</p>
+    <p><b>为什么对我们是刚需</b>：我们刚做完两件正在制造 URL 变动的事 —— 迁移 0011 加了 <code>kind</code> 列（文章能在 <code>/post/</code> 与 <code>/problems/</code> 之间迁移），问题页体系正在铺开。而 <b>Agent Layer 刚把 sitemap 从 7 条修到 12 条</b>，说明我们的 URL 面本身在快速变化。</p>
+    <div class="bad"><b>现状风险</b>：改一次 slug、换一次 kind，旧地址就是 404。没有重定向表，这些流失既不报警也查不到 —— 这是<b>持续性、静默的</b> SEO 与 GEO 资产流失。</div>
+    <div class="fix"><b>抄法</b>：加一张 <code>redirects(from_path UNIQUE, to_path, code, hits, created_at)</code>，在 <code>templates.rs</code> 的 SPA 兜底<b>之前</b>查一次；未命中的 404 记一张 <code>not_found_log(path, ua, hits)</code>，后台给一个"最近 404 + 一键转 301"的列表。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">P0-2</span><span class="ttl">评论区升级为「社区最小闭环」</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：FluentCommunity 的最小可用集是 <b>反应 + 楼中楼 + @提及 + 举报</b>；Jetonomy 在此之上加了 <b>Q&amp;A 采纳答案</b>。</p>
+    <p><b>现状</b>：<code>comments.tsx</code> 只处理"审核通过/驳回"。结果是评论区只有"读者对作者"，没有"读者对读者" —— <b>不产生任何留存</b>。而我们是会员站，会员留存就是收入留存。</p>
+    <div class="fix"><b>抄法</b>：先做四件小事 —— ① 评论加 <code>parent_id</code> 支持一层楼中楼 ② 加反应（赞/有用两个就够）③ @提及触发站内通知 ④ 举报进审核队列。<b>先不做私信和活动流</b>（见 §3）。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">P0-3</span><span class="ttl">把行为汇到「一个会员档案」</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：FluentCRM 的招牌是 <b>360° 联系人档案</b> —— 购买记录、课程进度、会员等级、表单提交、邮件互动<b>全在一个视图里</b>，然后才谈得上自动化。</p>
+    <p><b>为什么我们抄起来最省力</b>：<code>automation/WorkflowEditor.tsx</code> 已经有 481 行的编排器，<code>orders</code> / <code>members</code> / <code>forms</code> / <code>events</code> 数据也都在库里。<b>缺的只是把"会员"当成聚合根</b>，而不是四张互不相干的表。</p>
+    <div class="fix"><b>抄法</b>：<code>members</code> 详情页加一个"动态"时间线（订单 / 订阅变更 / 表单提交 / 内容互动），后端一个 <code>/api/members/:id/timeline</code> 聚合即可。<b>零新表</b>。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">P0-4</span><span class="ttl">Smart Links：点一下链接就自动打标签</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：FluentCRM 的 Smart Links —— 联系人点击邮件里的某个链接，<b>自动打标签并触发后续流程</b>。它是"用内容行为做分组"的最低成本手段。</p>
+    <p><b>现状</b>：我们已有出站 Webhook + 事件表，触发能力比 FluentCRM 强，但<b>没有"链接点击"这个事件源</b>。</p>
+    <div class="fix"><b>抄法</b>：邮件里的外链统一改写为 <code>/go/{token}</code>，记一次点击事件后 302 到真实地址。有了这个事件，现有 workflow 编排器立刻能按"点过 X 的人"发后续。</div>
+  </div>
+</div>
+
+<h3>P1 — 需要设计，但直接关系收入与流量</h3>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P1-1</span><span class="ttl">结构化块：让 JSON-LD 从内容结构里"长出来"</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：块编辑器的 FAQ / HowTo / 表格 是<b>语义块</b>——你填的是问答对，schema 是副产品。我们反过来：<b>内容是人写的，schema 也是人推的</b>。</p>
+    <p><b>我们踩过这个坑</b>：问题页的 FAQPage 原来是取正文截 400 字当答案，会截到半句，还给正文开了条绕过付费墙的旁路 —— 后来改成取 <code>summary</code>。改成 <code>summary</code> 是修对了，但<b>根子还在</b>：结构化数据和内容不是同一个来源。</p>
+    <div class="fix"><b>抄法</b>：给 <code>articles.content</code> 定一个受限的块语法（或直接在编辑器里插入"问答块"），JSON-LD 由块派生。收益不只是省事 —— <b>这是 GEO 的地基</b>：机器读得懂的内容，答案准确率才高。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P1-2</span><span class="ttl">Drip（分批发）+ 部分内容预览</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：MemberPress 的 Smart Rules 能 gate 到"帖子内的某一段"；Drip 能按"加入后天数"分批放行内容。</p>
+    <p><b>对我们的两处直接价值</b>：① 会员到期前给"部分预览"，是把 402 变成转化的最有效手段（现在 402 只返 <code>{locked, reason, preview}</code>，preview 不含正文）② 分批发能让"订阅"有持续的理由，而不是一次付完就没事了。</p>
+    <div class="warn"><b>注意</b>：这条接的是 <code>TOPIC_BILLING.md</code> 的<b>阶段 1</b>（entitlements 表 + <code>subscriptions.current_period_end</code>）。不要在阶段 0 的字段结构上硬做，会返工。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P1-3</span><span class="ttl">对话式表单（Fluent Forms 免费版就有）</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：一屏一问、大按钮、键盘可导航 —— 官方说法是显著提升完成率；关键是<b>它不贵</b>，Fluent Forms 把它放在免费版。</p>
+    <div class="fix"><b>抄法</b>：这是我们已有表单能力的一次<b>纯前端改造</b>——把 <code>f.$formId.tsx</code> 的多字段页改成步骤式。零后端改动，却能直接提转化。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P1-4</span><span class="ttl">成员资料页 + 徽章/等级展示</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：FluentCommunity 的排行榜、BuddyBoss 的徽章。作用不是"好玩"，是<b>把隐性贡献变成显性身份</b> —— 这是社区的留存机制。</p>
+    <div class="fix"><b>抄法</b>：轻量版即可 —— 会员主页展示"加入时间 / 订阅等级 / 评论数 / 被采纳数"，加 3–5 个徽章规则（首次评论、首次被采纳、连续订阅 3 个月）。<b>不抄头像墙、不抄好友关系。</b></div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P1-5</span><span class="ttl">内容归因：哪篇文章带来几个会员</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：Rank Math 内置 GA4/GSC 面板；内容衰减追踪。</p>
+    <p><b>我们的优势数据</b>：<code>read.$key.tsx</code> 已有阅读链路，<code>orders</code> 有成交 —— <b>两条链都在库里，只差一次 join</b>。有了它，问题页该先铺哪 5 篇就有了依据，而不是靠猜。</p>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-amber">P1-6</span><span class="ttl">编辑期的内容评分（Yoast 红黄绿灯）</span></div>
+  <div class="bd">
+    <p><b>标杆</b>：Yoast 用红黄绿灯告诉你"标题太短、段落太长、关键词密度不够"，让不懂 SEO 的人也能改对。它的价值在<b>把专业知识翻译成了可执行动作</b>。</p>
+    <div class="fix"><b>抄法</b>：我们已有 <code>agent_layer</code> 作为唯一事实源。<b>把 agent_layer 的判定反哺到编辑器</b> —— 保存时提示"这篇缺摘要（FAQ 会不发）""标题超 60 字符会被截"。<b>同一套规则两处用，不重复实现。</b></div>
+  </div>
+</div>
+
+<h3>P2 — 值得做，但要先看社区体量</h3>
+<div class="card">
+  <ul>
+    <li><b>私信 / 通知中心</b> —— FluentCommunity 有，但空社区里私信是负资产（没人可发）。等评论闭环跑起来再说。</li>
+    <li><b>信任等级自动治理</b> —— Jetonomy 的 6 级：新人受限，贡献多了自动放开权限。这是"既不开放被灌水、又不全审核累死自己"的唯一解，但<b>需要足够流量才划算</b>。</li>
+    <li><b>编辑器分屏实时预览</b> —— WP 块编辑器的标配。我们 <code>site-appearance</code> 已有预览，文章编辑缺。</li>
+  </ul>
+</div>
+
+<h2><span class="num">3</span>明确不建议抄的四条（同等重要）</h2>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">X</span><span class="ttl">页面构建器（Elementor / Divi / WPBakery）</span></div>
+  <div class="bd">
+    <p>2026 年的共识已经反转：同等页面<b>原生块比构建器快 3–5 倍</b>。数据很直白 —— Ollie 主题全站 CSS+JS 合计 <b>22 KB</b>、Twenty Twenty-Five <b>28 KB</b>，而构建器主题动辄数百 KB。评测圈的 2026 排期表已把 Avada / Divi / Flatsome 一类列进"立即放弃"档。</p>
+    <div class="fix"><b>我们的路线是对的</b>：L1 风格 + L2 版式的预设制，本质就是"轻量内核 + 多变体"，与 2026 的赢家同构。<b>不要因为"构建器看起来能拖拽"而回头。</b></div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">X</span><span class="ttl">重型社交社区（BuddyBoss 全套）</span></div>
+  <div class="bd">
+    <p>BuddyBoss 是 WP 生态最完整的社区（活动流 + 好友 + 群组 + 白标移动 App + 内置课程），2026 年 8 月的 3.0 还加了成员博客与迁移工具。但代价是：约 $199/年起、<b>第二年续费大致翻倍</b>、资源占用重、需要独立托管。</p>
+    <div class="bad"><b>为什么不适合我们</b>：它的价值前提是<b>"社区本身就是产品"</b>——用户为了社交而来。我们的产品是内容与付费会员，社区是配套。用户量不够时，一个空荡的活动流<b>比没有更伤</b>：它向新访客证明"这里没人"。</div>
+    <div class="fix"><b>正确的量级</b>：先用 P0-2 的最小闭环（反应 + 楼中楼 + @）验证"会员愿不愿意讲"，做得起来再谈活动流。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">X</span><span class="ttl">"每加一个能力装一个插件"的堆叠模式</span></div>
+  <div class="bd">
+    <p>WordPress 生态的默认形态是插件堆叠：会员装一个、CRM 装一个、表单装一个、SEO 装一个，再靠 WP Fusion / Uncanny Automator 把它们缝起来。用户实际承受的是<b>版本地狱、性能负债、以及"缝"本身的脆弱</b>。</p>
+    <div class="fix"><b>这是我们的结构性优势</b>：单代码库 + 单权限链（<code>perm.rs</code> / <code>permissions.ts</code>）+ 单网关（<code>resources.rs</code>）。抄 WordPress 的<b>功能形态</b>，但<b>不要抄它的模块化方式</b> —— 不要为了"像插件一样可插拔"把现有边界拆散。</div>
+  </div>
+</div>
+
+<div class="def">
+  <div class="hd"><span class="sev t-red">X</span><span class="ttl">免费版 / Pro 版的商业化切分</span></div>
+  <div class="bd">
+    <p>WP 插件大量功能取舍（比如 Rank Math 免费给重定向、Yoast 要 Premium）都是<b>为了卖 License</b> 而设计的，不是出于技术判断。我们是私有化自托管站，<b>没有这个约束</b> —— 所以不要沿用"哪个功能该收进 Pro"的思考方式，那会让我们把功能砍错地方。</p>
+  </div>
+</div>
+
+<h2><span class="num">4</span>反过来：我们已经领先 WordPress 生态的四件事</h2>
+
+<table>
+  <thead><tr><th style="width:22%">能力</th><th style="width:40%">我们的实现</th><th style="width:38%">WordPress 生态的水位</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Agent Layer / GEO</b></td>
+      <td><code>/llms.txt</code>、<code>/agent.json</code>、<code>/ai/product</code> 共用单一事实源；按路径注入 Article / BreadcrumbList / FAQPage；robots 声明 21 个 AI 爬虫；付费文 <code>isAccessibleForFree:false</code> <b>且不写 articleBody</b></td>
+      <td>三大 SEO 插件（Yoast / Rank Math / AIOSEO）<b>2025 年才补上 llms.txt 生成器</b>；Yoast 额外做了 Bot Blocker。到"付费墙机器边界"这个细粒度，生态里没有对应实现</td>
+    </tr>
+    <tr>
+      <td><b>AI 工作台</b></td>
+      <td>AI 助手 + 执行记录 + <b>待办审批</b>（AI 的写操作要人批）</td>
+      <td>插件生态基本把 AI 当作"写文案的输入框"（Spectra AI / Otter AI / Content AI）；<b>没有"AI 执行 + 人工审批"的治理层</b></td>
+    </tr>
+    <tr>
+      <td><b>事件幂等</b></td>
+      <td>出站 Webhook 带退避重试；入站事件经迁移 0010 的 <code>webhook_events</code> 去重，失败返 5xx 让上游重试</td>
+      <td>WP 靠 Zapier / Uncanny Automator 外挂转发，<b>幂等责任在外部服务</b>；且其插件层"唯一键冲突被吞"是常见坑</td>
+    </tr>
+    <tr>
+      <td><b>审计 + 多语言</b></td>
+      <td>全站写操作留痕（<code>/team/audit</code>，仅 Owner）；<code>i18n</code> 模块在导航里是一等公民</td>
+      <td>审计要装独立插件且多为付费；多语言靠 WPML / Polylang 外挂</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2><span class="num">5</span>一个原型洞察：问题页与社区 Q&amp;A 是同构的</h2>
+
+<div class="lead">
+  <p>这是本次调研里我认为最值得单独说的一条 —— <b>WP 生态的 Q&amp;A（采纳答案）与我们正在铺的 <code>/problems</code>，指向的是同一个位置。</b></p>
+</div>
+
+<div class="g2">
+  <div class="mcard">
+    <div class="k">现在的单向模式</div>
+    <div class="v" style="font-size:15px">我们出问题，我们出答案</div>
+    <div class="s" style="margin-top:6px">内容页形态。<b>瓶颈是人</b>：写一篇少一篇，覆盖的是我们想得到的问题。</div>
+  </div>
+  <div class="mcard">
+    <div class="k">社区 Q&amp;A 的双向模式</div>
+    <div class="v" style="font-size:15px">用户出问题，采纳的答案留下</div>
+    <div class="s" style="margin-top:6px">Jetonomy / wpForo 形态。<b>瓶颈是流量</b>：没人提问就空转。</div>
+  </div>
+</div>
+
+<div class="card">
+  <p><b>两者的耦合点极其干净</b>：<code>/problems</code> 与社区问答<b>可以共用 <code>articles</code> 表与同一套 URL 分流</b>（<code>kind</code> 列刚刚加好，<code>seo::content_url()</code> 已是唯一出口）。</p>
+  <div class="step"><div class="no">1</div><div class="bd"><b>问题页占位</b><span>我们把长尾问题以官方答案的形式先占住（现在在做的事）。</span></div></div>
+  <div class="step"><div class="no">2</div><div class="bd"><b>社区填充</b><span>真实用户在文章下提出更具体的问题 —— 这些问题天然是高价值长尾词，且我们已经有 Webhook 与事件表可以捕获。</span></div></div>
+  <div class="step"><div class="no">3</div><div class="bd"><b>答案升格</b><span>被采纳的用户答案，补进问题页对应段落 → 生成新页面 → 分享回社区 → 带来新的提问。</span></div></div>
+  <div class="fix"><b>为什么这条只有我们能做</b>：WP 生态的 Q&amp;A 插件<b>不产出机器可读的结构化答案</b>（它们做的是社区 SEO，不是 GEO），而我们已经有 agent_layer 与分路径注入的 JSON-LD 管道。<b>把用户的采纳答案接进 FAQPage，是生态里没人有的组合。</b></div>
+</div>
+
+<h2><span class="num">6</span>建议的动作顺序</h2>
+
+<table>
+  <thead><tr><th style="width:8%">序</th><th style="width:34%">动作</th><th style="width:26%">为什么是这个顺序</th><th style="width:32%">前置依赖</th></tr></thead>
+  <tbody>
+    <tr><td><b>①</b></td><td><b>重定向表 + 404 监控</b>（P0-1）</td><td>我们正在制造 URL 变动，漏洞每分钟都在产生损失；纯后端，不动前端</td><td>无。可立刻做</td></tr>
+    <tr><td><b>②</b></td><td><b>会员档案时间线</b>（P0-3）+ <b>Smart Links</b>（P0-4）</td><td>零新表、零新概念，把已有数据接起来，立刻能用</td><td>无。可立刻做</td></tr>
+    <tr><td><b>③</b></td><td><b>评论最小闭环</b>（P0-2）</td><td>开始验证"会员愿不愿讲" —— 这是决定要不要做更大社区的前置实验</td><td>需一次迁移（<code>parent_id</code> + 反应表）</td></tr>
+    <tr><td><b>④</b></td><td><b>内容归因</b>（P1-5）+ <b>对话式表单</b>（P1-3）</td><td>归因产出的是<b>决策数据</b>——决定问题页先铺哪几篇；表单是纯前端改造</td><td>无。但归因最好在问题页有量之后看</td></tr>
+    <tr><td><b>⑤</b></td><td><b>结构化块</b>（P1-1）</td><td>GEO 地基层，但要等编辑器侧定好块语法；改动面较大</td><td>需与内容策略一起定</td></tr>
+    <tr><td><b>⑥</b></td><td><b>Drip + 部分预览</b>（P1-2）</td><td>接 <code>TOPIC_BILLING</code> 阶段 1 的 entitlements 表</td><td>依赖阶段 1 的表结构</td></tr>
+  </tbody>
+</table>
+
+<div class="lead">
+  <p><b>与当前阻塞的关系</b>：问题页首批内容卡在"X 上被问最多的原话 + 你的实测事实"这两样素材上。
+  上面 ①② 两条<b>完全不依赖内容素材</b>，可以现在就并行推进 —— 而其中的"重定向表"恰好是问题页铺开时的<b>保护措施</b>：万一哪个 slug 要改，不至于丢流量。</p>
+</div>
+
+<h2><span class="num">7</span>调研来源</h2>
+<div class="card" style="font-size:12.5px;color:var(--tx2)">
+  <p><b>会员 / 付费墙</b>：Elegant Themes 会员插件评测（2026）、BuddyBoss 官方对比、WBCom Designs 十款会员插件评测、wptraining.at 三款对比（含 Smart Rules 与 dunning 细节）</p>
+  <p><b>社区 / 论坛</b>：WooCommercify 2026 社区插件评测、arslanabbas.dev 八款论坛对比、BuddyX Theme 论坛对比（Jetonomy 信任等级）、WBCom Designs 社区插件评测（FluentCommunity Spaces）</p>
+  <p><b>CRM / 邮件</b>：FluentCRM 官方产品页与功能清单、WPManageNinja FluentCRM 评测（360° 档案 / Smart Links / 45+ 集成）</p>
+  <p><b>表单</b>：Fluent Forms 官方产品页与 Free vs Pro 说明、WP Depth 2026 表单插件对比、WPdiscounts / WPTested 评测（对话式表单 / 部分提交 / Save &amp; Resume）</p>
+  <p><b>块与设计系统</b>：WPPoland Gutenberg 指南（theme.json / FSE）、DigiHold 2026 块插件评测、WPShout 十款块插件、RadiusTheme 七款对比、PressLayouts 2026 主题分层表（含性能实测载荷）、WPPRES 与 Hostney 区块主题指南</p>
+  <p><b>SEO / Schema</b>：HOSTKEY 三款 SEO 插件对比（2026 年 3 月口径，含 llms.txt 与 Bot Blocker）、PikaSEO 与 WP Rocket 的 Yoast vs Rank Math 对比、Capston AI 对比（含"三家都没有 AI 引用追踪"的空白判断）</p>
+  <p style="color:var(--tx3);margin-top:10px">价格与功能以 2026 年各厂商公开页面为准；本报告只引用<b>做法与形态</b>，不依赖具体报价做决策。</p>
+</div>
+
+</div>
+</body>
+</html>

@@ -183,6 +183,56 @@ export interface Integration extends BaseRecord {
 }
 
 /** 表单字段描述（驱动 CmsFormModal 的通用 schema） */
+/** SEO 重定向（P0-1，对标 Rank Math 的重定向管理）。 */
+export interface Redirect extends BaseRecord {
+  /** 完整请求路径（含 /t/<slug> 前缀）—— 与 404 日志口径一致，可直接互相转换 */
+  fromPath: string
+  /** 站点相对路径 /xxx 或 http(s) 绝对地址；410 时可不填 */
+  toPath: string
+  /** 301 / 302 / 307 / 308 / 410 */
+  code: number
+  note: string
+  /** 命中次数，只增不减：判断这条规则是否真在救流量 */
+  hits: number
+  enabled: boolean
+}
+
+/** 404 监控记录（P0-1）。公开站渲染「未找到」时前端上报，同路径只累加 hits。 */
+export interface NotFoundLog extends BaseRecord {
+  path: string
+  referer: string
+  ua: string
+  hits: number
+  lastSeen: string
+  /** 已处理（通常表示已建重定向或确认无需处理） */
+  resolved: boolean
+}
+
+/**
+ * Smart Link（P0-4）：对外发的短链 `/go/{token}`。
+ *
+ * 计两个数：`clicks` 是真人点击，`prefetch` 是邮件网关/IM 的链接预览抓取。
+ * **必须分开**：一封群发邮件能在无人点开前就把链接抓几十遍，
+ * 混在一起算，这个数字从一开始就是假的。
+ */
+export interface SmartLink extends BaseRecord {
+  /** 短链尾段（`/go/{token}`），只允许字母数字与 `-` `_` */
+  token: string
+  /** 目标地址，仅 http(s) */
+  url: string
+  /** 备注名，列表里认人用 */
+  label: string
+  /** 逗号分隔；点击者会自动获得这些标签 */
+  tags: string
+  enabled: boolean
+  /** 真人点击数（已剔除预取） */
+  clicks: number
+  /** 预取次数（机器人抓取，不计入 clicks） */
+  prefetch: number
+  /** 最近一次真人点击时间 */
+  lastClickAt: string | null
+}
+
 export interface FormFieldDef {
   key: string
   label: string
