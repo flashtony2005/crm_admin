@@ -21,7 +21,7 @@ export function NewsletterWidget() {
   }
 
   return (
-    <div className="rounded-2xl bg-os-surface/60 border p-6 my-8">
+    <div className="rounded-2xl bg-os-bg-base/60 border p-6 my-8">
       <h3 className="font-semibold mb-1">{t('newsletter.title')}</h3>
       {done ? (
         <p className="text-sm text-green-600">已订阅，感谢关注！</p>

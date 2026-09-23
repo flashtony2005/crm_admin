@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>年付在线支付上线报告 · 2026-09-23</title>
+<style>
+  :root{
+    --bg:#f8f9fb; --card:#fff; --line:#e5e7eb; --line2:#f3f4f6;
+    --t1:#111827; --t2:#6b7280; --t3:#9ca3af;
+    --blue:#6b4de6; --blue-bg:#f3f0ff;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --green:#166534; --green-bg:#dcfce7;
+    --amber:#854d0e; --amber-bg:#fef9c3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);
+    font:15px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 20px 80px}
+  h1{font-size:26px;letter-spacing:-.4px;margin:0 0 6px}
+  .sub{color:var(--t2);font-size:14px;margin-bottom:26px}
+  h2{font-size:18px;margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:15px;margin:22px 0 8px}
+  p{margin:10px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);margin:14px 0}
+  .grid{display:grid;gap:12px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:720px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .kpi .l{font-size:12px;color:var(--t2);margin-top:2px}
+  .kpi.ok .n{color:var(--green)}
+  code{background:var(--line2);border-radius:5px;padding:1px 5px;font-size:13px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.6}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--card);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+  th{background:#fafafa;font-weight:600;font-size:12.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.3px}
+  tr:last-child td{border-bottom:0}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-red{background:var(--red-bg);color:var(--red)}
+  .t-green{background:var(--green-bg);color:var(--green)}
+  .t-amber{background:var(--amber-bg);color:var(--amber)}
+  .t-blue{background:var(--blue-bg);color:var(--blue)}
+  .note{border-left:3px solid var(--blue);background:var(--blue-bg);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+  .warn{border-left:3px solid var(--red);background:var(--red-bg);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  .muted{color:var(--t2);font-size:13px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>年付在线支付上线</h1>
+  <div class="sub">
+    从「明确拒绝年付」到「按周期取价 + 按周期发货」· admin（私有化创作者变现站）· 2026-09-23 ·
+    迁移 <code>0016_stripe_price_yearly</code>
+  </div>
+
+  <div class="card">
+    <b>一句话结论</b>：年付在线支付已打通 —— 月/年各自绑定独立的 Stripe Price，取价、发货天数、套餐名
+    三者由同一个 <code>interval</code> 派生。过程中发现并修掉了一条**比年付本身更严重的资损缺陷**：
+    真实 Stripe 扣款成功后（<code>checkout.session.completed</code>）系统只把会员置为 active，
+    <b>plan 与到期时间一概不动</b> —— 钱收了、会员没发，且这类单子不在 <code>orders</code> 表里，
+    对账与归因都看不出异常。
+  </div>
+
+  <div class="grid g4">
+    <div class="kpi ok"><div class="n">76/76</div><div class="l">cargo test（72 → 76）</div></div>
+    <div class="kpi ok"><div class="n">27/27</div><div class="l">年付 e2e（真 HTTP + 真 DB）</div></div>
+    <div class="kpi ok"><div class="n">25</div><div class="l">浏览器断言 · 0 控制台错误</div></div>
+    <div class="kpi ok"><div class="n">130/130</div><div class="l">vitest · tsc 0 error</div></div>
+  </div>
+
+  <h2>一、为什么要做：三层缺陷是串起来的</h2>
+
+  <h3>① 一张价格表只有一列 → 页面承诺与扣款不一致</h3>
+  <p>
+    <code>tiers</code> 原先只有 <code>stripe_price_id</code> 一列，月付与年付共用同一个 Stripe Price。
+    会员页写着「¥180 / 年」，Checkout 却拿同一个 Price 建订阅会话 —— <b>实际按月扣款</b>。
+    当时的处置是**明确拒绝年付**（400 + 指到人工开通）：宁可少一条通路，也不能按错的周期收钱。
+    代价是年付只能人工收款。根因不在代码，在数据模型：Stripe 的一个 Price 天生绑定唯一计费周期。
+  </p>
+
+  <h3>② 更严重的一条：真实扣款之后不发货</h3>
+  <div class="warn">
+    <code>apply_stripe_event</code> 处理 <code>checkout.session.completed</code> 时，
+    只做 <code>UPDATE members SET status = 1, stripe_customer_id = …</code>，
+    把「周期落到 plan 上」推给尚未落地的订阅状态机（阶段 1）。<br>
+    后果：<b>用户真实付了钱，plan 仍是 free、到期时间为空</b>。而且 Stripe 那条线上没有 <code>orders</code> 记录，
+    归因收入 / 对账 / 后台订单列表全都看不到这笔钱。在真实收款链路上等一个未来模块，等于持续资损。
+  </div>
+  <p>
+    本次把它补齐：会话 <code>metadata</code> 里带上 <code>interval</code> 与 <code>tier_slug</code>，
+    Webhook 据此发货（月付 30 天 / 年付 365 天，套餐名落到 slug）。
+  </p>
+
+  <h3>③ 两个只有真截图才看得见的界面缺陷</h3>
+  <table>
+    <tr><th>现象</th><th>根因</th><th>为什么检查抓不到</th></tr>
+    <tr>
+      <td>周期切换的<b>选中项不可见</b>（用户以为自己还在月付）</td>
+      <td>类名写了 <code>bg-os-text</code>，而 <code>index.css</code> 里<b>没有这个令牌</b>
+        （只有 <code>os-text-primary</code> / <code>os-text-muted</code>），Tailwind v4 不报错、直接不生成样式
+        → 白字 + 无底色 = 白底白字</td>
+      <td>tsc / vitest / 构建全部通过；只有取浏览器计算样式才暴露</td>
+    </tr>
+    <tr>
+      <td>点「在线支付订阅」失败时<b>页面毫无反应</b>，用户反复点</td>
+      <td>失败信息写进了 <code>err</code> state，而那个内联错误位<b>只在未登录表单里渲染</b></td>
+      <td>逻辑正确、类型正确，只是用户看不到</td>
+    </tr>
+  </table>
+  <p class="muted">
+    顺手做了一次全量令牌审计（10 个文件之外），另有两处同类失效：<code>change-password.tsx</code> 的
+    <code>bg-os-bg</code>、<code>NewsletterWidget.tsx</code> 的 <code>bg-os-surface/60</code>，一并修正。
+  </p>
+
+  <h2>二、周期 → 价格 → 天数：三同源</h2>
+  <div class="card">
+    <svg viewBox="0 0 900 200" width="100%" height="200" role="img" aria-label="interval 三同源链路">
+      <defs>
+        <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="#6b4de6"/>
+        </marker>
+      </defs>
+      <text x="0" y="18" font-size="12" fill="#6b7280">唯一的输入</text>
+      <rect x="0" y="30" width="150" height="46" rx="10" fill="#111827"/>
+      <text x="75" y="59" font-size="14" fill="#ffffff" text-anchor="middle">interval</text>
+
+      <line x1="156" y1="53" x2="248" y2="53" stroke="#6b4de6" stroke-width="1.6" marker-end="url(#a)"/>
+      <text x="200" y="45" font-size="11.5" fill="#6b7280" text-anchor="middle">Interval::parse</text>
+
+      <rect x="256" y="14" width="230" height="78" rx="10" fill="#f3f0ff" stroke="#6b4de6"/>
+      <text x="371" y="42" font-size="13" fill="#111827" text-anchor="middle">取价 price_id_for()</text>
+      <text x="371" y="64" font-size="11.5" fill="#6b7280" text-anchor="middle">monthly → stripe_price_id</text>
+      <text x="371" y="80" font-size="11.5" fill="#6b7280" text-anchor="middle">yearly → stripe_price_yearly_id</text>
+
+      <line x1="492" y1="53" x2="560" y2="53" stroke="#6b4de6" stroke-width="1.6" marker-end="url(#a)"/>
+
+      <rect x="568" y="8" width="150" height="44" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="643" y="36" font-size="13" fill="#111827" text-anchor="middle">Stripe Price</text>
+      <rect x="568" y="58" width="150" height="44" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="643" y="86" font-size="13" fill="#111827" text-anchor="middle">days(): 30 / 365</text>
+      <rect x="568" y="108" width="150" height="44" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="643" y="136" font-size="13" fill="#111827" text-anchor="middle">metadata.interval</text>
+
+      <line x1="724" y1="53" x2="792" y2="53" stroke="#6b4de6" stroke-width="1.6" marker-end="url(#a)"/>
+      <rect x="800" y="20" width="96" height="66" rx="10" fill="#dcfce7" stroke="#166534"/>
+      <text x="848" y="48" font-size="12.5" fill="#166534" text-anchor="middle">发货</text>
+      <text x="848" y="68" font-size="11" fill="#166534" text-anchor="middle">plan + 天数</text>
+
+      <text x="0" y="150" font-size="12" fill="#6b7280">三条产物必须同源：价格决定扣款周期，天数决定会员时长，metadata 决定 Webhook 怎么发货。</text>
+      <text x="0" y="172" font-size="12" fill="#dc2626">年付缺价一律返回空串 → 400，绝不回落月价（回落 = 页面承诺 ¥180/年却每月扣款）。</text>
+    </svg>
+  </div>
+
+  <h2>三、改动清单（10 文件，+447 / −69）</h2>
+  <table>
+    <tr><th>层</th><th>文件</th><th>改了什么</th></tr>
+    <tr>
+      <td><span class="tag t-blue">数据</span></td>
+      <td class="mono">server/src/db.rs</td>
+      <td>迁移 <code>0016_stripe_price_yearly</code>：<code>tiers.stripe_price_yearly_id</code></td>
+    </tr>
+    <tr>
+      <td><span class="tag t-blue">网关</span></td>
+      <td class="mono">server/src/resources.rs</td>
+      <td>tiers 列登记 <code>("stripe_price_yearly_id","stripePriceYearlyId")</code>，后台可读写</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><span class="tag t-blue">后端</span></td>
+      <td class="mono">server/src/subscriptions.rs</td>
+      <td>
+        新增 <code>Interval</code>（parse / key / label / price_col / days）与 <code>price_id_for()</code>；
+        移除年付硬挡；会话 metadata 双写 interval + tier_slug + tier_id（session 级给本次事件、
+        subscription 级给阶段 1）；<code>decide_checkout</code> 报错<b>点名缺的那一列</b>；
+        Demo 模式天数按周期（原先写死 30）；<b>Webhook 真发货</b>（plan=slug + 30/365 天）；
+        公开 <code>/api/public/tiers</code> 下发 <code>onlineMonthly</code> / <code>onlineYearly</code>（只给布尔，不给 Price ID）
+      </td>
+    </tr>
+    <tr>
+      <td class="mono">server/src/points.rs</td>
+      <td><code>member_row</code> 提为 <code>pub(crate)</code>（发货前判会员是否存在，避免 Stripe 无限重投）</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-blue">测试</span></td>
+      <td class="mono">server/src/tests_api.rs</td>
+      <td>删掉「年付必须 400」旧用例，换成 3 个新用例（见下）</td>
+    </tr>
+    <tr>
+      <td rowspan="4"><span class="tag t-green">前端</span></td>
+      <td class="mono">routes/content/subscriptions.tsx</td>
+      <td>表单加「年付 Stripe Price ID」，列表列显示「月 … · 年 …」</td>
+    </tr>
+    <tr>
+      <td class="mono">routes/membership.tsx</td>
+      <td>去掉 <code>cycle === 'yearly'</code> 硬禁用，改按服务端下发的 <code>onlineYearly</code> 判断；
+        未配置时给出原因 + 指到后台字段；checkout 失败改 <code>toast</code>（原来登录后无声）；
+        修周期切换选中态令牌（转 <code>bg-os-text-primary</code>）</td>
+    </tr>
+    <tr>
+      <td class="mono">api/cms/types.ts</td>
+      <td><code>Tier</code> 补 <code>stripePriceYearlyId</code> / <code>onlineMonthly</code> / <code>onlineYearly</code></td>
+    </tr>
+    <tr>
+      <td class="mono">change-password.tsx · NewsletterWidget.tsx</td>
+      <td>同类未定义令牌（<code>bg-os-bg</code> / <code>bg-os-surface</code>）</td>
+    </tr>
+  </table>
+
+  <h2>四、四条硬规则（写进代码注释，防回归）</h2>
+  <table>
+    <tr><th>#</th><th>规则</th><th>违反的后果</th></tr>
+    <tr>
+      <td>1</td>
+      <td>年付只能取 <code>stripe_price_yearly_id</code>，<b>缺价返回空串 → 400</b>，绝不回落月价</td>
+      <td>页面写「¥180/年」、用户每月被扣一次 —— 不查 Stripe 账单看不出来</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>价格 / 天数 / metadata 必须由<b>同一次</b> <code>interval</code> 解析派生</td>
+      <td>「按年价收 ¥180、只给 30 天」这类收款与契约不符，且订单里两个数字各自自洽</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>真实扣款的 Webhook <b>必须真发货</b>（plan + 到期时间）；缺 <code>metadata.tier_slug</code> 时只激活账号、不凭空发会员</td>
+      <td>钱收了会员没发（本次修掉的资损点）；或反过来给未知套餐白送会员</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>发货失败返 5xx 让 Stripe 重投；但「会员不存在」这类终态返 200，<b>不能返 Err</b></td>
+      <td>返 2xx 会永久丢事件；对终态返 Err 会让 Stripe 无限重投</td>
+    </tr>
+  </table>
+
+  <h2>五、验收（全部在最终构建上复测）</h2>
+  <table>
+    <tr><th>项</th><th>结果</th><th>覆盖了什么</th></tr>
+    <tr>
+      <td>cargo test</td>
+      <td><b>76 passed / 0 failed</b>（791s）</td>
+      <td>新增 2 个纯函数用例（年付不回落月价 / interval 解析严格但安全）+ 3 个集成用例</td>
+    </tr>
+    <tr>
+      <td>年付 e2e <span class="mono">F:/tmp/e2e_yearly.py</span></td>
+      <td><b>27 / 27 PASS</b></td>
+      <td>网关读写往返 → 公开能力标志（且不泄露 Price ID）→ 月/年拒绝理由同源 →
+        Webhook 年付 365 天 / 月付 30 天 / 无 metadata 不发 + 去重不叠加 → 收尾还原</td>
+    </tr>
+    <tr>
+      <td>成交闭环 e2e <span class="mono">F:/tmp/e2e_deal.py</span></td>
+      <td><b>47 / 47 PASS</b></td>
+      <td>无回归（其中 2 条断言按新语义改写：年付不再被硬挡）</td>
+    </tr>
+    <tr>
+      <td>无头浏览器 <span class="mono">F:/tmp/browser_check_yearly.mjs</span></td>
+      <td><b>25 PASS · 0 控制台错误</b></td>
+      <td>真 UI 注册 → 切年付 → 选中态可见性（计算样式）→ A 卡按钮可用 / B 卡禁用且给出原因 →
+        点击后请求体确为 <code>"interval":"yearly"</code> 且后端走到真实通道判定 → 后台表单两个 Price 字段</td>
+    </tr>
+    <tr>
+      <td>tsc / vitest / 生产构建</td>
+      <td>0 error / <b>130/130</b> / exit 0</td>
+      <td>构建产物与 routeTree 生成正常</td>
+    </tr>
+    <tr>
+      <td>迁移落库</td>
+      <td><span class="tag t-green">已确认</span></td>
+      <td><code>_migrations</code> head = <code>0016_stripe_price_yearly</code>；<code>pragma table_info(tiers)</code> 末列 = <code>stripe_price_yearly_id</code></td>
+    </tr>
+  </table>
+
+  <h2>六、当前站点实际状态与未决</h2>
+  <div class="card">
+    <p><b>站长还需做的两件事</b>（否则在线支付按钮会如实显示「未配置」并禁用，人工开通不受影响）：</p>
+    <ul>
+      <li>后台「付费订阅 → 编辑套餐」填 <b>月付 / 年付两个 Stripe Price ID</b>（库里 <code>monthly</code> / <code>annual</code> 两条现在都还是空）；</li>
+      <li>服务器配 <code>STRIPE_SECRET_KEY</code> 与 <code>STRIPE_WEBHOOK_SECRET</code>（未配时在线通道是硬拒绝，这是 P0-2 的既定行为）。</li>
+    </ul>
+    <p class="muted"><b>未决（阶段 1 订阅状态机）</b>：本次只发「首个计费周期」（月 30 / 年 365 天）。
+      Stripe 的<b>续费</b>事件（<code>invoice.payment_succeeded</code> 等）仍落库标
+      <code>pending_apply</code>，不重复发货 —— 也就是年付会员在第 366 天需要状态机接手长订阅。
+      这是已知缺口，不是本次回归。</p>
+  </div>
+
+  <p class="muted" style="margin-top:28px">
+    报告基于最终构建复测（exe 时间戳 2026-09-23 16:36）。改动尚未提交，工作区 10 个文件为已修改状态。
+  </p>
+
+</div>
+</body>
+</html>

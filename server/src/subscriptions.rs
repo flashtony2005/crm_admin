@@ -31,7 +31,8 @@ pub async fn tiers(State(st): State<AppState>) -> ApiResult {
     let rows = st
         .db
         .query_all(
-            "SELECT id, name, slug, description, price_monthly, price_yearly, features, active \
+            "SELECT id, name, slug, description, price_monthly, price_yearly, features, active, \
+                    stripe_price_id, stripe_price_yearly_id \
              FROM tiers WHERE tenant_id = ? AND active = 1 ORDER BY price_monthly ASC",
             vec![sval(st.tenant.clone())],
         )
@@ -48,6 +49,11 @@ pub async fn tiers(State(st): State<AppState>) -> ApiResult {
             "priceYearly": r.try_get::<f64>("", "price_yearly").unwrap_or(0.0),
             "features": r.try_get::<String>("", "features").unwrap_or_else(|_| "[]".into()),
             "active": r.try_get::<i64>("", "active").unwrap_or(1),
+            // 只下发「该周期能否在线支付」这一个布尔量，**不下发 Price ID 本身**：
+            // 前端需要它来决定按钮是否可用（否则用户点下去只能拿到 400），
+            // 但 Price ID 属于运营配置，没有出现在公开响应里的理由。
+            "onlineMonthly": !r.try_get::<String>("", "stripe_price_id").unwrap_or_default().trim().is_empty(),
+            "onlineYearly": !r.try_get::<String>("", "stripe_price_yearly_id").unwrap_or_default().trim().is_empty(),
         }));
     }
     ok(json!(items))
@@ -74,29 +80,31 @@ pub struct CheckoutReq {
 pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): Json<CheckoutReq>) -> ApiResult {
     let row = st
         .db
-        .query_one("SELECT id, name, slug, stripe_price_id, price_monthly FROM tiers WHERE id = ? AND tenant_id = ? AND active = 1 LIMIT 1",
-            vec![sval(req.tier_id.clone()), sval(st.tenant.clone())])
+        .query_one(
+            "SELECT id, slug, stripe_price_id, stripe_price_yearly_id FROM tiers \
+             WHERE id = ? AND tenant_id = ? AND active = 1 LIMIT 1",
+            vec![sval(req.tier_id.clone()), sval(st.tenant.clone())],
+        )
         .await
         .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
     let Some(r) = row else { return Err(ApiError::not_found("套餐不存在")) };
     let tier_id: String = r.try_get("", "id").map_err(internal)?;
     let tier_slug: String = r.try_get("", "slug").unwrap_or_default();
-    let price_id: String = r.try_get("", "stripe_price_id").unwrap_or_default();
+    let monthly_id: String = r.try_get("", "stripe_price_id").unwrap_or_default();
+    let yearly_id: String = r.try_get("", "stripe_price_yearly_id").unwrap_or_default();
 
-    // 在线支付暂不支持年付：tiers 只有一列 stripe_price_id，月/年会拿着**同一个**
-    // Stripe 价格去结算 —— 会员点了年付、页面写着 ¥180/年，实际按月订阅扣款。
-    // 静默按错的周期收钱比明确拒绝糟得多，所以这里直接挡掉，
-    // 把年付指到「线下付款 · 人工开通」（那条路走 orders 表，计价按 interval 取价）。
-    if req.interval.as_deref() == Some("yearly") {
-        return Err(ApiError::bad(
-            "在线支付暂未支持年付（该套餐只配置了一个 Stripe 价格），请改用「线下付款 · 人工开通」",
-        ));
-    }
+    // 周期 → 价格 → 天数，三者必须同源（同一次 interval 解析）。
+    // 此前这里硬挡年付：tiers 只有一列 stripe_price_id，月/年会拿着**同一个**
+    // Stripe 价格结算 —— 页面写「¥180/年」而实际按月扣款。硬挡比静默错收好，
+    // 但年付只能走人工。现在年付有独立 Price 列（迁移 0016），在线年付可以真做：
+    // 取价严格按周期，用户选年付就必须用年付价格，**缺价报错、绝不回落月价**。
+    let iv = Interval::parse(req.interval.as_deref());
+    let price_id = price_id_for(iv, &monthly_id, &yearly_id);
 
     let sk = std::env::var("STRIPE_SECRET_KEY").unwrap_or_default();
     let demo_flag = env_flag("STRIPE_DEMO_MODE");
     let is_prod = std::env::var("CMS_ENV").as_deref() == Ok("production");
-    match decide_checkout(&sk, &price_id, demo_flag, is_prod) {
+    match decide_checkout(&sk, &price_id, demo_flag, is_prod, iv) {
         CheckoutMode::Live => {
             let client = reqwest::Client::new();
             let success = format!("{}/membership?thank=1", public_base(&st));
@@ -112,6 +120,17 @@ pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): J
                 ("line_items[0][price]", price_id),
                 ("line_items[0][quantity]", "1".to_string()),
                 ("subscription_data[metadata][member_id]", auth.0.sub.clone()),
+                // 周期与套餐写进 metadata：Webhook 只拿得到一个 session 对象，
+                // 没有这两个键就不知道该给哪个 plan、给多少天 —— 那意味着
+                // **钱收了但会员不发**（比发错更糟，用户直接投诉到支付渠道）。
+                // session 级与 subscription 级**都写**：前者给
+                // checkout.session.completed 用，后者给阶段 1 的订阅状态机用
+                // （customer.subscription.* 事件只带订阅对象，读不到 session metadata）。
+                ("metadata[interval]", iv.key().to_string()),
+                ("metadata[tier_slug]", tier_slug.clone()),
+                ("metadata[tier_id]", tier_id.clone()),
+                ("subscription_data[metadata][interval]", iv.key().to_string()),
+                ("subscription_data[metadata][tier_slug]", tier_slug.clone()),
             ];
             let resp = client
                 .post("https://api.stripe.com/v1/checkout/sessions")
@@ -126,7 +145,7 @@ pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): J
             }
             let j: Value = resp.json().await.map_err(|e| ApiError::bad(format!("解析失败：{e}")))?;
             let url = j.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
-            crate::webhooks_out::emit(&st, "subscription.checkout", json!({ "tierId": tier_id, "memberId": auth.0.sub }));
+            crate::webhooks_out::emit(&st, "subscription.checkout", json!({ "tierId": tier_id, "memberId": auth.0.sub, "interval": iv.key(), "days": iv.days() }));
             ok(json!({ "url": url, "testMode": false }))
         }
         // 演示模式：不真实扣费，直接置为已订阅。**必须显式开关 + 非生产**。
@@ -136,7 +155,9 @@ pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): J
             // 而订阅有效性判据是「plan != free 且（到期为空 或 未到期）」——
             // 空到期 = **永久有效**。演示一次就得到一个永不过期的会员，
             // 且因为该会员没有订单，在归因/对账里也看不出异常。
-            crate::points::extend_plan(&st, &auth.0.sub, 30).await?;
+            // 天数按周期给：原先写死 30，年付在演示模式下只得到 30 天 ——
+            // 演示路径与真实路径的差异，恰恰是最难在验收时发现的那类问题。
+            crate::points::extend_plan(&st, &auth.0.sub, iv.days()).await?;
             st.db
                 .execute(
                     "UPDATE members SET plan = ?, status = 1, updated_at = ? WHERE id = ? AND tenant_id = ?",
@@ -144,7 +165,7 @@ pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): J
                 )
                 .await
                 .map_err(|e| ApiError::bad(format!("更新失败：{e}")))?;
-            crate::webhooks_out::emit(&st, "subscription.activated", json!({ "tier": tier_slug, "memberId": auth.0.sub, "demo": true }));
+            crate::webhooks_out::emit(&st, "subscription.activated", json!({ "tier": tier_slug, "memberId": auth.0.sub, "interval": iv.key(), "days": iv.days(), "demo": true }));
             ok(json!({ "url": format!("{}/membership?thank=1&demo=1", public_base(&st)), "testMode": true }))
         }
         CheckoutMode::Denied(why) => Err(ApiError::bad(format!(
@@ -159,6 +180,71 @@ fn env_flag(key: &str) -> bool {
         std::env::var(key).unwrap_or_default().as_str(),
         "1" | "true" | "on"
     )
+}
+
+/// 归一化后的计费周期。
+///
+/// **只认 `yearly`，其余（含缺省、未知值）一律月付** —— 与 `points::create_order`
+/// 的判定同源。两条下单路径对同一入参必须给出同一个周期：一个是订单表里的
+/// `plan_days`，一个是 Stripe Price 的计费周期，两边一旦不一致，
+/// 就会出现「订单按年计价、订阅按月扣款」这类只有用户查账单才发现的问题。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Interval {
+    Monthly,
+    Yearly,
+}
+
+impl Interval {
+    fn parse(raw: Option<&str>) -> Self {
+        if raw == Some("yearly") {
+            Self::Yearly
+        } else {
+            Self::Monthly
+        }
+    }
+
+    /// 写进 Stripe metadata 的值，也是 Webhook 读回来判定天数的键
+    fn key(self) -> &'static str {
+        match self {
+            Self::Monthly => "monthly",
+            Self::Yearly => "yearly",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Monthly => "月付",
+            Self::Yearly => "年付",
+        }
+    }
+
+    /// 该周期对应的 Price 列名：报错信息要能直接指到后台那一个字段
+    fn price_col(self) -> &'static str {
+        match self {
+            Self::Monthly => "stripe_price_id",
+            Self::Yearly => "stripe_price_yearly_id",
+        }
+    }
+
+    /// 发货天数，必须与所选 Price 的实际计费周期一致
+    fn days(self) -> i64 {
+        match self {
+            Self::Monthly => 30,
+            Self::Yearly => 365,
+        }
+    }
+}
+
+/// 按周期取 Stripe Price ID。
+///
+/// **年付缺价时返回空串，绝不回落到月价**：回落等于页面承诺 ¥180/年、
+/// 实际按月扣款 —— 用户按年付费却每月被扣一次，是最坏的结果。
+/// 空串会一路走到 `decide_checkout` 变成 400，并在信息里点名缺的是哪一列。
+fn price_id_for(iv: Interval, monthly: &str, yearly: &str) -> String {
+    match iv {
+        Interval::Monthly => monthly.trim().to_string(),
+        Interval::Yearly => yearly.trim().to_string(),
+    }
 }
 
 /// Checkout 可用性决策（纯函数：不读环境，便于单测）
@@ -181,6 +267,7 @@ fn decide_checkout(
     price_id: &str,
     demo_flag: bool,
     is_production: bool,
+    iv: Interval,
 ) -> CheckoutMode {
     if !secret_key.is_empty() && !price_id.is_empty() {
         return CheckoutMode::Live;
@@ -196,7 +283,13 @@ fn decide_checkout(
     CheckoutMode::Denied(if secret_key.is_empty() {
         "STRIPE_SECRET_KEY 未配置".into()
     } else {
-        "该套餐未配置 stripe_price_id".into()
+        // 必须点名**该周期缺的那一列**：站长配了月价、漏了年价时，
+        // 若只报「未配置 stripe_price_id」，他会去改一个本来就填好的字段。
+        format!(
+            "该套餐未配置{}的 Stripe 价格（后台「付费订阅」的 {} 字段）",
+            iv.label(),
+            iv.price_col()
+        )
     })
 }
 
@@ -283,10 +376,12 @@ pub async fn stripe_webhook(
         Ok(applied) => {
             let (status, applies_at, note) = match applied {
                 Applied::Done(n) => ("processed", now_iso(), n),
-                Applied::PendingApply => {
-                    ("pending_apply", String::new(), "待订阅状态机（阶段 1）应用")
-                }
-                Applied::Ignored => ("ignored", String::new(), "未处理的事件类型"),
+                Applied::PendingApply => (
+                    "pending_apply",
+                    String::new(),
+                    "待订阅状态机（阶段 1）应用".to_string(),
+                ),
+                Applied::Ignored => ("ignored", String::new(), "未处理的事件类型".to_string()),
             };
             if let Err(e) = st
                 .db
@@ -345,8 +440,8 @@ fn insert_ok(written: &Result<u64, crate::cmsdb::DbErr>) -> bool {
 
 /// 事件应用结果
 enum Applied {
-    /// 已生效
-    Done(&'static str),
+    /// 已生效（说明文案含周期/天数，因此是 String 而不是 &'static str）
+    Done(String),
     /// 已落库，但需订阅状态机（阶段 1）才能正确应用
     PendingApply,
     /// 不认识的事件类型
@@ -371,13 +466,24 @@ async fn apply_stripe_event(st: &AppState, etype: &str, evt: &Value) -> Result<A
                 .to_string();
             if member_id.is_empty() {
                 // 没有 member 指认：事件已落库可人工排查，不算处理失败。
-                return Ok(Applied::Done("缺少 client_reference_id，仅落库"));
+                return Ok(Applied::Done("缺少 client_reference_id，仅落库".into()));
             }
             let customer = obj
                 .and_then(|o| o.get("customer"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
+            // 周期与套餐从会话 metadata 读回（checkout 建会话时写入）。
+            let tier_slug = obj
+                .and_then(|o| o.pointer("/metadata/tier_slug"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let iv = Interval::parse(
+                obj.and_then(|o| o.pointer("/metadata/interval"))
+                    .and_then(|v| v.as_str()),
+            );
             st.db
                 .execute(
                     "UPDATE members SET status = 1, \
@@ -393,12 +499,59 @@ async fn apply_stripe_event(st: &AppState, etype: &str, evt: &Value) -> Result<A
                 )
                 .await
                 .map_err(|e| format!("更新会员失败：{e}"))?;
+
+            // ── 发货 ──
+            // 这里必须真开通会员：Stripe Checkout 走的是真实扣款，只把 status 置 1
+            // 而 plan 不动，等于**钱收了、会员没发**。原先只写 status/customer，
+            // 把「周期落到 plan 上」推给还没落地的订阅状态机（阶段 1）——
+            // 在真实收款链路上，等一个未来模块就是**持续的资损**。
+            if tier_slug.is_empty() {
+                // 没有套餐标识就不敢发货：不知道落到哪个 plan、也不知道给多少天。
+                // 早期会话（本次改动前创建）没有 metadata，只能激活账号并留痕待人工。
+                crate::webhooks_out::emit(st, "subscription.activated", json!({ "memberId": member_id }));
+                return Ok(Applied::Done("缺少 metadata.tier_slug，仅激活账号（未发货）".into()));
+            }
+            // 会员可能已被删除：这不是"处理失败"，返 Err 会让 Stripe 一直重投这个事件。
+            // 注意：本函数的 Err 通道是 String（要给 webhook_events.last_error 落库），
+            // ApiError 没有 Display，必须显式取 message 转换。
+            let exists = crate::points::member_row(st, &member_id)
+                .await
+                .map_err(|e| format!("查询会员失败：{}", e.message))?
+                .is_some();
+            if !exists {
+                return Ok(Applied::Done("会员不存在，仅落库".into()));
+            }
+            crate::points::extend_plan(st, &member_id, iv.days())
+                .await
+                .map_err(|e| format!("延长会员失败：{}", e.message))?;
+            // extend_plan 只保证"延长"，套餐名要落到具体 slug（free → 付费）
+            st.db
+                .execute(
+                    "UPDATE members SET plan = ?, updated_at = ? WHERE id = ? AND tenant_id = ?",
+                    vec![
+                        sval(tier_slug.clone()),
+                        sval(now_iso()),
+                        sval(member_id.clone()),
+                        sval(st.tenant.clone()),
+                    ],
+                )
+                .await
+                .map_err(|e| format!("更新套餐失败：{e}"))?;
             crate::webhooks_out::emit(
                 st,
                 "subscription.activated",
-                json!({ "memberId": member_id }),
+                json!({
+                    "memberId": member_id,
+                    "tier": tier_slug,
+                    "interval": iv.key(),
+                    "days": iv.days(),
+                }),
             );
-            Ok(Applied::Done("会员已激活"))
+            Ok(Applied::Done(format!(
+                "会员已激活：{} / {} 天",
+                tier_slug,
+                iv.days()
+            )))
         }
         // 这四类要改的是**订阅周期状态**，必须有 subscriptions 表才能正确表达
         // （期末取消 / 续费失败宽限期）。落库留痕，等阶段 1 的调度器重放。
@@ -466,28 +619,76 @@ mod tests {
     fn checkout_mode_matrix() {
         // 密钥齐全 → 真实链路。**即使环境里残留演示开关也不能被短路**
         // （否则生产上一个历史遗留的 STRIPE_DEMO_MODE=1 就能免费发会员）
-        assert_eq!(decide_checkout("sk_test", "price_1", false, false), CheckoutMode::Live);
-        assert_eq!(decide_checkout("sk_test", "price_1", true, false), CheckoutMode::Live);
-        assert_eq!(decide_checkout("sk_test", "price_1", true, true), CheckoutMode::Live);
+        let m = Interval::Monthly;
+        assert_eq!(decide_checkout("sk_test", "price_1", false, false, m), CheckoutMode::Live);
+        assert_eq!(decide_checkout("sk_test", "price_1", true, false, m), CheckoutMode::Live);
+        assert_eq!(decide_checkout("sk_test", "price_1", true, true, m), CheckoutMode::Live);
         // 未配置 + 无演示开关 → 拒绝（此前是"静默标记为已订阅"）
-        assert!(matches!(decide_checkout("", "price_1", false, false), CheckoutMode::Denied(_)));
-        assert!(matches!(decide_checkout("sk_test", "", false, false), CheckoutMode::Denied(_)));
+        assert!(matches!(decide_checkout("", "price_1", false, false, m), CheckoutMode::Denied(_)));
+        assert!(matches!(decide_checkout("sk_test", "", false, false, m), CheckoutMode::Denied(_)));
         // 演示开关 → 仅非生产放行
-        assert_eq!(decide_checkout("", "", true, false), CheckoutMode::Demo);
-        assert!(matches!(decide_checkout("", "", true, true), CheckoutMode::Denied(_)));
+        assert_eq!(decide_checkout("", "", true, false, m), CheckoutMode::Demo);
+        assert!(matches!(decide_checkout("", "", true, true, m), CheckoutMode::Denied(_)));
     }
 
     /// 拒绝时必须说清缺什么（运维才能定位，而不是一句"支付不可用"）
     #[test]
     fn denied_reason_is_actionable() {
-        match decide_checkout("", "price_1", false, false) {
+        match decide_checkout("", "price_1", false, false, Interval::Monthly) {
             CheckoutMode::Denied(w) => assert!(w.contains("STRIPE_SECRET_KEY"), "实际：{w}"),
             other => panic!("应为拒绝，实际 {other:?}"),
         }
-        match decide_checkout("sk_test", "", false, false) {
+        match decide_checkout("sk_test", "", false, false, Interval::Monthly) {
             CheckoutMode::Denied(w) => assert!(w.contains("stripe_price_id"), "实际：{w}"),
             other => panic!("应为拒绝，实际 {other:?}"),
         }
+        // 年付缺价必须点名**年付那一列**：只报 stripe_price_id 会让站长
+        // 去改一个本来就填好的字段（月付列），年付永远是坏的。
+        match decide_checkout("sk_test", "", false, false, Interval::Yearly) {
+            CheckoutMode::Denied(w) => {
+                assert!(w.contains("stripe_price_yearly_id"), "未点名字段：{w}");
+                assert!(w.contains("年付"), "未指明周期：{w}");
+            }
+            other => panic!("应为拒绝，实际 {other:?}"),
+        }
+    }
+
+    /// 年付在线支付的**核心不变量**：取价与天数只由 interval 决定，
+    /// 且年付缺价时绝不回落月价。
+    ///
+    /// 回落是最坏的失败形态：页面写着「¥180/年」，实际用月价建了订阅会话，
+    /// 用户以为买了一年、其实每月被扣一次 —— 且订单/会话里数字都自洽，
+    /// 不查 Stripe 账单看不出来。
+    #[test]
+    fn yearly_never_falls_back_to_monthly_price() {
+        assert_eq!(price_id_for(Interval::Monthly, "price_m", "price_y"), "price_m");
+        assert_eq!(price_id_for(Interval::Yearly, "price_m", "price_y"), "price_y");
+        assert_eq!(
+            price_id_for(Interval::Yearly, "price_m", ""),
+            "",
+            "年付缺价必须为空串（→ 400），不得回落月价"
+        );
+        // 只配年价时月付同样不该拿到年价
+        assert_eq!(price_id_for(Interval::Monthly, "", "price_y"), "");
+        // 周期 → 天数：与 Stripe Price 的计费周期一致
+        assert_eq!(Interval::Monthly.days(), 30);
+        assert_eq!(Interval::Yearly.days(), 365);
+    }
+
+    /// 周期解析只认 yearly；未知值/缺省/大小写不一致一律按月付 ——
+    /// 与 points::create_order 同源，避免两条下单路对同一入参给出不同周期。
+    #[test]
+    fn interval_parse_is_strict_but_safe() {
+        assert_eq!(Interval::parse(Some("yearly")), Interval::Yearly);
+        assert_eq!(Interval::parse(Some("monthly")), Interval::Monthly);
+        assert_eq!(Interval::parse(None), Interval::Monthly);
+        assert_eq!(Interval::parse(Some("")), Interval::Monthly);
+        assert_eq!(Interval::parse(Some("YEARLY")), Interval::Monthly);
+        assert_eq!(Interval::parse(Some("annual")), Interval::Monthly);
+        // metadata 里写出去的键必须与 days/price_col 属于同一个周期
+        assert_eq!(Interval::Yearly.key(), "yearly");
+        assert_eq!(Interval::Yearly.price_col(), "stripe_price_yearly_id");
+        assert_eq!(Interval::Monthly.key(), "monthly");
     }
 
     /// P0-3：签名必须有时间容差，否则抓到一个历史包就能无限重放

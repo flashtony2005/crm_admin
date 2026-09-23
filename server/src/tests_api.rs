@@ -362,40 +362,161 @@ async fn plan_order_prices_by_interval_and_refuses_unpriced() {
     assert!((364..=365).contains(&days), "年付应给 365 天，实得 {days}：{w}");
 }
 
-/// 在线支付路径必须**明确拒绝年付**，而不是拿着月价去收费。
+/// 年付在线支付：在线通道按周期取价，**年付不再被硬挡**。
 ///
-/// `tiers` 只有一列 `stripe_price_id`，月付与年付共用同一个 Stripe 价格：
-/// 前端文案写「¥180/年」、后端却按同一个 price 建订阅会话，会员实际被按月扣款。
-/// 「页面承诺」与「实际收款」不一致是资损级问题，宁可 400 让用户走人工开通。
+/// 历史：`tiers` 只有一列 `stripe_price_id`，月/年共用同一个 Stripe 价格 ——
+/// 前端写「¥180/年」而后端按月价建订阅会话（资损）。当时的处置是 400 拒绝年付。
+/// 迁移 0016 之后年付有独立列，年付与月付必须走**同一条判定链**，只有价格列不同。
 #[tokio::test]
-async fn checkout_refuses_yearly_instead_of_charging_monthly() {
+async fn checkout_year_interval_goes_down_the_same_path_as_monthly() {
     let st = test_state().await;
     let app = build_router(st.clone());
     let o = login(&app, "owner").await;
+
     let (s, t) = call(app.clone(), "POST", "/api/tiers",
         Some(json!({"name":"年度会员","slug":"annual","description":"","priceMonthly":18,
-                    "priceYearly":180,"features":"[]","active":true})), Some(&o)).await;
+                    "priceYearly":180,"stripePriceId":"price_mon","stripePriceYearlyId":"price_year",
+                    "features":"[]","active":true})), Some(&o)).await;
     assert_eq!(s, StatusCode::OK, "{t}");
     let tid = t["data"]["id"].as_str().expect("套餐 id").to_string();
+    // 网关必须真把年付 Price 落库 —— 列没登记的话这里是空串，年付会永远不可用
+    assert_eq!(t["data"]["stripePriceYearlyId"], "price_year", "年付 Price 未落库：{t}");
 
     let m = register_member(&app, "yr@test.dev").await;
 
-    let (s, b) = call(app.clone(), "POST", "/api/public/checkout",
+    // 本环境未配 STRIPE_SECRET_KEY：月付与年付都应因「未配置」被拒，
+    // 但**拒绝理由必须完全相同** —— 说明年付已经走到与月付同一条判定链上，
+    // 而不是被一条「暂未支持年付」的守卫提前挡掉。
+    let (s1, y) = call(app.clone(), "POST", "/api/public/checkout",
         Some(json!({"tierId": tid, "interval": "yearly"})), Some(&m)).await;
-    assert_eq!(s, StatusCode::BAD_REQUEST, "{b}");
-    assert!(
-        b["error"].as_str().unwrap_or("").contains("年付"),
-        "错误信息要指明「年付不受支持」，否则用户只会以为是网络问题：{b}"
-    );
+    assert_eq!(s1, StatusCode::BAD_REQUEST, "{y}");
+    let ye = y["error"].as_str().unwrap_or("");
+    assert!(!ye.contains("暂未支持年付"), "年付硬挡守卫应已移除：{ye}");
+    assert!(ye.contains("STRIPE_SECRET_KEY"), "年付应走到真实通道判定：{ye}");
 
-    // 守卫必须只针对年付：月付不该被这条错误拦下（本环境未配 Stripe，
-    // 月付会因「未配置」失败，但错误内容不同）。
-    let (_, b2) = call(app.clone(), "POST", "/api/public/checkout",
+    let (_, mo) = call(app.clone(), "POST", "/api/public/checkout",
         Some(json!({"tierId": tid, "interval": "monthly"})), Some(&m)).await;
-    assert!(
-        !b2["error"].as_str().unwrap_or("").contains("年付"),
-        "月付被年付守卫误伤：{b2}"
-    );
+    assert_eq!(mo["error"], y["error"], "月/年拒绝理由应同源（只差价格列）：{mo} vs {y}");
+}
+
+/// 公开套餐接口要告诉前端「该周期能不能在线支付」。
+///
+/// 没有这个标志，前端只能让用户点下去撞 400（或反过来把已配置的通道一起禁掉）。
+/// 但**只下发布尔量，不下发 Price ID 本身** —— 那是运营配置，没有出现在公开响应里的理由。
+#[tokio::test]
+async fn public_tiers_expose_online_capability_per_interval() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    for (slug, mon, yr) in [("both", "price_m1", "price_y1"), ("mononly", "price_m2", "")] {
+        let (s, b) = call(app.clone(), "POST", "/api/tiers",
+            Some(json!({"name": slug, "slug": slug, "description": "",
+                        "priceMonthly": 18, "priceYearly": 180,
+                        "stripePriceId": mon, "stripePriceYearlyId": yr,
+                        "features": "[]", "active": true})), Some(&o)).await;
+        assert_eq!(s, StatusCode::OK, "{b}");
+    }
+
+    let (_, list) = call(app.clone(), "GET", "/api/public/tiers", None, None).await;
+    let arr = list["data"].as_array().expect("data 必须是数组");
+    let both = arr.iter().find(|r| r["slug"] == "both").expect("双价套餐");
+    assert_eq!(both["onlineMonthly"], true, "{both}");
+    assert_eq!(both["onlineYearly"], true, "{both}");
+    let mon = arr.iter().find(|r| r["slug"] == "mononly").expect("仅月付套餐");
+    assert_eq!(mon["onlineMonthly"], true, "{mon}");
+    assert_eq!(mon["onlineYearly"], false, "未配年价必须如实下发 false：{mon}");
+    // 公开响应里不得出现 Price ID（键名与列名两种拼写都不行）
+    assert!(both.get("stripePriceId").is_none(), "不得下发月付 Price ID：{both}");
+    assert!(both.get("stripePriceYearlyId").is_none(), "不得下发年付 Price ID：{both}");
+}
+
+/// 【年付在线支付的核心闭环】Webhook 必须按会话周期**真发货**。
+///
+/// Stripe Checkout 走的是真实扣款。原先 `checkout.session.completed` 只把
+/// `members.status` 置 1、写回 customer id，**plan 与到期时间一概不动** ——
+/// 钱收了、会员没发，而且这类单子不在 `orders` 表里，对账/归因都看不出异常。
+/// 把「周期落到 plan 上」推给还没落地的订阅状态机（阶段 1），
+/// 在真实收款链路上就等于持续资损。现在按 metadata.interval 发货：
+/// 月付 30 天 / 年付 365 天，套餐名落到 tier_slug。
+#[tokio::test]
+async fn stripe_webhook_activates_plan_by_interval_metadata() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+
+    async fn reg(app: &axum::Router, email: &str) -> (String, String) {
+        let (_, r) = call(app.clone(), "POST", "/api/public/members/register",
+            Some(json!({ "email": email, "password": "member1234", "name": "买家" })), None).await;
+        (
+            r["data"]["member"]["id"].as_str().expect("会员 id").to_string(),
+            r["data"]["token"].as_str().expect("会员令牌").to_string(),
+        )
+    }
+
+    async fn wallet(app: &axum::Router, tok: &str) -> Value {
+        let (_, w) = call(app.clone(), "GET", "/api/public/members/wallet", None, Some(tok)).await;
+        w["data"].clone()
+    }
+
+    let (ymid, ytok) = reg(&app, "hook_year@test.dev").await;
+    let (mmid, mtok) = reg(&app, "hook_month@test.dev").await;
+    let (nmid, ntok) = reg(&app, "hook_nometa@test.dev").await;
+
+    // 三个事件各用唯一 id：event_id 去重是设计使然，复用 id 会被当成重复投递
+    let ev = |id: &str, mid: &str, meta: Value| {
+        json!({
+            "id": id,
+            "type": "checkout.session.completed",
+            "data": { "object": {
+                "client_reference_id": mid,
+                "customer": format!("cus_{id}"),
+                "metadata": meta,
+            }}
+        })
+    };
+
+    for (tag, id, mid, meta, slug, lo, hi) in [
+        ("年付", "evt_yr_1", &ymid, json!({"interval": "yearly", "tier_slug": "annual"}), "annual", 364i64, 365i64),
+        ("月付", "evt_mo_1", &mmid, json!({"interval": "monthly", "tier_slug": "monthly"}), "monthly", 29, 30),
+    ] {
+        let body = ev(id, mid, meta).to_string();
+        let (s, b) = call_h(app.clone(), "POST", "/api/stripe/webhook", Some(body.clone()), stripe_sig_header(&body)).await;
+        assert_eq!(s, StatusCode::OK, "{tag} 事件应处理成功：{b}");
+        assert_eq!(b["data"]["status"], "processed", "{b}");
+
+        let tok = if tag == "年付" { &ytok } else { &mtok };
+        let w = wallet(&app, tok).await;
+        assert_eq!(w["plan"], slug, "{tag} 必须把 plan 落到套餐 slug：{w}");
+        let days = w["planDaysLeft"].as_i64().unwrap_or(-1);
+        assert!((lo..=hi).contains(&days), "{tag} 应发 {lo}-{hi} 天，实得 {days}：{w}");
+    }
+
+    // 无 metadata 的早期会话：不能瞎发会员（不知道该给哪个 plan、多少天），
+    // 但账号激活要生效，且**不能返错**（返 Err 会让 Stripe 无限重投）。
+    let body = json!({
+        "id": "evt_nm_1",
+        "type": "checkout.session.completed",
+        "data": { "object": { "client_reference_id": nmid, "customer": "cus_nm_1" } }
+    })
+    .to_string();
+    let (s, b) = call_h(app.clone(), "POST", "/api/stripe/webhook", Some(body.clone()), stripe_sig_header(&body)).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["status"], "processed", "缺 metadata 不应判成处理失败：{b}");
+    let w = wallet(&app, &ntok).await;
+    assert_eq!(w["plan"], "free", "缺 metadata 时不得凭空发会员：{w}");
+
+    // 会员不存在时也不能返 Err（否则 Stripe 会一直重投这个事件）
+    let body = json!({
+        "id": "evt_ghost_1",
+        "type": "checkout.session.completed",
+        "data": { "object": {
+            "client_reference_id": "mid_does_not_exist",
+            "metadata": { "interval": "yearly", "tier_slug": "annual" }
+        }}
+    })
+    .to_string();
+    let (s, b) = call_h(app.clone(), "POST", "/api/stripe/webhook", Some(body.clone()), stripe_sig_header(&body)).await;
+    assert_eq!(s, StatusCode::OK, "会员不存在不应让 Stripe 无限重投：{b}");
 }
 
 #[tokio::test]

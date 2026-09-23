@@ -304,7 +304,11 @@ pub static TABLES: &[TableDef] = &[
         columns: cols![
             ("name","name",Col::Text),("slug","slug",Col::Text),("description","description",Col::Text),
             ("price_monthly","priceMonthly",Col::Real),("price_yearly","priceYearly",Col::Real),
-            ("stripe_price_id","stripePriceId",Col::Text),("features","features",Col::Text),
+            ("stripe_price_id","stripePriceId",Col::Text),
+            // 年付专用 Price（迁移 0016）。与月付列**并列独立**：
+            // 一个 Stripe Price 只对应一个计费周期，年付不可能复用月价；
+            // 留空是合法状态（只卖月付），此时 checkout 年付必须报错而不是回落月价。
+            ("stripe_price_yearly_id","stripePriceYearlyId",Col::Text),("features","features",Col::Text),
             ("active","active",Col::Bool),
         ],
     },

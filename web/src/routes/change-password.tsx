@@ -43,7 +43,7 @@ function ChangePasswordPage() {
   const hasToken = !!useAuthStore.getState().token
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-os-bg px-4">
+    <div className="min-h-screen flex items-center justify-center bg-os-bg-base px-4">
       <div className="rounded-2xl bg-white shadow-xl border border-os-border w-full max-w-sm p-6">
         <h1 className="text-lg font-semibold text-os-text-primary">设置新密码</h1>
         <p className="text-xs text-os-text-muted mt-1">

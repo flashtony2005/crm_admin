@@ -129,7 +129,7 @@ pub async fn add_ledger(
 }
 
 /// 查询会员行（plan / plan_expires_at / invited_by）
-async fn member_row(
+pub(crate) async fn member_row(
     st: &AppState,
     member_id: &str,
 ) -> Result<Option<(String, String, String)>, ApiError> {

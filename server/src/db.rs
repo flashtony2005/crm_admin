@@ -803,6 +803,25 @@ const MIGRATIONS: &[Migration] = &[
         "CREATE INDEX IF NOT EXISTS idx_members_first_touch ON members(tenant_id, first_touch_article_id)",
         ],
     },
+    // ── 0016_stripe_price_yearly（年付在线支付）──────────────────────────
+    // 此前 tiers 只有一列 stripe_price_id，月付与年付**共用同一个 Stripe 价格**：
+    // 会员页写着「¥180/年」，Checkout 却拿着同一个 Price 去建订阅会话 ——
+    // 页面承诺与实际扣款不一致，属于资损级问题。当时的处置是**明确拒绝年付**
+    // （把它指到线下人工开通），代价是年付只能人工收款。现在补一列，
+    // 让年付有自己的 Stripe Price，在线支付才谈得上支持年付。
+    //
+    // 为什么不把周期塞进 stripe_price_id（例如加后缀 / 存 JSON）：
+    // Stripe 的 Price 对象本身就绑定唯一计费周期，一个 Price 不可能既月又年；
+    // 两列各自独立可空，并且保留「只配月付」这个合法状态 ——
+    // 此时年付必须**报错指名字段**，绝不能静默回落到月价（那是最坏的结果）。
+    Migration {
+        version: "0016_stripe_price_yearly",
+        name: "0016_stripe_price_yearly",
+        lenient: true,
+        sqls: &[
+        "ALTER TABLE tiers ADD COLUMN stripe_price_yearly_id TEXT NOT NULL DEFAULT ''",
+        ],
+    },
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。

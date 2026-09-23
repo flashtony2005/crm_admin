@@ -370,8 +370,13 @@ export interface Tier extends BaseRecord {
   priceMonthly: number
   priceYearly: number
   stripePriceId?: string
+  /** 年付专用的 Stripe Price（迁移 0016）。月/年各自独立，缺年价时在线年付会被服务端拒绝 */
+  stripePriceYearlyId?: string
   features: string
   active: boolean
+  /** 公开套餐接口下发的「该周期能否在线支付」（仅 /api/public/tiers，不下发 Price ID 本身） */
+  onlineMonthly?: boolean
+  onlineYearly?: boolean
 }
 
 /** 出站 Webhook 订阅 */

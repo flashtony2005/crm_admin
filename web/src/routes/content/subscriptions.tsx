@@ -16,7 +16,10 @@ const FORM_FIELDS: FormFieldDef[] = [
   { key: 'description', label: '描述', type: 'textarea', placeholder: '套餐权益说明' },
   { key: 'priceMonthly', label: '月价', type: 'number', placeholder: '18' },
   { key: 'priceYearly', label: '年价', type: 'number', placeholder: '180' },
-  { key: 'stripePriceId', label: 'Stripe Price ID', type: 'text', placeholder: 'price_xxx（留空进入测试模式）' },
+  { key: 'stripePriceId', label: '月付 Stripe Price ID', type: 'text', placeholder: 'price_xxx（月付；留空则月付不可在线支付）' },
+  // 年付必须有独立的 Price：Stripe 的一个 Price 绑定唯一计费周期，
+  // 复用月价会让「¥180/年」被按月扣款。
+  { key: 'stripePriceYearlyId', label: '年付 Stripe Price ID', type: 'text', placeholder: 'price_xxx（年付；留空则年付只能人工开通）' },
   { key: 'features', label: '权益（JSON 数组）', type: 'textarea', placeholder: '["专属内容","徽章"]' },
 ]
 
@@ -33,6 +36,7 @@ function SubscriptionsPage() {
       priceMonthly: Number(v.priceMonthly ?? 0),
       priceYearly: Number(v.priceYearly ?? 0),
       stripePriceId: String(v.stripePriceId ?? '').trim(),
+      stripePriceYearlyId: String(v.stripePriceYearlyId ?? '').trim(),
       features: String(v.features ?? '[]'),
       active: true,
     }
@@ -43,7 +47,15 @@ function SubscriptionsPage() {
   const columns: CmsColumn<Tier>[] = [
     { id: 'name', header: '套餐', render: (r) => <span className="font-medium">{r.name}</span> },
     { id: 'price', header: '价格', render: (r) => <span>¥{r.priceMonthly}/月 · ¥{r.priceYearly}/年</span> },
-    { id: 'stripe', header: 'Stripe', render: (r) => <span className="text-xs text-os-text-muted">{r.stripePriceId || '测试模式'}</span> },
+    {
+      id: 'stripe',
+      header: 'Stripe',
+      render: (r) => (
+        <span className="text-xs text-os-text-muted">
+          月 {r.stripePriceId || '未配'} · 年 {r.stripePriceYearlyId || '未配'}
+        </span>
+      ),
+    },
     { id: 'active', header: '启用', render: (r) => <span>{r.active ? '是' : '否'}</span> },
   ]
 

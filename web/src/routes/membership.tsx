@@ -149,7 +149,12 @@ function MembershipPage() {
     try {
       const r = await subscriptionsApi.checkout(tierId, cycle)
       if (r.url) window.location.href = r.url
-    } catch (e: any) { setErr(e?.message || '发起订阅失败') }
+    } catch (e: any) {
+      // 必须用 toast：`err` 的内联错误位只在「未登录」表单里渲染，
+      // 会员态下页面没有任何地方显示它 —— 点「在线支付订阅」失败会毫无反应，
+      // 用户只会反复点，而不知道是通道没配还是网络问题。
+      toast.danger(e?.message || '发起订阅失败')
+    }
   }
 
   /**
@@ -221,7 +226,7 @@ function MembershipPage() {
 
           {wallet && (
             <>
-              <div className="flex flex-wrap items-center gap-3 rounded-lg bg-os-surface p-3">
+              <div className="flex flex-wrap items-center gap-3 rounded-lg bg-os-bg-base p-3">
                 <div className="mr-auto">
                   <p className="text-xs text-os-text-muted">积分余额</p>
                   <p className="text-xl font-bold tabular-nums">{wallet.balance}</p>
@@ -326,7 +331,7 @@ function MembershipPage() {
               key={c}
               onClick={() => setCycle(c)}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                cycle === c ? 'bg-os-text text-white' : 'text-os-text-muted hover:bg-os-surface'
+                cycle === c ? 'bg-os-text-primary text-white' : 'text-os-text-muted hover:bg-os-bg-hover'
               }`}
             >
               {c === 'monthly' ? '月付' : '年付'}
@@ -338,6 +343,13 @@ function MembershipPage() {
         {tiers.map((tier) => {
           const price = cycle === 'yearly' ? tier.priceYearly : tier.priceMonthly
           const priced = price > 0
+          /**
+           * 该周期是否配了在线支付价格（服务端 /api/public/tiers 下发）。
+           * `undefined` = 服务端未下发（旧版本）→ 不拦：在线通道能不能用由服务端
+           * 守卫说了算，前端多拦一刀会把本来可用的通道一起禁掉。
+           * 只有服务端**明确说"这个周期没配"**（false）时才禁用按钮并给出原因。
+           */
+          const onlineOk = (cycle === 'yearly' ? tier.onlineYearly : tier.onlineMonthly) !== false
           return (
             <div key={tier.id} className="rounded-xl border bg-white p-5 flex flex-col">
               <h3 className="font-semibold">{tier.name}</h3>
@@ -346,11 +358,13 @@ function MembershipPage() {
               </p>
               <p className="text-sm mt-2 flex-1">{tier.description}</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {/* 在线通道只有一个 Stripe 价格，年付会被按月价订阅 → 只放开人工开通 */}
+                {/* 月/年各有一个 Stripe Price（tiers.stripe_price_id /
+                    stripe_price_yearly_id），服务端按所选周期取价并据此发货天数 ——
+                    年付与月付同等对待，不再按周期禁用在线通道。 */}
                 <Button
                   size="sm"
                   variant="primary"
-                  isDisabled={!priced || cycle === 'yearly'}
+                  isDisabled={!priced || !onlineOk}
                   onPress={() => void checkout(tier.id)}
                 >
                   在线支付订阅
@@ -360,9 +374,11 @@ function MembershipPage() {
                   线下付款 · 人工开通
                 </Button>
               </div>
-              {cycle === 'yearly' && priced && (
+              {priced && !onlineOk && (
                 <p className="mt-2 text-xs text-os-text-muted">
-                  年付暂只支持线下付款：在线通道未区分月/年价格，年付走在线会被按月订阅扣款。
+                  该周期未配置在线支付价格（后台「付费订阅」的{' '}
+                  {cycle === 'yearly' ? '年付 Stripe Price ID' : '月付 Stripe Price ID'}），
+                  可用「线下付款 · 人工开通」。
                 </p>
               )}
             </div>
