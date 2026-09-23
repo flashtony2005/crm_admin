@@ -301,6 +301,103 @@ async fn order_confirm_idempotent_and_invite_reward_once() {
     assert_eq!(wa2["data"]["balance"], 100, "{wa2}");
 }
 
+/// 订阅订单：计价与会员天数必须**同源于 interval**。
+///
+/// 曾经的实现把 `plan_days` 写死 30、价格只读 `price_monthly`，于是「年付」
+/// 会按年价收钱却只给 30 天 —— 收款与承诺不符，而且订单里两个数字都自洽，
+/// 客户端完全看不出异常，只有用户月底发现会员没了才会暴露。
+/// 另外，未配置的价格列是 0，不拦住就会生成 **0 元待确认单**：站长顺手一点
+/// 确认就等于白送一年会员，所以未定价必须 400 而不是「照单收 0 元」。
+#[tokio::test]
+async fn plan_order_prices_by_interval_and_refuses_unpriced() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    // 双价套餐：月 18 / 年 180
+    let (s, t1) = call(app.clone(), "POST", "/api/tiers",
+        Some(json!({"name":"年度会员","slug":"annual","description":"","priceMonthly":18,
+                    "priceYearly":180,"features":"[]","active":true})), Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{t1}");
+    let dual = t1["data"]["id"].as_str().expect("套餐 id").to_string();
+
+    // 只配月价的套餐：年付必须被拒
+    let (s, t2) = call(app.clone(), "POST", "/api/tiers",
+        Some(json!({"name":"月付会员","slug":"monthly","description":"","priceMonthly":18,
+                    "priceYearly":0,"features":"[]","active":true})), Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{t2}");
+    let mon = t2["data"]["id"].as_str().expect("套餐 id").to_string();
+
+    let m = register_member(&app, "buyer@test.dev").await;
+
+    // 年付 → 按 priceYearly 计价（18000 分）
+    let (s, y) = call(app.clone(), "POST", "/api/public/orders",
+        Some(json!({"bizType":"plan","tierId":dual,"interval":"yearly","channel":"manual"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::OK, "{y}");
+    assert_eq!(y["data"]["amountCents"], 18000, "年付必须按 priceYearly 计价：{y}");
+    let y_no = y["data"]["orderNo"].as_str().unwrap().to_string();
+
+    // 不带 interval → 等价月付（1800 分），保证老客户端行为不变
+    let (s, mo) = call(app.clone(), "POST", "/api/public/orders",
+        Some(json!({"bizType":"plan","tierId":dual,"channel":"manual"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::OK, "{mo}");
+    assert_eq!(mo["data"]["amountCents"], 1800, "缺省 interval 应等价月付：{mo}");
+
+    // 未配年价 → 400（不是 0 元单）
+    let (s, bad) = call(app.clone(), "POST", "/api/public/orders",
+        Some(json!({"bizType":"plan","tierId":mon,"interval":"yearly","channel":"manual"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "未配置年价必须拒绝：{bad}");
+
+    // 确认年付单 → plan=annual，剩余天数 ≈ 365
+    let (_, orders) = call(app.clone(), "GET", "/api/orders", None, Some(&o)).await;
+    let oid = orders["data"].as_array().unwrap().iter()
+        .find(|r| r["orderNo"] == y_no).expect("刚建的年付单应在列表里")["id"]
+        .as_str().unwrap().to_string();
+    let (s, c) = call(app.clone(), "POST", &format!("/api/admin/orders/{oid}/confirm"), None, Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{c}");
+
+    let (_, w) = call(app.clone(), "GET", "/api/public/members/wallet", None, Some(&m)).await;
+    assert_eq!(w["data"]["plan"], "annual", "{w}");
+    let days = w["data"]["planDaysLeft"].as_i64().unwrap_or(-1);
+    assert!((364..=365).contains(&days), "年付应给 365 天，实得 {days}：{w}");
+}
+
+/// 在线支付路径必须**明确拒绝年付**，而不是拿着月价去收费。
+///
+/// `tiers` 只有一列 `stripe_price_id`，月付与年付共用同一个 Stripe 价格：
+/// 前端文案写「¥180/年」、后端却按同一个 price 建订阅会话，会员实际被按月扣款。
+/// 「页面承诺」与「实际收款」不一致是资损级问题，宁可 400 让用户走人工开通。
+#[tokio::test]
+async fn checkout_refuses_yearly_instead_of_charging_monthly() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+    let (s, t) = call(app.clone(), "POST", "/api/tiers",
+        Some(json!({"name":"年度会员","slug":"annual","description":"","priceMonthly":18,
+                    "priceYearly":180,"features":"[]","active":true})), Some(&o)).await;
+    assert_eq!(s, StatusCode::OK, "{t}");
+    let tid = t["data"]["id"].as_str().expect("套餐 id").to_string();
+
+    let m = register_member(&app, "yr@test.dev").await;
+
+    let (s, b) = call(app.clone(), "POST", "/api/public/checkout",
+        Some(json!({"tierId": tid, "interval": "yearly"})), Some(&m)).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{b}");
+    assert!(
+        b["error"].as_str().unwrap_or("").contains("年付"),
+        "错误信息要指明「年付不受支持」，否则用户只会以为是网络问题：{b}"
+    );
+
+    // 守卫必须只针对年付：月付不该被这条错误拦下（本环境未配 Stripe，
+    // 月付会因「未配置」失败，但错误内容不同）。
+    let (_, b2) = call(app.clone(), "POST", "/api/public/checkout",
+        Some(json!({"tierId": tid, "interval": "monthly"})), Some(&m)).await;
+    assert!(
+        !b2["error"].as_str().unwrap_or("").contains("年付"),
+        "月付被年付守卫误伤：{b2}"
+    );
+}
+
 #[tokio::test]
 async fn redeem_code_single_use() {
     let st = test_state().await;

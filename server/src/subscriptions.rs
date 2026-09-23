@@ -83,6 +83,16 @@ pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): J
     let tier_slug: String = r.try_get("", "slug").unwrap_or_default();
     let price_id: String = r.try_get("", "stripe_price_id").unwrap_or_default();
 
+    // 在线支付暂不支持年付：tiers 只有一列 stripe_price_id，月/年会拿着**同一个**
+    // Stripe 价格去结算 —— 会员点了年付、页面写着 ¥180/年，实际按月订阅扣款。
+    // 静默按错的周期收钱比明确拒绝糟得多，所以这里直接挡掉，
+    // 把年付指到「线下付款 · 人工开通」（那条路走 orders 表，计价按 interval 取价）。
+    if req.interval.as_deref() == Some("yearly") {
+        return Err(ApiError::bad(
+            "在线支付暂未支持年付（该套餐只配置了一个 Stripe 价格），请改用「线下付款 · 人工开通」",
+        ));
+    }
+
     let sk = std::env::var("STRIPE_SECRET_KEY").unwrap_or_default();
     let demo_flag = env_flag("STRIPE_DEMO_MODE");
     let is_prod = std::env::var("CMS_ENV").as_deref() == Ok("production");
@@ -122,6 +132,11 @@ pub async fn checkout(State(st): State<AppState>, auth: MemberAuth, Json(req): J
         // 演示模式：不真实扣费，直接置为已订阅。**必须显式开关 + 非生产**。
         CheckoutMode::Demo => {
             eprintln!("[warn] STRIPE_DEMO_MODE 生效：直接置为已订阅（无真实扣费，仅演示）");
+            // 必须同时写 plan_expires_at：只改 plan 会让 plan_expires_at 留空，
+            // 而订阅有效性判据是「plan != free 且（到期为空 或 未到期）」——
+            // 空到期 = **永久有效**。演示一次就得到一个永不过期的会员，
+            // 且因为该会员没有订单，在归因/对账里也看不出异常。
+            crate::points::extend_plan(&st, &auth.0.sub, 30).await?;
             st.db
                 .execute(
                     "UPDATE members SET plan = ?, status = 1, updated_at = ? WHERE id = ? AND tenant_id = ?",

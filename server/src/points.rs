@@ -293,7 +293,7 @@ pub async fn redeem(State(st): State<AppState>, auth: MemberAuth, Json(req): Jso
 }
 
 /// 会员有效期延长 value 天：base = max(now, 现有到期时间)；plan 若为 free 则置 'paid'。
-async fn extend_plan(st: &AppState, member_id: &str, days: i64) -> Result<(), ApiError> {
+pub(crate) async fn extend_plan(st: &AppState, member_id: &str, days: i64) -> Result<(), ApiError> {
     let (plan, exp, _) = member_row(st, member_id)
         .await?
         .ok_or_else(|| ApiError::not_found("会员不存在"))?;
@@ -472,6 +472,10 @@ pub struct CreateOrderReq {
     /// 支付渠道：manual（默认，人工确认收款）| wechat（微信 Native 扫码，P2）
     #[serde(default)]
     pub channel: Option<String>,
+    /// 计费周期：monthly（默认）| yearly。仅 biz_type=plan 生效。
+    /// 不带上它，年付套餐会被按**月价**收（price_monthly）却只给 30 天。
+    #[serde(default)]
+    pub interval: Option<String>,
 }
 
 /// POST /api/public/orders —— 创建人工确认收款订单
@@ -507,18 +511,36 @@ pub async fn create_order(
         }
         "plan" => {
             let tid = req.tier_id.clone().unwrap_or_default();
+            // 周期决定「查哪一列价」「给多少天」。两者必须同源，
+            // 否则会出现「按年价收 180、只给 30 天」这种收款与契约不符。
+            let yearly = req.interval.as_deref() == Some("yearly");
+            let price_col = if yearly { "price_yearly" } else { "price_monthly" };
             let row = st
                 .db
                 .query_one(
-                    "SELECT slug, price_monthly FROM tiers WHERE id = ? AND tenant_id = ? AND active = 1 LIMIT 1",
+                    &format!(
+                        "SELECT slug, {price_col} AS price FROM tiers \
+                         WHERE id = ? AND tenant_id = ? AND active = 1 LIMIT 1"
+                    ),
                     vec![sval(tid.clone()), sval(st.tenant.clone())],
                 )
                 .await
                 .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
             let Some(t) = row else { return Err(ApiError::not_found("套餐不存在")) };
             let slug: String = t.try_get("", "slug").unwrap_or_default();
-            let price: f64 = t.try_get::<f64>("", "price_monthly").unwrap_or(0.0);
-            (0, 30, (price * 100.0).round() as i64, slug)
+            let price: f64 = t.try_get::<f64>("", "price").unwrap_or(0.0);
+            // 价格必须为正：套餐允许「只配月价」（年价留 0），此时年付订单会变成
+            // 0 元待确认单 —— 站长一旦顺手点确认，就等于白送一年会员。
+            // 这类「0 元订单」不报错、只多出一张能确认的单，是最容易被忽略的资损入口。
+            if !(price > 0.0) {
+                return Err(ApiError::bad(if yearly {
+                    "该套餐未配置年付价格"
+                } else {
+                    "该套餐未配置月付价格"
+                }));
+            }
+            let days = if yearly { 365 } else { 30 };
+            (0, days, (price * 100.0).round() as i64, slug)
         }
         _ => return Err(ApiError::bad("biz_type 无效")),
     };

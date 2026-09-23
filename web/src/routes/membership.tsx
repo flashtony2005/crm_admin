@@ -38,6 +38,8 @@ function MembershipPage() {
   const [walletHint, setWalletHint] = useState('')
   /** 微信扫码支付弹层（P2）：qrSvg + orderNo；到账后自动关闭并刷新 */
   const [payQr, setPayQr] = useState<{ qrSvg: string; orderNo: string; amountCents: number } | null>(null)
+  /** 计费周期：月付 / 年付。**同时决定计价与会员天数**，必须显式选择 */
+  const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly')
 
   const loadWallet = () => {
     if (!getMemberToken()) return
@@ -145,9 +147,37 @@ function MembershipPage() {
       return
     }
     try {
-      const r = await subscriptionsApi.checkout(tierId)
+      const r = await subscriptionsApi.checkout(tierId, cycle)
       if (r.url) window.location.href = r.url
     } catch (e: any) { setErr(e?.message || '发起订阅失败') }
+  }
+
+  /**
+   * 线下付款 → 站长后台确认开通。
+   *
+   * 为什么必须有这条路：在线支付通道（Stripe / 微信）**未配置时是硬拒绝**的，
+   * 只有 `checkout` 一条路意味着站长没配通道时**任何会员都无法开通** ——
+   * 内容→会员→收入的链路整条断在这里。人工确认订单走的仍是同一张 orders 表
+   * 与同一套发货逻辑（后台订单页点确认），不引入第二条业务路径。
+   */
+  const manualSubscribe = async (tierId: string) => {
+    if (!getMemberToken()) {
+      setErr('请先登录或注册会员')
+      setMode('login')
+      return
+    }
+    setWalletBusy(true)
+    try {
+      const r = await communityApi.createOrder('plan', { tierId, interval: cycle, channel: 'manual' })
+      setWalletHint(
+        `订阅订单已创建：${r.orderNo}\n应付 ¥${(r.amountCents / 100).toFixed(2)}（${cycle === 'yearly' ? '年付' : '月付'}）\n${r.hint}`,
+      )
+      loadWallet()
+    } catch (e) {
+      toast.danger(e instanceof Error ? e.message : '创建订阅订单失败')
+    } finally {
+      setWalletBusy(false)
+    }
   }
 
   return (
@@ -287,16 +317,57 @@ function MembershipPage() {
         </div>
       )}
 
-      <h2 className="text-lg font-semibold mt-10 mb-4">套餐</h2>
+      <div className="mt-10 mb-4 flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold">套餐</h2>
+        {/* 周期必须显式选：它同时决定计价与会员天数，不能靠默认值糊过去 */}
+        <div className="flex rounded-lg border p-0.5">
+          {(['monthly', 'yearly'] as const).map((c) => (
+            <button
+              key={c}
+              onClick={() => setCycle(c)}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                cycle === c ? 'bg-os-text text-white' : 'text-os-text-muted hover:bg-os-surface'
+              }`}
+            >
+              {c === 'monthly' ? '月付' : '年付'}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid sm:grid-cols-2 gap-4">
-        {tiers.map((tier) => (
-          <div key={tier.id} className="rounded-xl border bg-white p-5">
-            <h3 className="font-semibold">{tier.name}</h3>
-            <p className="text-sm text-os-text-muted mt-1">¥{tier.priceMonthly}/月 · ¥{tier.priceYearly}/年</p>
-            <p className="text-sm mt-2">{tier.description}</p>
-            <Button className="mt-4" size="sm" variant="primary" onPress={() => void checkout(tier.id)}>订阅</Button>
-          </div>
-        ))}
+        {tiers.map((tier) => {
+          const price = cycle === 'yearly' ? tier.priceYearly : tier.priceMonthly
+          const priced = price > 0
+          return (
+            <div key={tier.id} className="rounded-xl border bg-white p-5 flex flex-col">
+              <h3 className="font-semibold">{tier.name}</h3>
+              <p className="text-sm text-os-text-muted mt-1">
+                {priced ? `¥${price} / ${cycle === 'yearly' ? '年' : '月'}` : '该周期未定价'}
+              </p>
+              <p className="text-sm mt-2 flex-1">{tier.description}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {/* 在线通道只有一个 Stripe 价格，年付会被按月价订阅 → 只放开人工开通 */}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  isDisabled={!priced || cycle === 'yearly'}
+                  onPress={() => void checkout(tier.id)}
+                >
+                  在线支付订阅
+                </Button>
+                {/* 通道未配置时的可用路径：线下付款 → 站长后台确认发货 */}
+                <Button size="sm" variant="ghost" isDisabled={!priced} onPress={() => void manualSubscribe(tier.id)}>
+                  线下付款 · 人工开通
+                </Button>
+              </div>
+              {cycle === 'yearly' && priced && (
+                <p className="mt-2 text-xs text-os-text-muted">
+                  年付暂只支持线下付款：在线通道未区分月/年价格，年付走在线会被按月订阅扣款。
+                </p>
+              )}
+            </div>
+          )
+        })}
         {tiers.length === 0 && <p className="text-os-text-muted">暂未上架套餐。</p>}
       </div>
 

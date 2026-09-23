@@ -171,7 +171,7 @@ export const communityApi = {
   },
   async createOrder(
     bizType: 'points_recharge' | 'plan',
-    opts?: { points?: number; tierId?: string; channel?: 'manual' | 'wechat' },
+    opts?: { points?: number; tierId?: string; channel?: 'manual' | 'wechat'; interval?: 'monthly' | 'yearly' },
   ): Promise<{
     orderNo: string
     amountCents: number
@@ -185,7 +185,9 @@ export const communityApi = {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...memberHeaders() },
-        body: JSON.stringify({ bizType, points: opts?.points, tierId: opts?.tierId, channel: opts?.channel }),
+        // interval 只对 bizType=plan 有意义：不带它后端按**月价**计价且只给 30 天，
+        // 年付套餐会变成「按年价收钱、发 30 天」。
+        body: JSON.stringify({ bizType, points: opts?.points, tierId: opts?.tierId, channel: opts?.channel, interval: opts?.interval }),
       },
     )
     return r.data
