@@ -9,8 +9,16 @@
 
 export interface CrudService<T extends { id: string }> {
   list(): Promise<T[]>
-  /** 可选：服务端分页（真实后端实现；未实现时调用方回落 list() 全量） */
-  listPaged?(page: number, pageSize: number): Promise<{ items: T[]; total: number }>
+  /**
+   * 可选：服务端分页（真实后端实现；未实现时调用方回落 list() 全量）。
+   * filters 为白名单列的等值过滤（如 { firstTouchArticleId: 'xxx' }），
+   * 用于「从归因页点进某篇文章带来的会员」这类反查。
+   */
+  listPaged?(
+    page: number,
+    pageSize: number,
+    filters?: Record<string, string>,
+  ): Promise<{ items: T[]; total: number }>
   get(id: string): Promise<T | undefined>
   create(input: Omit<T, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<T>
   update(id: string, patch: Partial<T>): Promise<T>

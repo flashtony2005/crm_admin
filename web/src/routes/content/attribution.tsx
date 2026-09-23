@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, Spinner } from '@heroui/react'
 
@@ -229,7 +229,21 @@ function AttributionPage() {
                     <td className="px-3 py-2.5 text-right tabular-nums text-default-600">{r.reads}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-default-600">{r.visitors}</td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
-                      {r.signups > 0 ? r.signups : <span className="font-normal text-default-300">0</span>}
+                      {/* 「带来注册」可点：跳到会员列表并按首触文章筛选。
+                          否则归因说「这篇带来 3 人」，站长在会员列表里找不到
+                          这 3 个人 —— 数字就只能信，不能查。 */}
+                      {r.signups > 0 ? (
+                        <Link
+                          to="/content/members"
+                          search={{ article: r.articleId, articleTitle: r.title }}
+                          className="text-primary underline underline-offset-2"
+                          title="查看这篇文章带来的会员"
+                        >
+                          {r.signups}
+                        </Link>
+                      ) : (
+                        <span className="font-normal text-default-300">0</span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-default-500">
                       {rate(r.signups, r.visitors)}

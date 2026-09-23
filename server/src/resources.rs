@@ -33,6 +33,12 @@ pub enum Col {
     Bool,
     /// 保密值（如 API Key）：可写，读出恒为 "configured" 占位
     Secret,
+    /// 只读（可空 TEXT）：可读，不可写。
+    ///
+    /// 用于**审计型**列，比如 `members.first_touch_article_id` —— 归因结论
+    /// 一旦能被后台随手改写，就失去了「当初真实发生了什么」的意义。
+    /// 与 Secret 正好相反：Secret 是能写不能读，ReadOnly 是能读不能写。
+    ReadOnly,
 }
 
 pub struct ColDef {
@@ -217,6 +223,12 @@ pub static TABLES: &[TableDef] = &[
             ("status","status",Col::Int),("plan","plan",Col::Text),
             ("stripe_customer_id","stripeCustomerId",Col::Text),
             ("invited_by","invitedBy",Col::Text),
+            // 归因三列：由公开站注册流程写入（访客匿名 id → 首触文章），
+            // 后台只读。列表靠 firstTouchArticleId 认得出「文章获客」，
+            // 档案抽屉靠它 join 出文章标题；而它一旦可写，归因就不可信了。
+            ("visitor_id","visitorId",Col::ReadOnly),
+            ("first_touch_article_id","firstTouchArticleId",Col::ReadOnly),
+            ("first_touch_at","firstTouchAt",Col::ReadOnly),
         ],
     },
     // 邀请码：额度制（used 由注册核销自动 +1，后台只配 code/quota/有效期/启停）
@@ -425,6 +437,20 @@ fn to_param(v: &Value, col: Col) -> SqlValue {
     }
 }
 
+/// 收集 body 里出现的**只读列**（用于写入前拒绝，而不是静默忽略）。
+///
+/// 为什么不静默跳过：本项目已经因为「静默忽略」栽过 —— 手写 DTO 缺
+/// `rename_all` 时前端传的键被无声丢弃，调用方以为写成功了。
+/// 对只读列必须**显式报错并点名**，否则「改了没生效」会变成排查不出来的悬案。
+fn readonly_hits(d: &TableDef, body: &Value) -> Vec<&'static str> {
+    d.columns
+        .iter()
+        .filter(|c| matches!(c.kind, Col::ReadOnly))
+        .filter(|c| body.get(c.json).map(|v| !v.is_null()).unwrap_or(false))
+        .map(|c| c.json)
+        .collect()
+}
+
 /// TEXT 列值 → JSON（尝试还原数组/对象，失败则原样字符串）
 fn from_text(s: String) -> Value {
     let t = s.trim();
@@ -476,6 +502,11 @@ fn row_to_json(d: &TableDef, r: &crate::cmsdb::Row) -> Result<Value, ApiError> {
             // NULL → 键省略（与前端 optional 字段语义一致）
             Col::TextNull => match r.try_get::<Option<String>>("", c.sql) {
                 Ok(Some(raw)) => from_text(raw),
+                _ => continue,
+            },
+            // 只读列 = 「可空 TEXT」的读出语义，差别只在写入侧被拒
+            Col::ReadOnly => match r.try_get::<Option<String>>("", c.sql) {
+                Ok(Some(raw)) if !raw.is_empty() => from_text(raw),
                 _ => continue,
             },
             Col::Real => Value::from(r.try_get::<f64>("", c.sql).unwrap_or(0.0)),
@@ -600,6 +631,10 @@ pub async fn create(
 ) -> ApiResult {
     let d = def(&key)?;
     ensure(&auth, d.create_perm.unwrap_or(&format!("{}.create", d.perm_prefix)))?;
+    let ro = readonly_hits(d, &body);
+    if !ro.is_empty() {
+        return Err(ApiError::bad(format!("{} 为只读字段，不可写入", ro.join("、"))));
+    }
     let id = Uuid::new_v4().to_string();
     let now = now_iso();
 
@@ -648,6 +683,10 @@ pub async fn update(
 ) -> ApiResult {
     let d = def(&key)?;
     ensure(&auth, d.update_perm.unwrap_or(&format!("{}.update", d.perm_prefix)))?;
+    let ro = readonly_hits(d, &body);
+    if !ro.is_empty() {
+        return Err(ApiError::bad(format!("{} 为只读字段，不可修改", ro.join("、"))));
+    }
 
     let mut sets: Vec<String> = Vec::new();
     let mut vals: Vec<SqlValue> = Vec::new();

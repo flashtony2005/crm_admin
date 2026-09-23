@@ -19,6 +19,11 @@ export function useCmsCollection<T extends { id: string; updatedAt?: string }>(
     pageSize?: number
     /** 服务端分页（大表启用）：按页拉取 + 服务端 total；搜索仅作用于当前页 */
     serverPaged?: boolean
+    /**
+     * 服务端等值过滤（白名单列）：如 { firstTouchArticleId: 'xxx' }。
+     * 值变化会重新请求；空串视为不过滤。
+     */
+    filters?: Record<string, string>
     /** 自定义过滤（在 searchFields 之后追加），返回 false 表示剔除 */
     extraFilter?: (row: T, query: string) => boolean
   },
@@ -35,11 +40,17 @@ export function useCmsCollection<T extends { id: string; updatedAt?: string }>(
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
+  // 过滤条件按内容参与 queryKey（对象字面量每渲染都是新引用，不能直接当依赖）
+  const filters = opts?.filters
+  const filterKey = JSON.stringify(filters ?? {})
+
   const listQuery = useQuery({
-    queryKey: serverPaged ? [...queryKey, 'paged', page, pageSize] : [...queryKey, 'list'],
+    queryKey: serverPaged
+      ? [...queryKey, 'paged', page, pageSize, filterKey]
+      : [...queryKey, 'list'],
     queryFn: async (): Promise<{ items: T[]; total: number }> => {
       if (serverPaged && api.listPaged) {
-        return api.listPaged(Math.max(1, page), pageSize)
+        return api.listPaged(Math.max(1, page), pageSize, filters)
       }
       const rows = await api.list()
       return { items: rows, total: rows.length }

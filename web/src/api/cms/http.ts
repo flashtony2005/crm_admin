@@ -17,9 +17,20 @@ export function httpCollection<T extends { id: string }>(resource: string): Crud
       return body.data ?? []
     },
 
-    async listPaged(page: number, pageSize: number): Promise<{ items: T[]; total: number }> {
-      const qs = `?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(pageSize)}`
-      const body = await apiList<T>(`${base}${qs}`)
+    async listPaged(
+      page: number,
+      pageSize: number,
+      filters?: Record<string, string>,
+    ): Promise<{ items: T[]; total: number }> {
+      const qs = new URLSearchParams()
+      qs.set('page', String(page))
+      qs.set('pageSize', String(pageSize))
+      // 后端 /api/{table} 支持白名单列等值过滤（?col=value）；
+      // 空值不发 —— 传空串会被当成「筛选该列为空」，语义完全不同。
+      for (const [k, v] of Object.entries(filters ?? {})) {
+        if (v !== '') qs.set(k, v)
+      }
+      const body = await apiList<T>(`${base}?${qs.toString()}`)
       return { items: body.data ?? [], total: body.total ?? 0 }
     },
 

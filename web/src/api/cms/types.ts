@@ -257,6 +257,15 @@ export interface Member extends BaseRecord {
   stripeCustomerId?: string
   /** 邀请人 member id（非空 = 凭邀请码注册加入） */
   invitedBy?: string
+  /**
+   * 归因三列（后端**只读**，由公开站注册流程写入）。
+   * 后台只能读、不能改 —— 这类「当初真实发生了什么」的数据一旦可编辑，
+   * 归因结论就不可信了。
+   */
+  visitorId?: string
+  /** 首触文章 id（不是末次：末次会被站内推荐位改写） */
+  firstTouchArticleId?: string
+  firstTouchAt?: string
 }
 
 /** 邀请码（额度制：好友凭码注册核销 used+1） */

@@ -1414,6 +1414,143 @@ async fn attribution_binds_first_touch_article_not_last() {
         2,
         "两篇文章各有 1 个独立访客，相加是 2 —— 它是触达总量，不是人群规模"
     );
+
+    // ── 反查：从「这篇文章带来 1 人」到「具体是哪 1 个人」──
+    // 归因页能说「这篇带来 N 人」，站长还得能在会员列表里把这 N 人找出来，
+    // 否则数字只能信、不能查。靠 firstTouchArticleId 的等值筛选做下钻。
+    let (s, lst) = call(
+        app.clone(),
+        "GET",
+        &format!("/api/members?firstTouchArticleId={}", ids[1]),
+        None,
+        Some(&o),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "按首触文章筛会员应 200：{lst}");
+    let items = lst["data"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "应恰好筛出这篇文章带来的 1 人：{lst}");
+    assert_eq!(items[0]["id"].as_str().unwrap_or(""), mid, "{lst}");
+    assert_eq!(
+        items[0]["firstTouchArticleId"].as_str().unwrap_or(""),
+        ids[1],
+        "会员列表必须带出首触文章，否则前端画不出「文章获客」这个来源：{lst}"
+    );
+
+    // 档案抽屉要直接显示**篇名**，而不是把 id 甩给站长自己去查
+    let (s, tl) = call(
+        app.clone(),
+        "GET",
+        &format!("/api/members/{mid}/timeline"),
+        None,
+        Some(&o),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "会员档案应 200：{tl}");
+    let mem = &tl["data"]["member"];
+    assert_eq!(
+        mem["firstTouchArticleTitle"].as_str().unwrap_or(""),
+        "第二篇",
+        "档案要给出首触文章标题：{tl}"
+    );
+    assert_eq!(
+        mem["firstTouchArticleSlug"].as_str().unwrap_or(""),
+        "attr-second",
+        "还要给 slug，抽屉里的链接才能直达文章：{tl}"
+    );
+    assert!(
+        !mem["firstTouchAt"].as_str().unwrap_or("").is_empty(),
+        "首访时间应一并带出：{tl}"
+    );
+}
+
+/// 归因三列在后台必须**只读**。
+///
+/// 这类「当初真实发生了什么」的数据一旦能被后台随手改写，归因结论就不再可信 ——
+/// 而且改写是无声的：数字还在，只是再也对不上当初。
+///
+/// 反面同样重要：只读列不能「写了当没写」。静默忽略会让调用方以为改成功了
+/// （本项目已经因为「静默丢键」栽过一次），所以必须明确 400 并把字段名点出来。
+#[tokio::test]
+async fn member_attribution_columns_are_read_only() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let o = login(&app, "owner").await;
+
+    let (s, reg) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({ "email": "ro@test.dev", "password": "member1234", "name": "只读" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "注册应成功：{reg}");
+    let mid = reg["data"]["member"]["id"].as_str().expect("会员 id").to_string();
+
+    // 三个只读列逐个尝试篡改 → 一律 400 且点名
+    for (col, probe) in [
+        ("visitorId", json!({ "visitorId": "被篡改" })),
+        ("firstTouchArticleId", json!({ "firstTouchArticleId": "被篡改" })),
+        ("firstTouchAt", json!({ "firstTouchAt": "被篡改" })),
+    ] {
+        let (s, b) = call(
+            app.clone(),
+            "PUT",
+            &format!("/api/members/{mid}"),
+            Some(probe),
+            Some(&o),
+        )
+        .await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "改只读列 {col} 应被拒：{b}");
+        assert!(
+            b["error"].as_str().unwrap_or("").contains(col),
+            "错误信息必须点名 {col}，否则调用方无从下手：{b}"
+        );
+    }
+
+    // 值原样未动：写入被拒 ≠ 写入后又被覆盖回来
+    let row = st
+        .db
+        .query_one(
+            "SELECT visitor_id, first_touch_article_id FROM members WHERE id = ?",
+            vec![sv(&mid)],
+        )
+        .await
+        .unwrap()
+        .expect("会员应存在");
+    assert_eq!(
+        row.try_get::<String>("", "visitor_id").unwrap_or_default(),
+        "",
+        "只读列不该被写进去"
+    );
+    assert_eq!(
+        row.try_get::<String>("", "first_touch_article_id").unwrap_or_default(),
+        "",
+        "只读列不该被写进去"
+    );
+
+    // 普通列照常能改 —— 别为了拦只读把整个 update 弄瘸
+    let (s, b) = call(
+        app.clone(),
+        "PUT",
+        &format!("/api/members/{mid}"),
+        Some(json!({ "name": "改名成功" })),
+        Some(&o),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "普通字段应仍可改：{b}");
+    assert_eq!(b["data"]["name"].as_str().unwrap_or(""), "改名成功", "{b}");
+
+    // 创建路径也拦：只读列不能靠「先建成别的，再改名」绕过去
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/members",
+        Some(json!({ "email": "ro2@test.dev", "name": "x", "firstTouchArticleId": "伪造" })),
+        Some(&o),
+    )
+    .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "创建时写只读列也应被拒：{b}");
 }
 
 #[tokio::test]

@@ -467,7 +467,8 @@ pub async fn timeline(
     let mrow = st
         .db
         .query_one(
-            "SELECT id, email, name, plan, status, plan_expires_at, invited_by, created_at
+            "SELECT id, email, name, plan, status, plan_expires_at, invited_by, created_at,
+                    visitor_id, first_touch_article_id, first_touch_at
                FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
             vec![sval(id.clone()), sval(t.clone())],
         )
@@ -610,6 +611,27 @@ pub async fn timeline(
     let total = ev.len();
     ev.truncate(100);
 
+    // ── 获客来源（首触文章）──
+    // 为什么是**首触**而不是末次：末次会被站内推荐位改写 —— 一个从搜索
+    // 落地到 A 文、再点进 B 文的读者，记成 B 就等于把真获客入口淹掉。
+    // 文章可能已被删除（join 不到），此时只把 id 亮出来、不编造标题。
+    let ft_id = gets(&m, "first_touch_article_id");
+    let (ft_title, ft_slug) = if ft_id.is_empty() {
+        (String::new(), String::new())
+    } else {
+        match st
+            .db
+            .query_one(
+                "SELECT title, slug FROM articles WHERE id = ? AND tenant_id = ? LIMIT 1",
+                vec![sval(ft_id.clone()), sval(t.clone())],
+            )
+            .await
+        {
+            Ok(Some(r)) => (gets(&r, "title"), gets(&r, "slug")),
+            _ => (String::new(), String::new()),
+        }
+    };
+
     let expires = gets(&m, "plan_expires_at");
     // P0-4 打的标签落在会员身上，档案是它唯一的出口 ——
     // 标签不给任何人看，就等于没打过。
@@ -624,6 +646,12 @@ pub async fn timeline(
             "planExpiresAt": expires,
             "invitedBy": gets(&m, "invited_by"),
             "createdAt": joined,
+            // 归因来源（只读）：供档案抽屉显示「从哪篇文章来的」
+            "visitorId": gets(&m, "visitor_id"),
+            "firstTouchArticleId": ft_id,
+            "firstTouchArticleTitle": ft_title,
+            "firstTouchArticleSlug": ft_slug,
+            "firstTouchAt": gets(&m, "first_touch_at"),
         },
         "tags": tags,
         "events": ev,

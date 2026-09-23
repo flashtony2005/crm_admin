@@ -258,6 +258,11 @@ function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onCl
   const plan = String(info?.plan ?? member.plan ?? 'free')
   const status = Number(info?.status ?? member.status)
   const expires = String(info?.planExpiresAt ?? '')
+  // 归因来源（后端只读）：哪篇文章把这个人带来的
+  const ftId = String(info?.firstTouchArticleId ?? '')
+  const ftTitle = String(info?.firstTouchArticleTitle ?? '')
+  const ftSlug = String(info?.firstTouchArticleSlug ?? '')
+  const ftAt = String(info?.firstTouchAt ?? '')
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -287,6 +292,42 @@ function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onCl
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {/* 获客来源：这条档案是「从哪篇文章来的」。刻意放在行为流之前 ——
+              它属于「这个人是谁」的元信息，不属于「他做过什么」。 */}
+          {!loading ? (
+            <div className="mb-4 rounded-xl border border-os-border bg-os-bg-hover p-3">
+              <p className="text-xs font-medium text-os-text-muted">获客来源</p>
+              {ftId ? (
+                <>
+                  <p className="mt-1 text-sm text-os-text-primary">
+                    首访文章：
+                    {ftSlug ? (
+                      <a
+                        href={`/read/${encodeURIComponent(ftSlug)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-os-purple-text underline underline-offset-2"
+                      >
+                        {ftTitle || ftId}
+                      </a>
+                    ) : (
+                      <span>{ftTitle || `文章 ${ftId}（已删除）`}</span>
+                    )}
+                  </p>
+                  {ftAt ? (
+                    <p className="mt-0.5 text-[11px] text-os-text-muted">
+                      首次到访 {fmtDate(ftAt)} · 按首触计（末次会被站内推荐位改写，真入口反被淹）
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-os-text-muted">
+                  无访客标识，无法归因到文章（多为后台建号或历史数据）
+                </p>
+              )}
+            </div>
+          ) : null}
+
           {loading ? (
             <p className="text-sm text-os-text-muted">加载中…</p>
           ) : events.length === 0 ? (
@@ -328,9 +369,16 @@ function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onCl
 }
 
 function MembersPage() {
+  // search.article：来自归因页「带来注册」的下钻 —— 只看这篇文章带来的会员
+  const { article, articleTitle } = Route.useSearch()
+  const navigate = Route.useNavigate()
   const [search, setSearch] = useState('')
   const [timelineFor, setTimelineFor] = useState<Member | null>(null)
-  const t = useCmsCollection(membersApi, ['cms-members'], { searchFields: ['email', 'name', 'plan'], serverPaged: true })
+  const t = useCmsCollection(membersApi, ['cms-members'], {
+    searchFields: ['email', 'name', 'plan'],
+    serverPaged: true,
+    filters: article ? { firstTouchArticleId: article } : undefined,
+  })
 
   const columns: CmsColumn<Member>[] = [
     { id: 'email', header: '邮箱', render: (r) => <span className="font-medium">{r.email}</span> },
@@ -340,12 +388,29 @@ function MembersPage() {
         <span className={`px-2 py-0.5 rounded-full text-xs ${r.plan === 'free' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'}`}>{r.plan}</span>,
     },
     {
-      id: 'invited', header: '来源', render: (r) =>
-        r.invitedBy ? (
-          <span className="px-2 py-0.5 rounded-full text-xs bg-rose-50 text-rose-600">邀请加入</span>
-        ) : (
-          <span className="text-xs text-os-text-muted">自然注册</span>
-        ),
+      id: 'source',
+      header: '获客来源',
+      // 三态而不是两态：以前只有「邀请 / 自然」，于是**文章带来的会员
+      // 全被算成自然注册** —— 归因页说某篇文章带来 N 人，会员列表里
+      // 却找不到这 N 人，数据对不上就只能靠猜。
+      render: (r) => {
+        if (r.invitedBy) {
+          return (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-600">邀请加入</span>
+          )
+        }
+        if (r.firstTouchArticleId) {
+          return (
+            <span
+              className="rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-600"
+              title="由文章首触带来；点右侧「动态」可见具体篇目与到访时间"
+            >
+              文章获客
+            </span>
+          )
+        }
+        return <span className="text-xs text-os-text-muted">自然注册</span>
+      },
     },
     { id: 'status', header: '状态', render: (r) => <span>{r.status === 1 ? '正常' : '停用'}</span> },
     { id: 'createdAt', header: '注册时间', render: (r) => <time className="text-xs text-os-text-muted">{fmtDate(r.createdAt)}</time> },
@@ -354,6 +419,23 @@ function MembersPage() {
   return (
     <div className="p-1 md:p-2">
       <CmsPageHeader title="会员" desc="注册会员列表与套餐分布。会员可在公开站注册、登录并访问会员专属内容。" />
+      {/* 从归因页「带来注册」下钻过来时的上下文条。
+          没有它，站长只会看到一个「被莫名筛过」的列表 —— 数字变了却不知道
+          为什么，比不过滤更让人困惑。 */}
+      {article ? (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-sky-800">按「首触文章」筛选</p>
+            <p className="truncate text-xs text-sky-700">
+              {articleTitle ? `《${articleTitle}》` : `文章 ${article.slice(0, 8)}`}
+              带来的会员 · 共 {t.total} 人
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" className="ml-auto" onPress={() => void navigate({ search: {} })}>
+            清除筛选
+          </Button>
+        </div>
+      ) : null}
       <InviteGateToggle />
       <CmsToolbar searchPlaceholder="搜索邮箱 / 昵称 / 套餐…" searchValue={search} onSearchChange={setSearch}>
         <Auth perm={P.contentMembersCreate}>
@@ -380,4 +462,12 @@ function MembersPage() {
   )
 }
 
-export const Route = createFileRoute('/content/members')({ component: MembersPage })
+export const Route = createFileRoute('/content/members')({
+  // 归因页下钻：?article=<首触文章 id>&articleTitle=<标题>
+  // （标题只为在上下文条里显示，不参与筛选；缺了不影响筛选正确性）
+  validateSearch: (search: Record<string, unknown>): { article?: string; articleTitle?: string } => ({
+    article: typeof search.article === 'string' && search.article ? search.article : undefined,
+    articleTitle: typeof search.articleTitle === 'string' && search.articleTitle ? search.articleTitle : undefined,
+  }),
+  component: MembersPage,
+})
