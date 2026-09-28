@@ -9,7 +9,7 @@ import { fmtRelative } from '../../components/cms/format'
 import { usePermission } from '../../hooks/usePermission'
 import { P } from '../../config/permissions'
 import { createFileRoute } from '@tanstack/react-router'
-import { WorkflowEditor } from './WorkflowEditor'
+import { WorkflowEditor } from './-WorkflowEditor'
 
 /** 可订阅的事件类型（服务端 automation::trigger 的入口事件） */
 const EVENT_OPTIONS: { value: string; label: string }[] = [
