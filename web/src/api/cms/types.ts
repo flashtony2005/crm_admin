@@ -317,6 +317,20 @@ export interface LedgerEntry {
   createdAt: string
 }
 
+/** 订阅状态（GET /api/public/members/wallet 的 subscription 字段） */
+export interface SubscriptionStatus {
+  /** Stripe 原始状态串：active / trialing / past_due / canceled / unpaid … */
+  status: string
+  /** monthly | yearly */
+  interval: string
+  tierSlug: string
+  /** 当前计费周期的结束时刻（RFC3339） */
+  currentPeriodEnd: string
+  /** true = 已安排到期后不再续费（**不是**立刻取消，服务给到期末） */
+  cancelAtPeriodEnd: boolean
+  stripeSubscriptionId?: string
+}
+
 /** 会员钱包（GET /api/public/members/wallet） */
 export interface WalletInfo {
   balance: number
@@ -328,6 +342,12 @@ export interface WalletInfo {
   planExpiring?: boolean
   /** 已过期（subscribed() 已视为无效） */
   planExpired?: boolean
+  /**
+   * 当前订阅（阶段 1）。null = 没有未终结的订阅（免费会员 / 订阅已结束）。
+   * 它回答的是 members 表回答不了的两个问题：**下次什么时候扣款**、
+   * **是不是已经取消过了** —— members 只有一个派生出来的到期时间。
+   */
+  subscription?: SubscriptionStatus | null
   invited: boolean
   signedToday: boolean
   signinPoints: number
@@ -449,4 +469,35 @@ export interface RetryFulfillResp {
   retried: number
   recovered: number
   stillFailing: string[]
+}
+
+/**
+ * 订阅实例（阶段 1，后端**只读**）：Stripe 订阅在本地的事实源。
+ *
+ * 为什么后台需要有它：`members` 只有一条派生出来的到期时间，
+ * 看不出「下次什么时候扣款」「是不是已经安排取消」「Stripe 那边现在是什么状态」。
+ * 这三个问题客服每天都会遇到，此前只能让对方去 Stripe 后台看。
+ *
+ * 只读是刻意的：写入由 webhook 状态机负责，后台改这里没有意义 ——
+ * 下一次 Stripe 事件一到就会被覆盖，而在两次事件之间，被改过的本地状态
+ * 会让「谁在第几天到期」看起来是对的、实际是错的。
+ */
+export interface SubscriptionRecord extends BaseRecord {
+  memberId: string
+  stripeSubscriptionId?: string
+  stripeCustomerId?: string
+  tierSlug?: string
+  priceId?: string
+  /** monthly | yearly */
+  interval?: string
+  /** Stripe 原始状态串：active / trialing / past_due / canceled / unpaid … */
+  status: string
+  /** 当前计费周期的结束时刻（RFC3339） */
+  currentPeriodEnd?: string
+  /** true = 到期后不再续费（不是立刻取消，服务给到期末） */
+  cancelAtPeriodEnd?: boolean
+  canceledAt?: string
+  startedAt?: string
+  /** 非空 = 已终结（到期降级已处理），调度器不会重复处理 */
+  closedAt?: string
 }

@@ -23,6 +23,7 @@ import type {
   FulfillTask, MemberProfile, Order, Page, PayConfigInfo, Product, ReconResp, RedeemCode,
   RetryFulfillResp, Subscriber, Tag, Tier,
   Redirect, NotFoundLog, SmartLink,
+  SubscriptionRecord,
   WalletInfo, WebhookSubscription, WorkflowDef,
 } from './types'
 
@@ -128,6 +129,15 @@ export const redeemCodesApi = CMS_MODE === 'real'
 export const ordersApi = CMS_MODE === 'real'
   ? httpCollection<Order>('orders')
   : collection<Order>('orders', [])
+
+/**
+ * 订阅实例（阶段 1）——**只读面**。
+ * 后端把 create/update/delete 都关掉了（`*.never` 哨兵，对 Owner 也生效），
+ * 所以这里没有任何写方法：订阅状态的唯一真相源是 Stripe 的 webhook。
+ */
+export const subscriptionsListApi = CMS_MODE === 'real'
+  ? httpCollection<SubscriptionRecord>('subscriptions')
+  : collection<SubscriptionRecord>('subscriptions', [])
 
 /**
  * 创作者社区 P1：积分钱包 / 签到 / 兑码 / 积分买断 / 订单。

@@ -98,6 +98,10 @@ export const PRODUCT_NAV: NavNode[] = [
     children: [
       { key: 'members', label: '会员', path: '/content/members', icon: 'users', desc: '注册会员管理', perm: 'content.members.view' },
       { key: 'orders', label: '订单', path: '/content/orders', icon: 'card', desc: '收款确认 / 充值与订阅发货', perm: 'content.members.view' },
+      // 订阅实例（阶段 1）：只读 —— 状态由 Stripe webhook 驱动，后台改不了。
+      // 放在「订单」旁边是有意的：两者一起回答「这单钱收了没 / 这个人还续不续」。
+      // 路径刻意避开 /content/subscriptions —— 那是下面的「付费订阅」（套餐定义）页。
+      { key: 'subscriptionRecords', label: '订阅记录', path: '/content/subscription-records', icon: 'card', desc: '续费周期 / 取消状态 / 到期降级', perm: 'subscriptions.list.view' },
       { key: 'comments', label: '评论', path: '/content/comments', icon: 'comment', desc: '内容评论与审核', perm: 'content.comments.view' },
       { key: 'newsletter', label: '邮件订阅', path: '/content/newsletter', icon: 'mail', desc: '订阅者与群发', perm: 'newsletter.subscribers.view' },
       { key: 'subscriptions', label: '付费订阅', path: '/content/subscriptions', icon: 'card', desc: '套餐与变现', perm: 'subscriptions.tiers.view' },

@@ -519,6 +519,97 @@ async fn stripe_webhook_activates_plan_by_interval_metadata() {
     assert_eq!(s, StatusCode::OK, "会员不存在不应让 Stripe 无限重投：{b}");
 }
 
+/// 【永久会员防线】Checkout 兜底建的那行订阅，必须记下「授予的到期时间」。
+///
+/// 兜底路径存在的理由：`customer.subscription.created` 可能丢包，而若本地
+/// 连订阅行都没有，调度器的到期兜底就扫不到这个人 —— 他会一直有效下去，
+/// 且 members 表自身完全自洽，对账看不出异常。
+///
+/// 但**只建行还不够**：建行时若不记 `granted_expiry`，到期扫描会因为
+/// 「granted 为空 = 本订阅从未授予过」而不敢降级，等于白建。
+/// 这个用例走完整的「发货 → 周期流逝 → 兜底降级」三步，把整条链钉死。
+#[tokio::test]
+async fn checkout_grace_subscription_can_be_demoted_at_period_end() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+
+    let (s, r) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({ "email": "sub_grace@test.dev", "password": "member1234", "name": "兜底" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    let mid = r["data"]["member"]["id"].as_str().expect("会员 id").to_string();
+
+    let body = json!({
+        "id": "evt_grace_1",
+        "type": "checkout.session.completed",
+        "data": { "object": {
+            "client_reference_id": mid,
+            "customer": "cus_grace_1",
+            "subscription": "sub_grace_1",
+            "metadata": { "interval": "yearly", "tier_slug": "annual" },
+        }}
+    })
+    .to_string();
+    let (s, b) = call_h(
+        app.clone(),
+        "POST",
+        "/api/stripe/webhook",
+        Some(body.clone()),
+        stripe_sig_header(&body),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+
+    let (plan, exp) = member_plan(&st, &mid).await;
+    assert_eq!(plan, "annual", "兜底必须真发货：{plan}");
+    assert!(!exp.is_empty(), "兜底必须写到期时间");
+
+    let granted: String = st
+        .db
+        .query_one(
+            "SELECT granted_expiry FROM subscriptions \
+             WHERE tenant_id = ? AND stripe_subscription_id = ? LIMIT 1",
+            vec![sv(&st.tenant), sv("sub_grace_1")],
+        )
+        .await
+        .expect("查询订阅")
+        .expect("Checkout 兜底必须建订阅行 —— 否则到期兜底扫不到这个人")
+        .try_get("", "granted_expiry")
+        .unwrap_or_default();
+    assert_eq!(
+        granted, exp,
+        "兜底建行必须记下授予的到期时间，且与会员实际拿到的完全一致"
+    );
+
+    // 让周期流逝：把订阅行推到过去（模拟一年后），期间不给任何事件
+    st.db
+        .execute(
+            "UPDATE subscriptions SET current_period_end = ? \
+             WHERE tenant_id = ? AND stripe_subscription_id = ?",
+            vec![
+                sv(&iso(chrono::Utc::now().timestamp() - 86_400)),
+                sv(&st.tenant),
+                sv("sub_grace_1"),
+            ],
+        )
+        .await
+        .expect("推进周期");
+
+    assert_eq!(
+        crate::sub_state::expire_due(&st).await,
+        1,
+        "到期兜底必须处理这条订阅"
+    );
+    let (plan2, exp2) = member_plan(&st, &mid).await;
+    assert_eq!(plan2, "free", "兜底建的行必须真能被降级 —— 否则就是永久会员");
+    assert_eq!(exp2, "", "降级应清空到期时间");
+}
+
 #[tokio::test]
 async fn redeem_code_single_use() {
     let st = test_state().await;
@@ -853,7 +944,9 @@ async fn stripe_webhook_records_dedups_and_fails_loud() {
         .len();
     assert_eq!(n, 1, "同一 event_id 只应有一行");
 
-    // 订阅变更类事件：落库待应用（缺订阅状态机，不臆造 plan 变更）
+    // 订阅变更类事件：**已在阶段 1 真处理**（建本地订阅行 + 状态机生效）。
+    // 这里的事件体是空对象、既无 id 也无 member_id，状态机只能判定"无归属"，
+    // 于是既落不了库也发不了货 —— 正是我们要的保守行为：不臆造 plan 变更。
     let sub_body = json!({
         "id": "evt_p0_2",
         "type": "customer.subscription.updated",
@@ -870,7 +963,7 @@ async fn stripe_webhook_records_dedups_and_fails_loud() {
     )
     .await;
     assert_eq!(s3, StatusCode::OK);
-    assert_eq!(b3["data"]["status"], "pending_apply");
+    assert_eq!(b3["data"]["status"], "processed");
 
     // 缺 id 无法去重：不能静默丢弃
     let (s4, _) = call_h(
@@ -1925,4 +2018,442 @@ async fn entry_dtos_accept_the_camelcase_contract() {
     )
     .await;
     assert_eq!(s, StatusCode::OK, "snake 别名必须继续可用（老客户端兼容）");
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 阶段 1：订阅状态机（Stripe 事件 → 会员有效期）
+// ═══════════════════════════════════════════════════════════════════════
+
+/// 读会员的 (plan, plan_expires_at)
+async fn member_plan(st: &AppState, mid: &str) -> (String, String) {
+    let r = st
+        .db
+        .query_one(
+            "SELECT plan, plan_expires_at FROM members WHERE id = ? AND tenant_id = ? LIMIT 1",
+            vec![sv(mid), sv(&st.tenant)],
+        )
+        .await
+        .expect("查询会员")
+        .expect("会员应存在");
+    (
+        r.try_get("", "plan").unwrap_or_default(),
+        r.try_get("", "plan_expires_at").unwrap_or_default(),
+    )
+}
+
+/// 发送一个 Stripe webhook 事件（签名头按是否配置密钥自动给出）
+async fn hook(app: &axum::Router, body: Value) -> (StatusCode, Value) {
+    let s = body.to_string();
+    call_h(
+        app.clone(),
+        "POST",
+        "/api/stripe/webhook",
+        Some(s.clone()),
+        stripe_sig_header(&s),
+    )
+    .await
+}
+
+/// 注册一个会员，返回 (member_id, token)
+async fn reg_member(app: &axum::Router, email: &str) -> (String, String) {
+    let (s, b) = call(
+        app.clone(),
+        "POST",
+        "/api/public/members/register",
+        Some(json!({ "email": email, "password": "member1234", "name": "订阅者" })),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "注册应成功：{b}");
+    (
+        b["data"]["member"]["id"].as_str().expect("member id").to_string(),
+        b["data"]["token"].as_str().expect("token").to_string(),
+    )
+}
+
+/// 构造 `customer.subscription.*` 事件（字段名严格照 Stripe 的订阅对象）
+#[allow(clippy::too_many_arguments)]
+fn sub_event(
+    eid: &str,
+    etype: &str,
+    sub_id: &str,
+    member_id: &str,
+    status: &str,
+    period_end: i64,
+    created: i64,
+    cancel_at_period_end: bool,
+) -> Value {
+    json!({
+        "id": eid,
+        "type": etype,
+        "created": created,
+        "data": { "object": {
+            "id": sub_id,
+            "customer": "cus_stage1",
+            "status": status,
+            "current_period_end": period_end,
+            "cancel_at_period_end": cancel_at_period_end,
+            "start_date": created,
+            "metadata": { "member_id": member_id, "tier_slug": "annual", "interval": "yearly" },
+            "items": { "data": [ { "price": { "id": "price_year" } } ] }
+        }}
+    })
+}
+
+/// Unix 秒 → 与库里同一口径的 RFC3339（字符串比较即时间比较的前提）
+fn iso(ts: i64) -> String {
+    crate::sub_state::unix_to_iso(Some(&json!(ts)))
+}
+
+/// 插一条订阅行（用于模拟「webhook 全丢」这类只有数据侧能构造的场景）
+/// 插一条订阅行（用于模拟「webhook 全丢」这类只有数据侧能构造的场景）。
+///
+/// `granted_expiry`：本订阅**授予过**的会员到期时间（空串 = 从未授予过）。
+/// 它与 `period_end` 是两件事，刻意分开传：
+/// 前者回答「会员现在这份有效期是不是这个订阅给的」，是订阅结束时
+/// 能否降级的唯一判据（见迁移 0018）。
+async fn seed_subscription(
+    st: &AppState,
+    row_id: &str,
+    sub_id: &str,
+    mid: &str,
+    period_end: &str,
+    status: &str,
+    granted_expiry: &str,
+) {
+    let now_s = db::now_iso();
+    st.db
+        .execute(
+            "INSERT INTO subscriptions (id, tenant_id, member_id, stripe_subscription_id, \
+             stripe_customer_id, tier_slug, price_id, interval, status, current_period_end, \
+             cancel_at_period_end, canceled_at, started_at, last_event_at, closed_at, \
+             granted_expiry, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, '', 'annual', 'price_year', 'yearly', ?, ?, 0, '', '', 0, '', ?, ?, ?)",
+            vec![
+                sv(row_id),
+                sv(&st.tenant),
+                sv(mid),
+                sv(sub_id),
+                sv(&status.to_string()),
+                sv(period_end),
+                sv(granted_expiry),
+                sv(&now_s),
+                sv(&now_s),
+            ],
+        )
+        .await
+        .expect("插入订阅行");
+}
+
+async fn order_count(st: &AppState, sub_id: &str) -> i64 {
+    st.db
+        .query_one(
+            "SELECT COUNT(*) AS c FROM orders WHERE tenant_id = ? AND ref_no = ?",
+            vec![sv(&st.tenant), sv(sub_id)],
+        )
+        .await
+        .expect("查订单")
+        .expect("应有结果")
+        .try_get("", "c")
+        .unwrap_or(0)
+}
+
+/// 【阶段 1 核心闭环】订阅事件必须**真的改变会员状态**。
+///
+/// 此前这四类事件只落库标 `pending_apply`：事件收得到，但没有任何东西把它
+/// 变成会员状态。两个后果都是钱 ——
+///   ① 年付会员第二年正常扣款却拿不到服务（续费不发货）；
+///   ② 周期过了会员仍有效（到期不降级），且 `members` 表自身完全自洽，
+///      对账、归因、后台列表**都看不出异常**。
+#[tokio::test]
+async fn subscription_lifecycle_drives_member_plan() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let (mid, _) = reg_member(&app, "sub_life@test.dev").await;
+
+    let now = chrono::Utc::now().timestamp();
+    let day = 86_400i64;
+    let sub = "sub_lifecycle_1";
+
+    // ── ① 订阅创建：周期 365 天 → 会员立刻成为 annual ──
+    let (s, b) = hook(
+        &app,
+        sub_event("evt_sc_1", "customer.subscription.created", sub, &mid, "active", now + 365 * day, now, false),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["status"], "processed", "{b}");
+    let (plan, exp) = member_plan(&st, &mid).await;
+    assert_eq!(plan, "annual", "订阅创建后 plan 应落到套餐 slug");
+    let left = crate::sub_state::parse_ts(&exp).expect("到期时间应可解析").timestamp() - now;
+    assert!((364 * day..=366 * day).contains(&left), "到期应约 365 天后，实得 {left}s");
+
+    // ── ② 续费成功（发票）：新周期再 +365 天，并落一条订单 ──
+    let (s, b) = hook(
+        &app,
+        json!({
+            "id": "evt_inv_1",
+            "type": "invoice.payment_succeeded",
+            "created": now + 10,
+            "data": { "object": {
+                "subscription": sub,
+                "customer": "cus_stage1",
+                "amount_paid": 18_000,
+                "lines": { "data": [ { "period": { "end": now + 730 * day } } ] }
+            }}
+        }),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["data"]["status"], "processed", "{b}");
+    let (_, exp2) = member_plan(&st, &mid).await;
+    let left2 = crate::sub_state::parse_ts(&exp2).expect("到期时间应可解析").timestamp() - now;
+    assert!((729 * day..=731 * day).contains(&left2), "续费后到期应约 730 天后，实得 {left2}s");
+
+    // 续费的钱必须在 orders 里看得见：否则归因收入 / 对账 / 订单列表
+    // 三处全都漏掉 Stripe 收到的钱，只有去 Stripe 后台翻账单才知道。
+    assert_eq!(order_count(&st, sub).await, 1, "续费应落一条订单");
+    let amount: i64 = st
+        .db
+        .query_one(
+            "SELECT amount_cents FROM orders WHERE tenant_id = ? AND ref_no = ? LIMIT 1",
+            vec![sv(&st.tenant), sv(sub)],
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "amount_cents")
+        .unwrap_or(0);
+    assert_eq!(amount, 18_000, "订单金额应为发票实收");
+
+    // ── ②b 同一张发票重投：不得多记一条（收入会翻倍）──
+    let (s, _) = hook(
+        &app,
+        json!({
+            "id": "evt_inv_1_dup",
+            "type": "invoice.payment_succeeded",
+            "created": now + 11,
+            "data": { "object": {
+                "subscription": sub, "customer": "cus_stage1", "amount_paid": 18_000,
+                "lines": { "data": [ { "period": { "end": now + 730 * day } } ] }
+            }}
+        }),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(order_count(&st, sub).await, 1, "同一计费周期重复投递不得产生第二条订单");
+
+    // ── ③ 乱序：更旧的事件不得覆盖新周期 ──
+    let (s, _) = hook(
+        &app,
+        sub_event("evt_sc_old", "customer.subscription.updated", sub, &mid, "active", now + 100 * day, now - 100, false),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, exp3) = member_plan(&st, &mid).await;
+    assert_eq!(exp3, exp2, "更旧的事件必须被忽略，不得把周期改回去（用户会以为白付了）");
+
+    // ── ④ 期末取消：已安排取消但周期未过 → **仍然有效** ──
+    let (s, b) = hook(
+        &app,
+        sub_event("evt_sc_cancel", "customer.subscription.updated", sub, &mid, "active", now + 730 * day, now + 20, true),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (plan4, _) = member_plan(&st, &mid).await;
+    assert_eq!(plan4, "annual", "期末取消在周期结束前必须继续有效（用户已付到期末）");
+    let cancel_flag: i64 = st
+        .db
+        .query_one(
+            "SELECT cancel_at_period_end FROM subscriptions WHERE tenant_id = ? AND stripe_subscription_id = ? LIMIT 1",
+            vec![sv(&st.tenant), sv(sub)],
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "cancel_at_period_end")
+        .unwrap_or(0);
+    assert_eq!(cancel_flag, 1, "已安排取消的标记必须落库（运营要能看出谁要走了）");
+
+    // ── ⑤ 立即结束：deleted 且周期已过 → 降回 free ──
+    let (s, b) = hook(
+        &app,
+        sub_event("evt_sc_del", "customer.subscription.deleted", sub, &mid, "canceled", now - 60, now + 30, false),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (plan5, exp5) = member_plan(&st, &mid).await;
+    assert_eq!(plan5, "free", "周期已过的取消必须降级");
+    assert_eq!(exp5, "", "降级应清空到期时间");
+}
+
+/// 【阶段 1 兜底】所有 webhook 都丢了，到期会员也**必须**掉档。
+///
+/// 这是「会员不会永久有效」的最后一道闸。当年「到期时间为空 = 永久会员」
+/// 那个缺陷的根因，就是没有任何东西会主动检查到期 —— 现在由调度器每分钟扫，
+/// 判据与事件处理同源（`current_period_end <= now`）。
+#[tokio::test]
+async fn expire_due_demotes_without_any_webhook() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let (mid, _) = reg_member(&app, "sub_orphan@test.dev").await;
+
+    let now = chrono::Utc::now().timestamp();
+    let day = 86_400i64;
+
+    // 造一条「周期已过、但从未收到任何终结事件」的订阅。
+    // granted_expiry = period_end：这份有效期就是这个订阅给的
+    // （模拟此前已经 Grant 过，只是终结事件丢了）。
+    let end = iso(now - day);
+    seed_subscription(&st, "sub_row_orphan", "sub_orphan_1", &mid, &end, "active", &end).await;
+    // 会员停在订阅上一次 Grant 留下的样子：plan 是付费态，到期时间与订阅
+    // 周期**完全一致** —— 这正是"这份有效期是它给的"的证据。
+    // ⚠️ 不能写成 `now + 100 天`：那会变成"另有来源给了更晚的有效期"，
+    // 语义上就该保留（另见 subscription_end_does_not_clobber_another_grant）。
+    // 真实世界里订阅周期已过时，它 Grant 进去的那个值也必然已过，两者相等。
+    st.db
+        .execute(
+            "UPDATE members SET plan = 'annual', plan_expires_at = ? WHERE id = ? AND tenant_id = ?",
+            vec![sv(&end), sv(&mid), sv(&st.tenant)],
+        )
+        .await
+        .expect("预置会员状态");
+
+    assert_eq!(crate::sub_state::expire_due(&st).await, 1, "应处理 1 条到期订阅");
+    let (plan, exp) = member_plan(&st, &mid).await;
+    assert_eq!(plan, "free", "周期已过必须降级 —— 不能因为没收到 webhook 就一直有效");
+    assert_eq!(exp, "", "降级应清空到期时间");
+
+    // 再扫一次不得重复处理（closed_at 已标）
+    assert_eq!(crate::sub_state::expire_due(&st).await, 0, "已终结的订阅不应被重复处理");
+}
+
+/// 订阅结束**不得**抹掉会员从其它来源获得的有效期。
+///
+/// 会员有效期是各来源的**最大值**：线下付款、积分兑换、兑码都能产生有效期。
+/// 订阅到期时无条件降 free，会把那些已经收到的钱一并抹掉 ——
+/// 而这类误伤在后台看起来只是「某会员突然变回免费」，查不出原因。
+#[tokio::test]
+async fn subscription_end_does_not_clobber_another_grant() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let (mid, _) = reg_member(&app, "sub_manual@test.dev").await;
+
+    // 人工开通 100 天（模拟线下付款 / 兑换码）
+    crate::points::extend_plan(&st, &mid, 100).await.expect("人工开通应成功");
+    let (plan0, exp0) = member_plan(&st, &mid).await;
+    assert_ne!(plan0, "free", "人工开通后应为付费态");
+
+    let now = chrono::Utc::now().timestamp();
+    let day = 86_400i64;
+    // granted_expiry = ""：本订阅从未授予过任何有效期，
+    // 会员那份人工有效期与它无关 —— 必须原样保留
+    seed_subscription(
+        &st,
+        "sub_row_manual",
+        "sub_manual_1",
+        &mid,
+        &iso(now - day),
+        "canceled",
+        "",
+    )
+    .await;
+
+    assert_eq!(crate::sub_state::expire_due(&st).await, 1);
+    let (plan1, exp1) = member_plan(&st, &mid).await;
+    assert_eq!(plan1, plan0, "订阅结束不得改写会员套餐（他另有来源）");
+    assert_eq!(exp1, exp0, "订阅结束不得抹掉人工开通的有效期");
+}
+
+/// 订阅结束**不得**抹掉「订阅之后才拿到」的有效期。
+///
+/// 与上一条互补，而且更严：那条是「本订阅从未授予过」（granted 为空），
+/// 这条是「本订阅授予过、但之后人工又延长了」—— 两者在 members 表上
+/// **长得一模一样**（plan 都是付费态、plan_expires_at 都未过期），
+/// 只有 `granted_expiry` 能把它们分开。
+/// 判据取「相等」而非「有效」正是为此：差一点点就得在
+/// 「漏降级（永久会员）」和「误降级（吃掉人工的钱）」之间二选一。
+#[tokio::test]
+async fn subscription_end_keeps_later_manual_grant() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let (mid, _) = reg_member(&app, "sub_then_manual@test.dev").await;
+
+    let now = chrono::Utc::now().timestamp();
+    let day = 86_400i64;
+
+    // ① 订阅授予 365 天
+    let (s, b) = hook(
+        &app,
+        sub_event(
+            "evt_tm_1",
+            "customer.subscription.created",
+            "sub_tm_1",
+            &mid,
+            "active",
+            now + 365 * day,
+            now,
+            false,
+        ),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (p1, e1) = member_plan(&st, &mid).await;
+    assert_eq!(p1, "annual", "订阅创建后应为付费态");
+
+    // ② 人工再延长 100 天（在现有有效期之上叠加 → 更晚）
+    let e_manual = crate::points::extend_plan(&st, &mid, 100)
+        .await
+        .expect("人工延长应成功");
+    let (p2, e2) = member_plan(&st, &mid).await;
+    assert_eq!(e2, e_manual, "人工延长后的值应与返回值一致");
+    assert_ne!(e2, e1, "人工延长应把到期时间前移：{e1} → {e2}");
+
+    // ③ 订阅结束（周期已过）→ 人工那一段必须原样保留
+    let (s, b) = hook(
+        &app,
+        sub_event(
+            "evt_tm_2",
+            "customer.subscription.deleted",
+            "sub_tm_1",
+            &mid,
+            "canceled",
+            now - 60,
+            now + 10,
+            false,
+        ),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (p3, e3) = member_plan(&st, &mid).await;
+    assert_eq!(p3, p2, "订阅结束不得改写会员套餐（人工那段还在）");
+    assert_eq!(e3, e2, "订阅结束不得抹掉订阅之后人工延长的有效期");
+}
+
+/// 订阅表在后台是**只读面**：能看，不能写 —— 对 Owner 也一样。
+///
+/// 这条同时守住一个既有缺陷：`.never` 哨兵对 Owner 的通配权限 `"*"` 是
+/// **无效**的（`perm_matches` 里 `g == "*"` 命中一切），所以 `orders` /
+/// `points_ledger` / `subscriptions` 一度都能被 Owner 直接 POST 进去。
+/// 现在判定放在权限校验之前，与角色无关。
+#[tokio::test]
+async fn audit_only_tables_reject_writes_even_for_owner() {
+    let st = test_state().await;
+    let app = build_router(st.clone());
+    let tok = login(&app, "owner").await;
+
+    // 读：正常
+    let (s, b) = call(app.clone(), "GET", "/api/subscriptions", None, Some(&tok)).await;
+    assert_eq!(s, StatusCode::OK, "订阅列表应可读：{b}");
+
+    // 写：Owner 也不行
+    for (key, body) in [
+        ("subscriptions", json!({ "memberId": "m1", "status": "active" })),
+        ("orders", json!({ "memberId": "m1", "bizType": "plan" })),
+        ("points_ledger", json!({ "memberId": "m1", "delta": 100 })),
+    ] {
+        let (s, b) = call(app.clone(), "POST", &format!("/api/{key}"), Some(body), Some(&tok)).await;
+        assert_eq!(s, StatusCode::FORBIDDEN, "{key} 是审计只读面，Owner 也不得写入：{b}");
+    }
 }

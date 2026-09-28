@@ -28,6 +28,10 @@ pub const P: &[(&str, &str)] = &[
     ("contentSeoDelete", "content.seo.delete"),
     // 分析归因（哪篇文章带来几个会员）—— 只读，无写面
     ("analyticsAttributionView", "analytics.attribution.view"),
+    // 订阅实例（阶段 1）：只读 —— 订阅状态由 Stripe webhook 驱动，
+    // 后台无权改。可见性是运营刚需：到期日、是否期末取消、续费失败，
+    // 这些必须在后台看得见，否则客服只能让对方去查 Stripe 后台。
+    ("subscriptionsListView", "subscriptions.list.view"),
 ];
 
 /// 角色键

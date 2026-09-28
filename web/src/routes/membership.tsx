@@ -224,6 +224,26 @@ function MembershipPage() {
             </div>
           )}
 
+          {/* 订阅：回答「下次什么时候扣款」与「我是不是已经取消过了」。
+              只展示未终结的订阅；已取消且到期后仍显示取消意图 ——
+              用户最怕的正是「我取消了但还在扣钱」这类疑问。 */}
+          {wallet?.subscription && (
+            <div className="rounded-lg border border-os-border bg-os-bg-hover px-3 py-2 text-sm">
+              <span className="text-os-text-secondary">
+                订阅（{wallet.subscription.interval === 'yearly' ? '年付' : '月付'}）
+              </span>
+              {wallet.subscription.cancelAtPeriodEnd ? (
+                <span className="text-amber-600">
+                  ：已安排不再续费，服务给到 {wallet.subscription.currentPeriodEnd.slice(0, 10)}
+                </span>
+              ) : (
+                <span className="text-os-text-primary">
+                  ：下次续费 {wallet.subscription.currentPeriodEnd.slice(0, 10)}
+                </span>
+              )}
+            </div>
+          )}
+
           {wallet && (
             <>
               <div className="flex flex-wrap items-center gap-3 rounded-lg bg-os-bg-base p-3">

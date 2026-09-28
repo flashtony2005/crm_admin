@@ -198,6 +198,33 @@ pub async fn wallet(State(st): State<AppState>, auth: MemberAuth) -> ApiResult {
             .map(|d| (d.with_timezone(&chrono::Utc) - chrono::Utc::now()).num_days())
             .unwrap_or(-1)
     };
+    // 订阅摘要（阶段 1）：只取「最近一条未终结的订阅」。
+    //
+    // 会员中心要能回答两个很具体的问题：**下次什么时候扣款**、
+    // **我是不是已经取消过了**。这两件事都在订阅行上，不在 members 上 ——
+    // members 只有一个派生出来的到期时间，既看不出取消状态，也看不出计费周期。
+    // 已终结（closed_at 非空）的订阅不展示：那只会让用户以为还有效。
+    let sub_row = st
+        .db
+        .query_one(
+            "SELECT status, interval, tier_slug, current_period_end, cancel_at_period_end \
+             FROM subscriptions WHERE tenant_id = ? AND member_id = ? AND closed_at = '' \
+             ORDER BY created_at DESC LIMIT 1",
+            vec![sval(st.tenant.clone()), sval(mid.clone())],
+        )
+        .await
+        .map_err(|e| ApiError::bad(format!("查询失败：{e}")))?;
+    let subscription = match sub_row {
+        Some(r) => json!({
+            "status": r.try_get::<String>("", "status").unwrap_or_default(),
+            "interval": r.try_get::<String>("", "interval").unwrap_or_default(),
+            "tierSlug": r.try_get::<String>("", "tier_slug").unwrap_or_default(),
+            "currentPeriodEnd": r.try_get::<String>("", "current_period_end").unwrap_or_default(),
+            // Stripe 的原话：cancel_at_period_end = 到期后不再续费（而不是立刻取消）
+            "cancelAtPeriodEnd": r.try_get::<i64>("", "cancel_at_period_end").unwrap_or(0) != 0,
+        }),
+        None => serde_json::Value::Null,
+    };
     ok(json!({
         "balance": bal,
         "plan": plan,
@@ -205,6 +232,7 @@ pub async fn wallet(State(st): State<AppState>, auth: MemberAuth) -> ApiResult {
         "planDaysLeft": days_left,
         "planExpiring": plan != "free" && days_left >= 0 && days_left <= 7,
         "planExpired": plan != "free" && !plan_expires_at.is_empty() && days_left < 0,
+        "subscription": subscription,
         "invited": !invited_by.is_empty(),
         "signedToday": signed_today,
         "signinPoints": setting_i64(&st, "points_signin", 10).await,
@@ -293,7 +321,16 @@ pub async fn redeem(State(st): State<AppState>, auth: MemberAuth, Json(req): Jso
 }
 
 /// 会员有效期延长 value 天：base = max(now, 现有到期时间)；plan 若为 free 则置 'paid'。
-pub(crate) async fn extend_plan(st: &AppState, member_id: &str, days: i64) -> Result<(), ApiError> {
+/// 延长会员有效期。**返回实际写入的到期时间**（RFC3339）。
+///
+/// 调用方需要这个返回值：订阅发货那条路要把「本订阅授予的到期时间」记进
+/// `subscriptions.granted_expiry`，订阅结束时才能判断该不该降级（见迁移 0018）。
+/// 早先返回 `()`，调用方只能再查一次 members 才知道写进去了什么。
+pub(crate) async fn extend_plan(
+    st: &AppState,
+    member_id: &str,
+    days: i64,
+) -> Result<String, ApiError> {
     let (plan, exp, _) = member_row(st, member_id)
         .await?
         .ok_or_else(|| ApiError::not_found("会员不存在"))?;
@@ -314,7 +351,7 @@ pub(crate) async fn extend_plan(st: &AppState, member_id: &str, days: i64) -> Re
             "UPDATE members SET plan = ?, plan_expires_at = ?, updated_at = ? WHERE id = ? AND tenant_id = ?",
             vec![
                 sval(new_plan),
-                sval(new_exp),
+                sval(new_exp.clone()),
                 sval(now_iso()),
                 sval(member_id.to_string()),
                 sval(st.tenant.clone()),
@@ -322,7 +359,7 @@ pub(crate) async fn extend_plan(st: &AppState, member_id: &str, days: i64) -> Re
         )
         .await
         .map_err(|e| ApiError::bad(format!("更新失败：{e}")))?;
-    Ok(())
+    Ok(new_exp)
 }
 
 #[derive(Deserialize)]

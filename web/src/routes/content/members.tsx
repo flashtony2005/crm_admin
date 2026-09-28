@@ -222,6 +222,36 @@ function fmtMoney(cents: number): string {
  * 关键在「一条轴」：订单、积分、评论、事件分散在四张表里，分四处看就只剩
  * 数据，合起来才是「这个人发生过什么」。所以聚合在后端做，前端只负责呈现。
  */
+/**
+ * Stripe 订阅状态 → 中文标签。
+ *
+ * 未知状态**原样显示 Stripe 的原话**，不编一个中文名 —— 编了会让人以为
+ * 我们已经处理过它，而后端的语义恰恰相反：看不懂的状态一律不发服务
+ * （见 sub_state::SubStatus）。原样显示，客服才知道要去 Stripe 后台看。
+ */
+function subStatusLabel(s: string): string {
+  switch (s) {
+    case 'active':
+      return '计费中'
+    case 'trialing':
+      return '试用期'
+    case 'past_due':
+      return '扣款失败·重试中'
+    case 'canceled':
+      return '已取消'
+    case 'unpaid':
+      return '未支付'
+    case 'incomplete':
+      return '未完成'
+    case 'incomplete_expired':
+      return '已失效'
+    case 'paused':
+      return '已暂停'
+    default:
+      return s || '未知'
+  }
+}
+
 function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onClose: () => void }) {
   const [loading, setLoading] = useState(false)
   const [events, setEvents] = useState<TimelineEvent[]>([])
@@ -258,6 +288,16 @@ function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onCl
   const plan = String(info?.plan ?? member.plan ?? 'free')
   const status = Number(info?.status ?? member.status)
   const expires = String(info?.planExpiresAt ?? '')
+  // 订阅（阶段 1，后端只读）：续费日与是否已安排取消。
+  // 这两件事 members 表看不出来（它只有一个派生出来的到期时间）。
+  const sub = (info?.subscription ?? null) as {
+    status?: string
+    interval?: string
+    tierSlug?: string
+    currentPeriodEnd?: string
+    cancelAtPeriodEnd?: boolean
+  } | null
+
   // 归因来源（后端只读）：哪篇文章把这个人带来的
   const ftId = String(info?.firstTouchArticleId ?? '')
   const ftTitle = String(info?.firstTouchArticleTitle ?? '')
@@ -292,6 +332,25 @@ function MemberTimelineDrawer({ member, onClose }: { member: Member | null; onCl
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {/* 订阅：放在最前面 —— 客服打开档案十有八九是为了看「他为什么没续上」
+              或「他什么时候被扣款」，而不是看行为流。 */}
+          {!loading && sub ? (
+            <div className="mb-4 rounded-xl border border-os-border bg-os-bg-hover p-3">
+              <p className="text-xs font-medium text-os-text-muted">订阅</p>
+              <p className="mt-1 text-sm text-os-text-primary">
+                {sub.tierSlug || '付费'} · {sub.interval === 'yearly' ? '年付' : '月付'}
+                <span className="ml-2 rounded-full bg-os-neutral-bg px-2 py-0.5 text-[11px] text-os-neutral-text">
+                  {subStatusLabel(sub.status || '')}
+                </span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-os-text-muted">
+                {sub.cancelAtPeriodEnd
+                  ? `已安排到期后不再续费，服务给到 ${fmtDate(sub.currentPeriodEnd || '')}`
+                  : `下次续费 ${fmtDate(sub.currentPeriodEnd || '')}`}
+              </p>
+            </div>
+          ) : null}
+
           {/* 获客来源：这条档案是「从哪篇文章来的」。刻意放在行为流之前 ——
               它属于「这个人是谁」的元信息，不属于「他做过什么」。 */}
           {!loading ? (

@@ -43,6 +43,7 @@ import { Route as ContentOrdersRouteImport } from './routes/content/orders'
 import { Route as ContentPagesRouteImport } from './routes/content/pages'
 import { Route as ContentProductsRouteImport } from './routes/content/products'
 import { Route as ContentRedirectsRouteImport } from './routes/content/redirects'
+import { Route as ContentSubscriptionRecordsRouteImport } from './routes/content/subscription-records'
 import { Route as ContentSubscriptionsRouteImport } from './routes/content/subscriptions'
 import { Route as ContentTagsRouteImport } from './routes/content/tags'
 import { Route as ContentWebhooksRouteImport } from './routes/content/webhooks'
@@ -223,6 +224,12 @@ const ContentRedirectsRoute = ContentRedirectsRouteImport.update({
   path: '/content/redirects',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentSubscriptionRecordsRoute =
+  ContentSubscriptionRecordsRouteImport.update({
+    id: '/content/subscription-records',
+    path: '/content/subscription-records',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ContentSubscriptionsRoute = ContentSubscriptionsRouteImport.update({
   id: '/content/subscriptions',
   path: '/content/subscriptions',
@@ -304,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
   '/content/redirects': typeof ContentRedirectsRoute
+  '/content/subscription-records': typeof ContentSubscriptionRecordsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
@@ -349,6 +357,7 @@ export interface FileRoutesByTo {
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
   '/content/redirects': typeof ContentRedirectsRoute
+  '/content/subscription-records': typeof ContentSubscriptionRecordsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
@@ -395,6 +404,7 @@ export interface FileRoutesById {
   '/content/pages': typeof ContentPagesRoute
   '/content/products': typeof ContentProductsRoute
   '/content/redirects': typeof ContentRedirectsRoute
+  '/content/subscription-records': typeof ContentSubscriptionRecordsRoute
   '/content/subscriptions': typeof ContentSubscriptionsRoute
   '/content/tags': typeof ContentTagsRoute
   '/content/webhooks': typeof ContentWebhooksRoute
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/content/pages'
     | '/content/products'
     | '/content/redirects'
+    | '/content/subscription-records'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/content/pages'
     | '/content/products'
     | '/content/redirects'
+    | '/content/subscription-records'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
@@ -532,6 +544,7 @@ export interface FileRouteTypes {
     | '/content/pages'
     | '/content/products'
     | '/content/redirects'
+    | '/content/subscription-records'
     | '/content/subscriptions'
     | '/content/tags'
     | '/content/webhooks'
@@ -578,6 +591,7 @@ export interface RootRouteChildren {
   ContentPagesRoute: typeof ContentPagesRoute
   ContentProductsRoute: typeof ContentProductsRoute
   ContentRedirectsRoute: typeof ContentRedirectsRoute
+  ContentSubscriptionRecordsRoute: typeof ContentSubscriptionRecordsRoute
   ContentSubscriptionsRoute: typeof ContentSubscriptionsRoute
   ContentTagsRoute: typeof ContentTagsRoute
   ContentWebhooksRoute: typeof ContentWebhooksRoute
@@ -829,6 +843,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContentRedirectsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content/subscription-records': {
+      id: '/content/subscription-records'
+      path: '/content/subscription-records'
+      fullPath: '/content/subscription-records'
+      preLoaderRoute: typeof ContentSubscriptionRecordsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/subscriptions': {
       id: '/content/subscriptions'
       path: '/content/subscriptions'
@@ -930,6 +951,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContentPagesRoute: ContentPagesRoute,
   ContentProductsRoute: ContentProductsRoute,
   ContentRedirectsRoute: ContentRedirectsRoute,
+  ContentSubscriptionRecordsRoute: ContentSubscriptionRecordsRoute,
   ContentSubscriptionsRoute: ContentSubscriptionsRoute,
   ContentTagsRoute: ContentTagsRoute,
   ContentWebhooksRoute: ContentWebhooksRoute,

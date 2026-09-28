@@ -29,6 +29,12 @@ impl ApiError {
     pub fn forbidden(perm: &str) -> Self {
         Self { status: StatusCode::FORBIDDEN, message: format!("需要权限：{perm}") }
     }
+    /// 审计只读面：语义上不是「缺权限」，而是「这个入口根本不提供该动作」。
+    /// 与 `forbidden` 分开是因为文案要说给人听 —— "需要权限：该资源是审计只读面"
+    /// 这种拼出来的句子会把人引到错误的排查方向（去查角色配置）。
+    pub fn locked(msg: impl Into<String>) -> Self {
+        Self { status: StatusCode::FORBIDDEN, message: msg.into() }
+    }
     pub fn not_found(msg: impl Into<String>) -> Self {
         Self { status: StatusCode::NOT_FOUND, message: msg.into() }
     }

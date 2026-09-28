@@ -822,6 +822,83 @@ const MIGRATIONS: &[Migration] = &[
         "ALTER TABLE tiers ADD COLUMN stripe_price_yearly_id TEXT NOT NULL DEFAULT ''",
         ],
     },
+    // ── 0017_subscriptions（阶段 1：订阅状态机）─────────────────────────
+    // 此前四类订阅事件（subscription.updated/deleted、invoice.payment_*）
+    // 一律落库标 `pending_apply` —— 事件收得到，但**没有任何东西能把它们
+    // 变成会员状态**。两个后果都是钱的：① 续费不发货（用户第二年白付）；
+    // ② 到期不降级（period_end 过了会员仍有效 = 实际上的永久会员，
+    // 且因为 members 表自洽，对账时看不出异常）。
+    //
+    // 为什么必须有独立的 subscriptions 表，而不是继续往 members 上加列：
+    //   · 一个会员会有多次订阅历史（取消后再买），members 单列存不下；
+    //   · **取消语义靠事件类型根本分不开** —— Stripe 的「期末取消」与
+    //     「立即取消」发的都是 customer.subscription.deleted。真正的判据是
+    //     `current_period_end` 是否已过，而不是收到了哪个事件。要按周期判，
+    //     就得先把周期存下来。
+    //   · invoice.* 事件只带 subscription id 与 customer，**不落这张表就
+    //     没有主键能定位到人**（checkout 时写进订阅 metadata 的 member_id
+    //     也只在 subscription 对象上，invoice 里拿不到）。
+    //
+    // last_event_at：Stripe **不保证事件顺序**（重投与并发投递都会乱序）。
+    //   旧事件后到会把新周期覆盖回去 —— 表现为「刚续费完又变回过期」。
+    //   记录事件的 created 时间戳，只接受更新的那个。
+    // closed_at：终结标记。调度器据此不再重复处理，也便于事后统计
+    //   「有多少订阅真的走完了生命周期」。
+    Migration {
+        version: "0017_subscriptions",
+        name: "0017_subscriptions",
+        lenient: true,
+        sqls: &[
+        "CREATE TABLE IF NOT EXISTS subscriptions (\
+            id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, \
+            member_id TEXT NOT NULL, \
+            stripe_subscription_id TEXT NOT NULL DEFAULT '', \
+            stripe_customer_id TEXT NOT NULL DEFAULT '', \
+            tier_slug TEXT NOT NULL DEFAULT '', price_id TEXT NOT NULL DEFAULT '', \
+            interval TEXT NOT NULL DEFAULT 'monthly', \
+            status TEXT NOT NULL DEFAULT 'active', \
+            current_period_end TEXT NOT NULL DEFAULT '', \
+            cancel_at_period_end INTEGER NOT NULL DEFAULT 0, \
+            canceled_at TEXT NOT NULL DEFAULT '', started_at TEXT NOT NULL DEFAULT '', \
+            last_event_at INTEGER NOT NULL DEFAULT 0, closed_at TEXT NOT NULL DEFAULT '', \
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        // 部分唯一索引：空 subscription_id 的行（本地人工/待认领）不参与唯一性，
+        // 否则第二行空串就会撞唯一键 —— 那是把「无主订阅」变成写不进去。
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_subs_stripe ON subscriptions(tenant_id, stripe_subscription_id) WHERE stripe_subscription_id <> ''",
+        "CREATE INDEX IF NOT EXISTS idx_subs_member ON subscriptions(tenant_id, member_id, created_at)",
+        // 到期兜底扫描的索引：专供「还未终结 且 周期已过」这条查询
+        "CREATE INDEX IF NOT EXISTS idx_subs_due ON subscriptions(tenant_id, closed_at, current_period_end)",
+        ],
+    },
+    // ── 0018_subscription_granted_expiry（订阅结束能不能降级）────────────
+    // `granted_expiry` = **本订阅最后一次写进 members.plan_expires_at 的值**。
+    //
+    // 为什么非要单开一列：订阅结束时，是否该把会员降回 free，取决于
+    // 「会员当前的有效期是不是这个订阅给的」。而 members 表只有一列
+    // plan_expires_at，它是**所有来源的最大值**（在线订阅 / 线下人工开通 /
+    // 积分兑换 / 兑码都往里写），从这一列根本分不出是谁写的。
+    //
+    // 当初 `apply_row` 用「plan_expires_at > now」当判据，看着很像
+    // 「他另有来源所以别动他」，实际是同义反复：订阅 Grant 时写进去的就是
+    // 这个值，于是**任何订阅结束后都恒判为"另有来源"，永远不降级** ——
+    // 恰好就是阶段 1 要消灭的「永久会员」，而且比老缺陷更隐蔽
+    // （members 表自身完全自洽，只有拿订阅行去对才看得出来）。
+    //
+    // 有了这一列，判据变成「相等」：`granted_expiry == members.plan_expires_at`
+    // ⇔ 自上次订阅 Grant 以来没有别的来源改写过它 ⇔ 降级是安全的。
+    // 一旦人工开通/兑码/另一个订阅后来写过，两者不再相等 → 保留。
+    //
+    // 空串的语义是「本订阅从未给这个会员发放过有效期」：checkout 建行后
+    // 若 webhook 全丢、或事件先于发货到达，都属于这种情形 —— 此时不该
+    // 由这个订阅来决定降级（它没给过东西），保留是保守且正确的。
+    Migration {
+        version: "0018_subscription_granted_expiry",
+        name: "0018_subscription_granted_expiry",
+        lenient: true,
+        sqls: &[
+        "ALTER TABLE subscriptions ADD COLUMN granted_expiry TEXT NOT NULL DEFAULT ''",
+        ],
+    },
 ];
 
 /// 迁移执行器：确保 `_migrations` 记录表存在 → 逐版本判重 → 执行 → 记录。

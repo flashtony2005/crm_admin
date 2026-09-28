@@ -632,6 +632,35 @@ pub async fn timeline(
         }
     };
 
+    // ── 订阅（阶段 1）：Stripe 那一侧的事实 ──
+    // 档案抽屉必须能回答两个运营每天都要问的问题：「他下次什么时候扣款」、
+    // 「他是不是已经取消过了」。这两件事只在订阅行上 ——
+    // `members` 只有一个派生出来的到期时间，既看不出取消意图，也看不出周期。
+    // 只取最近一条未终结的订阅：已终结的不展示，否则会让人以为还有效。
+    let subrow = st
+        .db
+        .query_one(
+            "SELECT status, interval, tier_slug, current_period_end, cancel_at_period_end, \
+                    stripe_subscription_id \
+               FROM subscriptions WHERE tenant_id = ? AND member_id = ? AND closed_at = '' \
+               ORDER BY created_at DESC LIMIT 1",
+            vec![sval(id.clone()), sval(t.clone())],
+        )
+        .await
+        .ok()
+        .flatten();
+    let sub = match &subrow {
+        Some(r) => json!({
+            "status": gets(r, "status"),
+            "interval": gets(r, "interval"),
+            "tierSlug": gets(r, "tier_slug"),
+            "currentPeriodEnd": gets(r, "current_period_end"),
+            "cancelAtPeriodEnd": geti(r, "cancel_at_period_end") != 0,
+            "stripeSubscriptionId": gets(r, "stripe_subscription_id"),
+        }),
+        None => Value::Null,
+    };
+
     let expires = gets(&m, "plan_expires_at");
     // P0-4 打的标签落在会员身上，档案是它唯一的出口 ——
     // 标签不给任何人看，就等于没打过。
@@ -652,6 +681,8 @@ pub async fn timeline(
             "firstTouchArticleTitle": ft_title,
             "firstTouchArticleSlug": ft_slug,
             "firstTouchAt": gets(&m, "first_touch_at"),
+            // 订阅状态（只读）：供抽屉显示续费日 / 已安排取消
+            "subscription": sub,
         },
         "tags": tags,
         "events": ev,

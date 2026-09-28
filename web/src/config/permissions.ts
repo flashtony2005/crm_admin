@@ -63,6 +63,7 @@ export const P = {
   subscriptionsTiersCreate: 'subscriptions.tiers.create',
   subscriptionsTiersUpdate: 'subscriptions.tiers.update',
   subscriptionsTiersDelete: 'subscriptions.tiers.delete',
+  subscriptionsListView: 'subscriptions.list.view',
   webhooksView: 'webhooks.view',
   webhooksCreate: 'webhooks.create',
   webhooksUpdate: 'webhooks.update',
@@ -145,6 +146,7 @@ export const ROLE_PERMS: Record<RoleKey, PermString[]> = {
     'content.comments.view', 'content.comments.update', 'content.comments.delete',
     'newsletter.subscribers.view', 'newsletter.campaign.send',
     'subscriptions.tiers.view', 'subscriptions.tiers.create', 'subscriptions.tiers.update', 'subscriptions.tiers.delete',
+    'subscriptions.list.view',
     'webhooks.view', 'webhooks.create', 'webhooks.update', 'webhooks.delete',
     'i18n.view', 'i18n.update',
     // 首页区块（独立 CMS 资源，与后端 perm.rs Editor 矩阵镜像）

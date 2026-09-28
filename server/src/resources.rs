@@ -312,6 +312,30 @@ pub static TABLES: &[TableDef] = &[
             ("active","active",Col::Bool),
         ],
     },
+    // 订阅实例（阶段 1）：Stripe 订阅在本地的事实源。
+    // **只读面** —— 写入只由 webhook 状态机与调度器完成。后台改这里没有意义：
+    // 下次 Stripe 事件一到就会被覆盖，而在两次事件之间，被改过的本地状态会
+    // 让「谁在第几天到期」这件事看起来是对的、实际是错的。要改订阅请去 Stripe。
+    TableDef {
+        key: "subscriptions", table: "subscriptions", perm_prefix: "subscriptions.list",
+        create_perm: Some("subscriptions.list.never"), update_perm: Some("subscriptions.list.never"),
+        delete_perm: Some("subscriptions.list.never"),
+        columns: cols![
+            ("member_id","memberId",Col::Text),
+            ("stripe_subscription_id","stripeSubscriptionId",Col::Text),
+            ("stripe_customer_id","stripeCustomerId",Col::Text),
+            ("tier_slug","tierSlug",Col::Text),
+            ("price_id","priceId",Col::Text),
+            ("interval","interval",Col::Text),
+            ("status","status",Col::Text),
+            ("current_period_end","currentPeriodEnd",Col::Text),
+            ("cancel_at_period_end","cancelAtPeriodEnd",Col::Bool),
+            ("canceled_at","canceledAt",Col::Text),
+            ("started_at","startedAt",Col::Text),
+            ("last_event_at","lastEventAt",Col::Int),
+            ("closed_at","closedAt",Col::Text),
+        ],
+    },
     TableDef {
         key: "webhooks", table: "webhook_subscriptions", perm_prefix: "webhooks",
         create_perm: Some("webhooks.create"), update_perm: Some("webhooks.update"),
@@ -445,6 +469,29 @@ fn to_param(v: &Value, col: Col) -> SqlValue {
 ///
 /// 为什么不静默跳过：本项目已经因为「静默忽略」栽过 —— 手写 DTO 缺
 /// `rename_all` 时前端传的键被无声丢弃，调用方以为写成功了。
+
+/// 「审计只读面」哨兵：`*_perm` 以 `.never` 结尾表示该动作**对所有角色**关闭，
+/// 包括 Owner。
+///
+/// 为什么不能只靠一个"不存在的权限码"：Owner 的权限是通配 `"*"`，而
+/// `perm_matches` 里 `g == "*"` 会命中任何权限码 —— 也就是说，
+/// 用「授一个永不存在的码」来表达"禁止写入"**对 Owner 完全无效**。
+/// 这个假的安全感此前一直存在于 `orders` / `points_ledger` 上：
+/// 定义写着 `.never`，实际上 Owner 仍可 POST 进去。
+/// 所以判定必须**放在权限校验之前**，与权限体系无关。
+///
+/// 这些表由后端流程写入（webhook 状态机、发货链路、调账）。从后台直接改，
+/// 本地状态就与真相源（Stripe / 账目）不一致了 —— 而在下一次事件把它覆盖
+/// 之前，被改过的值看起来完全正常。
+fn deny_if_audit_only(perm: Option<&str>) -> Result<(), ApiError> {
+    match perm {
+        Some(p) if p.ends_with(".never") => Err(ApiError::locked(
+            "该资源是审计只读面（由后端流程写入），不支持从后台修改",
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// 对只读列必须**显式报错并点名**，否则「改了没生效」会变成排查不出来的悬案。
 fn readonly_hits(d: &TableDef, body: &Value) -> Vec<&'static str> {
     d.columns
@@ -634,6 +681,7 @@ pub async fn create(
     Json(body): Json<Value>,
 ) -> ApiResult {
     let d = def(&key)?;
+    deny_if_audit_only(d.create_perm)?;
     ensure(&auth, d.create_perm.unwrap_or(&format!("{}.create", d.perm_prefix)))?;
     let ro = readonly_hits(d, &body);
     if !ro.is_empty() {
@@ -686,6 +734,7 @@ pub async fn update(
     Json(body): Json<Value>,
 ) -> ApiResult {
     let d = def(&key)?;
+    deny_if_audit_only(d.update_perm)?;
     ensure(&auth, d.update_perm.unwrap_or(&format!("{}.update", d.perm_prefix)))?;
     let ro = readonly_hits(d, &body);
     if !ro.is_empty() {
@@ -740,6 +789,7 @@ pub async fn remove(
     Path((key, id)): Path<(String, String)>,
 ) -> ApiResult {
     let d = def(&key)?;
+    deny_if_audit_only(d.delete_perm)?;
     ensure(&auth, d.delete_perm.unwrap_or(&format!("{}.delete", d.perm_prefix)))?;
     st.db
         .execute_statement(Statement::from_sql_and_values(

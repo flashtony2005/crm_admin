@@ -19,6 +19,13 @@ const TICK_SECS: u64 = 60;
 /// 启动后台调度循环
 pub fn spawn(st: AppState) {
     tokio::spawn(async move {
+        // 启动自检：库里还有多少条「周期已过但尚未终结」的订阅。
+        // 这个数会随每分钟的兜底趋近 0；**如果它长期不降，说明兜底没在跑** ——
+        // 那正是"会员悄悄变成永久"的现场，所以要主动说出来而不是等发现。
+        let due = crate::sub_state::due_count(&st).await;
+        if due > 0 {
+            eprintln!("[info] 启动自检：{due} 条订阅已到期，待本轮兜底处理");
+        }
         loop {
             tick_once(&st).await;
             tokio::time::sleep(std::time::Duration::from_secs(TICK_SECS)).await;
@@ -138,6 +145,15 @@ pub async fn tick_once(st: &AppState) -> usize {
 
     // P2：阅读计数批量落库（track 端点内存累加，此处合并为少量 UPDATE）
     let _ = crate::stats::flush_views(st).await;
+
+    // 阶段 1：订阅到期兜底。**这是「会员不会永久有效」的最后一道闸** ——
+    // 它不依赖任何一次 webhook 是否送达（丢包、密钥未配、长时间停机都算过了）。
+    // 判据与 sub_state::derive_plan_effect 同源（current_period_end <= now），
+    // 两处必须是同一个判据，否则会出现「兜底刚降级、事件又给升回来」的抖动。
+    let expired = crate::sub_state::expire_due(st).await;
+    if expired > 0 {
+        eprintln!("[info] 订阅到期兜底：本轮处理 {expired} 条");
+    }
 
     let rows = st
         .db

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阶段 1：订阅状态机 · 2026-09-28</title>
+<style>
+  :root{
+    --bg:#f8f9fb; --card:#fff; --line:#e5e7eb; --line2:#f3f4f6;
+    --t1:#111827; --t2:#6b7280; --t3:#9ca3af;
+    --blue:#6b4de6; --blue-bg:#f3f0ff;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --green:#166534; --green-bg:#dcfce7;
+    --amber:#854d0e; --amber-bg:#fef9c3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);
+    font:15px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 20px 80px}
+  h1{font-size:26px;letter-spacing:-.4px;margin:0 0 6px}
+  .sub{color:var(--t2);font-size:14px;margin-bottom:26px}
+  h2{font-size:18px;margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:15px;margin:22px 0 8px}
+  p{margin:10px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);margin:14px 0}
+  .grid{display:grid;gap:12px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:720px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .kpi .l{font-size:12px;color:var(--t2);margin-top:2px}
+  .kpi.ok .n{color:var(--green)}
+  code{background:var(--line2);border-radius:5px;padding:1px 5px;font-size:13px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.6}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--card);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+  th{background:#fafafa;font-weight:600;font-size:12.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.3px}
+  tr:last-child td{border-bottom:0}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-red{background:var(--red-bg);color:var(--red)}
+  .t-green{background:var(--green-bg);color:var(--green)}
+  .t-amber{background:var(--amber-bg);color:var(--amber)}
+  .t-blue{background:var(--blue-bg);color:var(--blue)}
+  .note{border-left:3px solid var(--blue);background:var(--blue-bg);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+  .warn{border-left:3px solid var(--red);background:var(--red-bg);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:4px 0}
+  .muted{color:var(--t2);font-size:13px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+  .fig{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;margin:14px 0}
+  .cap{font-size:12.5px;color:var(--t2);text-align:center;padding:6px 10px 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>阶段 1：订阅状态机</h1>
+  <div class="sub">
+    让 Stripe 的订阅事件真正驱动会员有效期 · admin（私有化创作者变现站）· 2026-09-28 ·
+    迁移 <code>0017_subscriptions</code> / <code>0018_subscription_granted_expiry</code>
+  </div>
+
+  <div class="card">
+    <b>一句话结论</b>：订阅事件此前统一落 <code>pending_apply</code> —— <b>钱收了，什么也不做</b>。
+    现在四类事件由状态机真处理：建本地订阅镜像、按周期终点决定是否发货、把订阅收入记进
+    <code>orders</code>，并由调度器每分钟兜底到期降级。<br><br>
+    过程中挖出三条缺陷，其中一条是 <span class="tag t-red">永久会员</span>：
+    「订阅结束后该不该把会员降级」原本用 <code>members.plan_expires_at</code> 判断
+    「他是否另有来源」，可那个值<b>恰恰就是这个订阅自己写进去的</b> —— 同义反复，
+    于是<b>任何订阅结束后都永不降级</b>。它比历史上的「空到期 = 永久会员」更隐蔽：
+    <code>members</code> 表自身完全自洽，只有拿订阅行去对才看得出来。
+  </div>
+
+  <h2>一、整条链路</h2>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 430" width="100%" style="display:block">
+      <defs>
+        <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+          <path d="M0,0 L0,6.4 L7,3.2 z" fill="#9ca3af"/>
+        </marker>
+        <marker id="ag" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+          <path d="M0,0 L0,6.4 L7,3.2 z" fill="#166534"/>
+        </marker>
+      </defs>
+
+      <!-- Stripe 侧 -->
+      <rect x="14" y="20" width="200" height="380" rx="12" fill="#f3f0ff" stroke="#d8ccff"/>
+      <text x="114" y="46" font-size="13" font-weight="700" fill="#6b4de6" text-anchor="middle">Stripe</text>
+      <text x="114" y="64" font-size="11" fill="#6b7280" text-anchor="middle">（真实扣款的唯一真相源）</text>
+
+      <g font-size="11.5" fill="#111827">
+        <rect x="26" y="80" width="176" height="40" rx="8" fill="#fff" stroke="#d8ccff"/>
+        <text x="36" y="97">checkout.session</text><text x="36" y="112">.completed</text>
+
+        <rect x="26" y="132" width="176" height="40" rx="8" fill="#fff" stroke="#d8ccff"/>
+        <text x="36" y="149">customer.subscription</text><text x="36" y="164">.created / .updated / .deleted</text>
+
+        <rect x="26" y="184" width="176" height="40" rx="8" fill="#fff" stroke="#d8ccff"/>
+        <text x="36" y="201">invoice.payment</text><text x="36" y="216">_succeeded ← 续费发货</text>
+
+        <rect x="26" y="236" width="176" height="40" rx="8" fill="#fff" stroke="#d8ccff"/>
+        <text x="36" y="253">invoice.payment_failed</text><text x="36" y="268">（仅告警，不改状态）</text>
+      </g>
+
+      <!-- webhook 入口 -->
+      <rect x="262" y="120" width="150" height="120" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="337" y="145" font-size="12.5" font-weight="600" text-anchor="middle">/api/stripe/webhook</text>
+      <text x="337" y="165" font-size="11" fill="#6b7280" text-anchor="middle">验签 → 幂等入库</text>
+      <text x="337" y="182" font-size="11" fill="#6b7280" text-anchor="middle">（webhook_events）</text>
+      <text x="337" y="205" font-size="11" fill="#6b7280" text-anchor="middle">解析快照 SubSnapshot</text>
+      <text x="337" y="224" font-size="11" fill="#6b7280" text-anchor="middle">+ 乱序防护 last_event_at</text>
+
+      <!-- 状态机 -->
+      <rect x="452" y="96" width="176" height="168" rx="10" fill="#fff" stroke="#6b4de6" stroke-width="1.6"/>
+      <text x="540" y="120" font-size="12.5" font-weight="700" fill="#6b4de6" text-anchor="middle">sub_state.rs</text>
+      <text x="540" y="140" font-size="11" fill="#111827" text-anchor="middle">upsert 订阅镜像行</text>
+      <text x="540" y="158" font-size="11" fill="#6b7280" text-anchor="middle">subscriptions 表</text>
+      <line x1="468" y1="170" x2="612" y2="170" stroke="#e5e7eb"/>
+      <text x="540" y="190" font-size="11" font-weight="600" fill="#111827" text-anchor="middle">derive_plan_effect</text>
+      <text x="540" y="207" font-size="11" fill="#6b7280" text-anchor="middle">period_end vs now</text>
+      <text x="540" y="224" font-size="11" fill="#dc2626" text-anchor="middle">↑ 不是「收到哪个事件」</text>
+      <text x="540" y="248" font-size="11" fill="#6b7280" text-anchor="middle">granted_expiry 相等判据</text>
+
+      <!-- 结果 -->
+      <rect x="668" y="70" width="196" height="88" rx="10" fill="#dcfce7" stroke="#86efac"/>
+      <text x="766" y="94" font-size="12" font-weight="700" fill="#166534" text-anchor="middle">Grant</text>
+      <text x="680" y="114" font-size="11" fill="#166534">members.plan = tier_slug</text>
+      <text x="680" y="130" font-size="11" fill="#166534">plan_expires_at = period_end</text>
+      <text x="680" y="146" font-size="11" fill="#166534">granted_expiry = period_end</text>
+
+      <rect x="668" y="176" width="196" height="100" rx="10" fill="#fee2e2" stroke="#fca5a5"/>
+      <text x="766" y="200" font-size="12" font-weight="700" fill="#dc2626" text-anchor="middle">Revoke</text>
+      <text x="680" y="220" font-size="11" fill="#dc2626">granted == 会员到期 ?</text>
+      <text x="680" y="237" font-size="11" fill="#166534">是 → 降 free（本订阅给的）</text>
+      <text x="680" y="254" font-size="11" fill="#854d0e">否 → 保留（别人给的有效期）</text>
+      <text x="680" y="269" font-size="11" fill="#6b7280">两者都标 closed_at</text>
+
+      <!-- 记账 -->
+      <rect x="668" y="292" width="196" height="60" rx="10" fill="#fef9c3" stroke="#fde68a"/>
+      <text x="766" y="314" font-size="12" font-weight="700" fill="#854d0e" text-anchor="middle">orders 记账</text>
+      <text x="680" y="333" font-size="11" fill="#854d0e">SUB-{订阅尾号}-{周期末秒}</text>
+      <text x="680" y="348" font-size="11" fill="#6b7280">唯一键幂等，重投不翻倍</text>
+
+      <!-- 调度兜底 -->
+      <rect x="262" y="300" width="366" height="72" rx="10" fill="#fff" stroke="#e5e7eb" stroke-dasharray="5 4"/>
+      <text x="445" y="324" font-size="12" font-weight="600" text-anchor="middle">scheduler · 每 60s</text>
+      <text x="276" y="344" font-size="11" fill="#6b7280">expire_due：扫 current_period_end ≤ now 且未终结的订阅</text>
+      <text x="276" y="361" font-size="11" fill="#dc2626">→ 走同一个 apply_row（判据必须同源，否则会抖动）</text>
+
+      <!-- 连线 -->
+      <g stroke="#9ca3af" fill="none" stroke-width="1.3" marker-end="url(#a)">
+        <path d="M202 100 C 235 100, 235 150, 258 152"/>
+        <path d="M202 152 L258 158"/>
+        <path d="M202 204 L258 190"/>
+        <path d="M202 256 C 235 256, 235 210, 258 202"/>
+        <path d="M412 180 L448 180"/>
+      </g>
+      <g stroke="#166534" fill="none" stroke-width="1.3" marker-end="url(#ag)">
+        <path d="M628 140 L664 120"/>
+        <path d="M628 196 L664 210"/>
+      </g>
+      <path d="M628 236 C 646 236, 646 320, 664 320" stroke="#854d0e" fill="none" stroke-width="1.3" marker-end="url(#a)"/>
+      <path d="M628 340 C 600 340, 600 236, 628 210" stroke="#9ca3af" fill="none" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#a)"/>
+    </svg>
+    <div class="cap">四条事件入口 → 同一套状态机；调度器兜底走的是同一个 <span class="mono">apply_row</span></div>
+  </div>
+
+  <h2>二、核心不变量：判据是「周期终点」，不是「收到哪个事件」</h2>
+
+  <p>这一条决定了其余一切。当初把四类事件一起丢进 <code>pending_apply</code>，本质上是因为
+  没有这条判据 —— 不知道 <code>customer.subscription.deleted</code> 到底该不该降级。</p>
+
+  <table>
+    <tr><th>Stripe 状态</th><th>周期未过</th><th>周期已过</th><th>为什么</th></tr>
+    <tr><td><code>active</code> / <code>trialing</code></td><td><span class="tag t-green">有效</span></td><td><span class="tag t-red">失效</span></td><td>续费事件丢了也不能白送</td></tr>
+    <tr><td><code>canceled</code></td><td><span class="tag t-green">有效</span></td><td><span class="tag t-red">失效</span></td><td><b>期末取消</b>：用户已付到期末，提前停服等于吞掉他付过的那段</td></tr>
+    <tr><td><code>past_due</code></td><td><span class="tag t-green">有效</span></td><td><span class="tag t-red">失效</span></td><td>Stripe 正在重试扣款（卡过期最常见），立刻断供会误伤刚换卡的用户</td></tr>
+    <tr><td><code>unpaid</code> / <code>incomplete</code></td><td><span class="tag t-red">失效</span></td><td><span class="tag t-red">失效</span></td><td>钱没到位就不发服务</td></tr>
+    <tr><td>空 / 无法解析</td><td colspan="2"><span class="tag t-red">一律失效</span></td><td>「无从判断」<b>绝不能</b>当成无限期 —— 那是老缺陷的原样复现</td></tr>
+    <tr><td>不认识的状态</td><td colspan="2"><span class="tag t-red">一律失效</span></td><td>反过来意味着 Stripe 新增一个状态就能白送会员</td></tr>
+  </table>
+
+  <div class="note">
+    <b>乱序防护</b>：Stripe 不保证事件顺序（重投与并发投递都会乱序）。订阅行记
+    <code>last_event_at</code>，只接受更晚的事件 —— 否则旧的
+    <code>customer.subscription.updated</code> 后到会把刚续费的周期覆盖回去，
+    表现为「刚续完费又变回过期」。<br>
+    两个边界都不许「丢事件」：本地无时间戳时任何事件都算新；事件体缺 <code>created</code>
+    时不做判定（不能因为一个可选字段缺失就丢掉一次真实扣款）。
+  </div>
+
+  <h2>三、挖出的三个缺陷</h2>
+
+  <h3>1. <span class="tag t-red">永久会员</span> 降级判据是同义反复</h3>
+  <p>订阅结束时不能无条件把会员降回 <code>free</code> —— 他的有效期可能另有来源
+  （线下人工开通、积分兑换、兑码）。所以最初写的是「若 <code>members.plan_expires_at</code>
+  仍大于 <code>now</code>，说明另有来源，保留」。</p>
+  <p>问题是：<b>那个值恰恰就是这个订阅 Grant 时写进去的</b>。只要订阅曾经发过货，
+  <code>plan_expires_at</code> 就必然大于 <code>now</code>（否则它早就该降级了）。
+  于是判据恒为真 → <b>永不降级</b> → 会员一直有效下去。</p>
+  <p>修法是在订阅行上增加 <code>granted_expiry</code>（本订阅最后写进会员的到期时间），
+  判据改为 <b>相等</b>：</p>
+  <pre>granted == members.plan_expires_at
+  ⇔ 自那次 Grant 之后，没有别的来源改写过它
+  ⇔ 降级是安全的</pre>
+  <p>一旦人工开通 / 兑码 / 另一个订阅后来写过，两者不再相等 → 保留。
+  空串的语义是「本订阅从未授予过」，此时不由它来决定降级。</p>
+
+  <div class="warn">
+    <b>这条缺陷有个更难察觉的地方</b>：改动前 <code>cargo test</code> 只挂了 3 条，
+    而 <code>subscription_end_does_not_clobber_another_grant</code>（「另有来源必须保留」）
+    <b>是"通过"的</b> —— 它被错误实现"蒙对"了。两个语义完全相反的用例，
+    在错误实现下竟然同时"成立"，说明判据本身没有区分力。
+  </div>
+
+  <h3>2. <span class="tag t-amber">既有假安全</span> <code>.never</code> 哨兵对 Owner 无效</h3>
+  <p><code>orders</code> / <code>points_ledger</code> / <code>subscriptions</code> 这类审计表
+  用 <code>perm_prefix.never</code> 表达了「不可写」的意图。但权限匹配里 Owner 的通配
+  <code>"*"</code> 命中一切，<code>.never</code> 只是个普通权限码 —— 所以
+  <b>从来就没拦住过任何人</b>，Owner 可以直接 POST 进去改账目。</p>
+  <p>现在判定放在权限校验<b>之前</b>（<code>deny_if_audit_only</code>），与角色无关，
+  返 403 并说明原因。测试 <code>audit_only_tables_reject_writes_even_for_owner</code> 钉死。</p>
+
+  <h3>3. 测试自身的构造与语义矛盾</h3>
+  <p><code>expire_due_demotes_without_any_webhook</code> 想表达「此前发过货、只是终结事件丢了」，
+  却把会员到期时间写成了 <code>now + 100 天</code>，而订阅周期是 <code>now - 1 天</code>。
+  <b>两者不一致，在数据上恰好等价于「另有来源给了更晚的有效期」</b> ——
+  按正确语义就应该保留，于是断言「必须降级」必然失败。</p>
+  <p>真实世界里订阅周期已过时，它 Grant 进去的那个值也必然已过，两者相等。测试已按此修正。</p>
+
+  <h2>四、交付清单</h2>
+
+  <table>
+    <tr><th>层</th><th>内容</th></tr>
+    <tr>
+      <td>数据层</td>
+      <td>
+        <code>0017_subscriptions</code>：Stripe 订阅本地镜像（<code>stripe_subscription_id</code> /
+        <code>member_id</code> / <code>status</code> / <code>current_period_end</code> /
+        <code>cancel_at_period_end</code> / <code>last_event_at</code> / <code>closed_at</code>），
+        部分唯一索引（空订阅号不参与唯一性）+ 到期扫描索引。<br>
+        <code>0018_subscription_granted_expiry</code>：加 <code>granted_expiry</code>（见 §3.1）。
+      </td>
+    </tr>
+    <tr>
+      <td>后端</td>
+      <td>
+        <code>sub_state.rs</code>（新，状态机唯一事实源）：状态归一化、<code>derive_plan_effect</code>、
+        乱序防护、快照 upsert、发货、记账、到期兜底。<br>
+        <code>subscriptions.rs</code>：四类事件由 <code>pending_apply</code> 改为真实处理；
+        Checkout 兜底建行并记录授予。<br>
+        <code>scheduler.rs</code>：每分钟 <code>expire_due</code>（不依赖任何 webhook 送达）+
+        启动自检 <code>due_count</code>。<br>
+        <code>resources.rs</code>：订阅表登记为只读面 + <code>deny_if_audit_only</code> 硬拒。<br>
+        <code>points.rs</code>：<code>extend_plan</code> 返回实际写入的到期时间（发货需要它）；
+        钱包接口带出订阅摘要。
+      </td>
+    </tr>
+    <tr>
+      <td>前端</td>
+      <td>
+        会员中心显示订阅（下次续费日 / 已安排取消）；<br>
+        后台会员抽屉新增「订阅」区块；<br>
+        新增只读页 <code>/content/subscription-records</code>（续费周期 / 取消状态 / 到期降级），
+        权限码 <code>subscriptions.list.view</code>（前后端双向镜像）。
+      </td>
+    </tr>
+  </table>
+
+  <h2>五、验收</h2>
+
+  <div class="grid g4">
+    <div class="kpi ok"><div class="n">88 / 88</div><div class="l">cargo test</div></div>
+    <div class="kpi ok"><div class="n">23 / 23</div><div class="l">订阅 e2e（真服务）</div></div>
+    <div class="kpi ok"><div class="n">130 / 130</div><div class="l">vitest</div></div>
+    <div class="kpi ok"><div class="n">18 / 0</div><div class="l">无头浏览器</div></div>
+  </div>
+
+  <table>
+    <tr><th>用例</th><th>钉死什么</th></tr>
+    <tr><td><code>plan_effect_is_decided_by_period_end_not_event_type</code></td><td>判据是周期终点。含「期末取消继续有效」与「周期已过时 active 也失效」两个反证</td></tr>
+    <tr><td><code>missing_period_end_is_never_permanent</code></td><td>空 / 非法周期终点绝不当成无限期（历史缺陷回归防线）</td></tr>
+    <tr><td><code>stale_events_are_rejected</code></td><td>乱序防护；且缺 <code>created</code> 时不丢事件</td></tr>
+    <tr><td><code>subscription_lifecycle_drives_member_plan</code></td><td>真实事件流的完整生命周期：创建 → 续费 → 期末取消 → 立即结束降级</td></tr>
+    <tr><td><code>subscription_end_does_not_clobber_another_grant</code></td><td>本订阅从未授予（granted 为空）→ 人工有效期必须保留</td></tr>
+    <tr><td><code>subscription_end_keeps_later_manual_grant</code></td><td>本订阅授予过、但之后人工又延长 → 仍必须保留（相等判据的另一面）</td></tr>
+    <tr><td><code>checkout_grace_subscription_can_be_demoted_at_period_end</code></td><td><b>永久会员防线</b>：兜底建的行必须记下授予，且真的能被到期兜底降级</td></tr>
+    <tr><td><code>expire_due_demotes_without_any_webhook</code></td><td>所有 webhook 都丢了，到期会员也必须掉档；且已终结的不重复处理</td></tr>
+    <tr><td><code>audit_only_tables_reject_writes_even_for_owner</code></td><td>审计表只读，Owner 也不行</td></tr>
+  </table>
+
+  <h2>六、遗留</h2>
+  <ul>
+    <li><b>退款与争议没接</b>：<code>charge.refunded</code> / <code>charge.dispute.created</code>
+    未处理 —— 周期中途退款时会员不会立即失效，要等到周期末由兜底降级收口。
+    这是保守方向（不会多发服务），但与财务口径不一致。</li>
+    <li><b>对账没有主动校验</b>：本地订阅与 Stripe 的一致性目前只靠「到期兜底」保底，
+    没有「定时拉取 Stripe 订阅列表比对并补偿漏事件」的通路。</li>
+    <li><b>订阅记录页是只读全局视图</b>：不能按会员下钻（要走会员抽屉）；列表也未 join
+    套餐名与会员邮箱，只有原始 id。</li>
+    <li><b>观察项（非本轮引入）</b>：<code>web/public</code> 只有 <code>favicon.svg</code>、
+    没有 <code>favicon.ico</code>，也没写 <code>&lt;link rel="icon"&gt;</code>，
+    浏览器每次会自动请求 <code>/favicon.ico</code> 得 404。一行 link 即可消除。</li>
+  </ul>
+
+  <div class="muted" style="margin-top:34px">
+    生成于 2026-09-28 · admin（私有化创作者变现站）· 报告与代码同批提交
+  </div>
+
+</div>
+</body>
+</html>

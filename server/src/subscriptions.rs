@@ -18,6 +18,7 @@ use crate::{
     error::{ok, ApiError, ApiResult},
     state::AppState,
 };
+use crate::sub_state::{unix_to_iso, SubSnapshot, UpsertOutcome};
 
 fn sval(s: String) -> SqlValue { SqlValue::String(Some(s)) }
 
@@ -300,8 +301,8 @@ fn decide_checkout(
 ///   1. 验签加 **5 分钟时间容差**，拒绝重放旧包；
 ///   2. 事件先落 `webhook_events` 做 **event_id 去重**：INSERT 冲突即已处理，直接返 2xx；
 ///   3. **入库成功才返 2xx，处理失败返 5xx** —— 让 Stripe 按自己的退避策略重投；
-///   4. 事件类型从只有 `checkout.session.completed` 扩到订阅变更 / 发票成功失败
-///      （缺订阅状态机的那几类先落库标 `pending_apply`，不臆造 plan 变更）。
+///   4. 事件类型从只有 `checkout.session.completed` 扩到订阅变更 / 发票成功失败，
+///      并全部交由 `sub_state` 状态机应用（阶段 1 已落地，见该模块头注释）。
 pub async fn stripe_webhook(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
@@ -379,7 +380,7 @@ pub async fn stripe_webhook(
                 Applied::PendingApply => (
                     "pending_apply",
                     String::new(),
-                    "待订阅状态机（阶段 1）应用".to_string(),
+                    "无法定位归属，待后续事件补齐或人工介入".to_string(),
                 ),
                 Applied::Ignored => ("ignored", String::new(), "未处理的事件类型".to_string()),
             };
@@ -442,7 +443,8 @@ fn insert_ok(written: &Result<u64, crate::cmsdb::DbErr>) -> bool {
 enum Applied {
     /// 已生效（说明文案含周期/天数，因此是 String 而不是 &'static str）
     Done(String),
-    /// 已落库，但需订阅状态机（阶段 1）才能正确应用
+    /// 已落库，但**无法定位归属**（事件体没带 member_id，本地也还没有该订阅行）。
+    /// 不是失败：后续带 member 的事件会补齐，或留待人工排查。
     PendingApply,
     /// 不认识的事件类型
     Ignored,
@@ -450,11 +452,17 @@ enum Applied {
 
 /// 应用一个 Stripe 事件。`Err` 表示"没处理成功"，应当让 Stripe 重投。
 ///
-/// ⚠️ 阶段 1（`subscriptions` 表落地）之后，这里要改成「写订阅状态机 +
-/// 由 `current_period_end` 派生 `members.plan`」。现在**只做能确定的事**：
-/// `checkout.session.completed` 回写会员状态与 Stripe 客户号；其余涉及周期的
-/// 事件（续费 / 取消 / 发票成败）先原样落库标 `pending_apply` —— 缺订阅状态机时
-/// 按事件去改 `plan` 只会把状态改错（期末取消 vs 立即取消分不开）。
+/// 阶段 1（2026-09-28）之后，涉及周期的事件不再「只落库」：
+///   · `checkout.session.completed` —— 回写会员状态 + 按 metadata 发货
+///     （首期。此时还不知道 Stripe 的权威周期终点，所以按套餐周期估算）；
+///   · `customer.subscription.*` —— 写订阅快照，再由状态机生效；
+///   · `invoice.payment_succeeded` —— **续费发货就发生在这里**
+///     （新的周期终点只在发票对象上）；
+///   · `invoice.payment_failed` —— 只告警，状态等订阅事件（那才是权威来源）。
+///
+/// 所有分支的判据统一在 `crate::sub_state`：**看 `current_period_end`，
+/// 不看收到了哪个事件**。这是「期末取消」与「立即取消」唯一分得开的办法 ——
+/// 两者发的本来就是同一个事件类型。
 async fn apply_stripe_event(st: &AppState, etype: &str, evt: &Value) -> Result<Applied, String> {
     match etype {
         "checkout.session.completed" => {
@@ -521,7 +529,7 @@ async fn apply_stripe_event(st: &AppState, etype: &str, evt: &Value) -> Result<A
             if !exists {
                 return Ok(Applied::Done("会员不存在，仅落库".into()));
             }
-            crate::points::extend_plan(st, &member_id, iv.days())
+            let granted = crate::points::extend_plan(st, &member_id, iv.days())
                 .await
                 .map_err(|e| format!("延长会员失败：{}", e.message))?;
             // extend_plan 只保证"延长"，套餐名要落到具体 slug（free → 付费）
@@ -537,6 +545,71 @@ async fn apply_stripe_event(st: &AppState, etype: &str, evt: &Value) -> Result<A
                 )
                 .await
                 .map_err(|e| format!("更新套餐失败：{e}"))?;
+            // ── 同时建一条本地订阅记录 ──
+            // ⚠️ 这里**刻意不落 orders**：订单的幂等键是「订阅尾号 + 周期末」，
+            // 而 checkout 拿到的周期末是按套餐天数估算的（session 对象不带周期终点），
+            // 与 `invoice.payment_succeeded` 里的真实周期末往往差几秒到几天 ——
+            // 两处都写就会落成**两条单，收入翻倍**。所以口径只留一个：
+            // 记账一律由发票事件完成（那是钱到账的直接凭证，且带真实周期末）。
+            // 这一处只负责**发货**与**建行**。
+            //
+            // 这是为了堵住「永久会员」的最后一条入口：若随后的
+            // `customer.subscription.created` 丢包，而本地又**没有任何订阅行**，
+            // 调度器的到期兜底就扫不到这个人 —— 他会一直有效下去，
+            // 而 members 表自身完全自洽，对账时看不出异常。
+            //
+            // 这里的 period_end 是按套餐周期**估算**的（session 对象不带周期终点），
+            // 所以用 `insert_if_absent`：**只在缺行时创建，绝不覆盖**。
+            // 真实周期终点由 `customer.subscription.created` 覆盖进来。
+            let sub_id = obj
+                .and_then(|o| o.get("subscription"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if !sub_id.is_empty() {
+                let now_dt = chrono::Utc::now();
+                let iso = |d: chrono::DateTime<chrono::Utc>| {
+                    d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+                };
+                let snap = SubSnapshot {
+                    // clone：sub_id 后面日志里还要用（建行失败要报得出是哪个订阅）
+                    stripe_subscription_id: sub_id.clone(),
+                    stripe_customer_id: customer.clone(),
+                    member_id: member_id.clone(),
+                    tier_slug: tier_slug.clone(),
+                    price_id: String::new(),
+                    interval: iv.key().to_string(),
+                    status: "active".to_string(),
+                    current_period_end: iso(now_dt + chrono::Duration::days(iv.days())),
+                    // None：session 对象不带这个字段，不能凭「没带」就写 false
+                    cancel_at_period_end: None,
+                    canceled_at: String::new(),
+                    started_at: iso(now_dt),
+                    event_at: evt.get("created").and_then(|v| v.as_i64()).unwrap_or(0),
+                };
+                match crate::sub_state::insert_if_absent(st, &snap).await {
+                    Ok(true) => {
+                        // 这次真的新建了行：把会员**实际拿到**的那份有效期记为
+                        // 本订阅的授予（`granted`，不是 snap 里按天数估算的值 ——
+                        // 若会员原本已有人工有效期，extend_plan 是叠加而非覆盖，
+                        // 两者会不同）。漏记这一步，若随后的
+                        // customer.subscription.created 丢包，到期兜底就会把
+                        // members 上那份有效期当成"另有来源"而不敢降级 ——
+                        // 又变回永久会员（见迁移 0018 的注释）。
+                        if let Err(e) =
+                            crate::sub_state::mark_granted(st, &sub_id, &granted).await
+                        {
+                            eprintln!("[warn] 记录订阅授予失败（{sub_id}）：{e}");
+                        }
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        // 建行失败不能让整件事失败：会员已经发货了，
+                        // 返 Err 只会让 Stripe 把整个 checkout 事件重投一遍。
+                        eprintln!("[warn] 建订阅记录失败（{sub_id}）：{e}");
+                    }
+                }
+            }
             crate::webhooks_out::emit(
                 st,
                 "subscription.activated",
@@ -553,14 +626,132 @@ async fn apply_stripe_event(st: &AppState, etype: &str, evt: &Value) -> Result<A
                 iv.days()
             )))
         }
-        // 这四类要改的是**订阅周期状态**，必须有 subscriptions 表才能正确表达
-        // （期末取消 / 续费失败宽限期）。落库留痕，等阶段 1 的调度器重放。
-        "customer.subscription.updated"
-        | "customer.subscription.deleted"
-        | "invoice.payment_succeeded"
-        | "invoice.payment_failed" => Ok(Applied::PendingApply),
+        // ── 订阅对象变更：写快照 → 由状态机生效 ──────────────────────
+        // `deleted` 与 `updated` 走同一支是有意的：「期末取消」与「立即取消」
+        // 发的都是 deleted，事件体长得一模一样，**只有 current_period_end 能区分**
+        // （已过去 = 真结束；在未来 = 服务给到期末）。若按事件类型分成两支，
+        // 必然有一半是错的。
+        "customer.subscription.created"
+        | "customer.subscription.updated"
+        | "customer.subscription.deleted" => {
+            let Some(obj) = evt.pointer("/data/object") else {
+                return Ok(Applied::Done("事件缺少 subscription 对象，仅落库".into()));
+            };
+            let snap = subscription_snapshot(obj, evt);
+            let sub_id = snap.stripe_subscription_id.clone();
+            if sub_id.is_empty() {
+                return Ok(Applied::Done("订阅对象无 id，仅落库".into()));
+            }
+            match crate::sub_state::upsert_snapshot(st, &snap).await? {
+                // 旧事件后到：**必须忽略**，否则会把刚续上的周期覆盖回去，
+                // 表现为「用户刚付了年费，页面又显示已过期」。
+                UpsertOutcome::Stale => Ok(Applied::Done("旧事件（乱序到达），已忽略".into())),
+                // 事件体没带 member_id 且本地也没有该订阅行 —— 定位不到人。
+                // 不返 Err（会让 Stripe 无限重投），标 pending_apply 等补齐。
+                UpsertOutcome::Orphan => Ok(Applied::PendingApply),
+                UpsertOutcome::Applied => {
+                    let a = crate::sub_state::settle(st, &sub_id, 0).await?;
+                    Ok(Applied::Done(a.note))
+                }
+            }
+        }
+        // ── 发票：**续费发货就发生在这里** ────────────────────────────────
+        // 年付会员第二年 Stripe 扣款成功，新的周期终点只在发票对象上。
+        // 订阅对象上也会有（另一个事件），但发票是**钱到账的直接凭证**：
+        // 先信它，订阅事件万一丢了，续费也不至于不发。
+        "invoice.payment_succeeded" | "invoice.payment_failed" => {
+            let Some(obj) = evt.pointer("/data/object") else {
+                return Ok(Applied::Done("事件缺少 invoice 对象，仅落库".into()));
+            };
+            let sub_id = obj
+                .get("subscription")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if sub_id.is_empty() {
+                // 一次性付款（mode=payment）的发票没有 subscription，与订阅无关。
+                return Ok(Applied::Done("发票无 subscription，与订阅无关".into()));
+            }
+            if etype == "invoice.payment_failed" {
+                // **不动状态**：Stripe 紧接着会发带 status=past_due 的
+                // customer.subscription.updated，那才是权威来源。这里只告警，
+                // 让运营知道有人的卡刷不过去了（宽限期判定见 sub_state）。
+                crate::webhooks_out::emit(
+                    st,
+                    "subscription.payment_failed",
+                    json!({
+                        "subscriptionId": sub_id,
+                        "attemptCount": obj.get("attempt_count"),
+                        "nextAttempt": obj.get("next_payment_attempt"),
+                    }),
+                );
+                return Ok(Applied::Done("扣款失败，已告警（状态以订阅事件为准）".into()));
+            }
+            // 新周期终点：`lines.data[0].period.end`（Unix 秒）
+            let period_end = unix_to_iso(obj.pointer("/lines/data/0/period/end"));
+            let amount = obj.get("amount_paid").and_then(|v| v.as_i64()).unwrap_or(0);
+            let event_at = evt.get("created").and_then(|v| v.as_i64()).unwrap_or(0);
+            match crate::sub_state::touch_period(st, &sub_id, &period_end, Some("active"), event_at)
+                .await?
+            {
+                UpsertOutcome::Stale => {
+                    return Ok(Applied::Done("旧发票事件（乱序到达），已忽略".into()))
+                }
+                UpsertOutcome::Orphan => return Ok(Applied::PendingApply),
+                UpsertOutcome::Applied => {}
+            }
+            let a = crate::sub_state::settle(st, &sub_id, amount).await?;
+            Ok(Applied::Done(format!("{}；本次收款 {} 分", a.note, amount)))
+        }
         // 其余不认识的类型留痕即可（不返错，避免 Stripe 无意义重投）。
         _ => Ok(Applied::Ignored),
+    }
+}
+
+/// 从 `customer.subscription` 对象解析本地快照。
+///
+/// 几个字段的来源都有讲究：
+///   · `member_id` **只在 metadata 上**（checkout 建会话时写入）——
+///     拿不到它就无法把订阅归属到人；而 `invoice.*` 事件连这个都没有，
+///     只能靠本地订阅行反查（这正是 0017 建表的原因之一）；
+///   · `customer` 可能是字符串，也可能是 expand 之后的 `{id: ...}` 对象；
+///   · 时间字段全是 Unix 秒，必须转成 RFC3339 —— 要与
+///     `members.plan_expires_at` 用同一个比较口径。混用两种格式是最容易
+///     埋进对账里的错：一边是 "2026-10-01T..."、一边是 "1800000000"，
+///     字符串比较永远不按预期工作，而且**不会报任何错**。
+fn subscription_snapshot(o: &Value, evt: &Value) -> SubSnapshot {
+    let s = |p: &str| {
+        o.pointer(p)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string()
+    };
+    let customer = {
+        let direct = s("/customer");
+        if direct.is_empty() {
+            s("/customer/id")
+        } else {
+            direct
+        }
+    };
+    SubSnapshot {
+        stripe_subscription_id: s("/id"),
+        stripe_customer_id: customer,
+        member_id: s("/metadata/member_id"),
+        tier_slug: s("/metadata/tier_slug"),
+        price_id: s("/items/data/0/price/id"),
+        interval: s("/metadata/interval"),
+        // 原始状态串原样存 —— 后台看到的应该是 Stripe 的原话；
+        // 归一化只发生在判定的那一刻（sub_state::SubStatus::parse）。
+        status: s("/status"),
+        current_period_end: unix_to_iso(o.get("current_period_end")),
+        // 只有 subscription.updated 稳定带这个字段；没带 = None，
+        // 让本地已有的「已安排期末取消」标记活下来。
+        cancel_at_period_end: o.get("cancel_at_period_end").and_then(|v| v.as_bool()),
+        canceled_at: unix_to_iso(o.get("canceled_at")),
+        started_at: unix_to_iso(o.get("start_date")),
+        event_at: evt.get("created").and_then(|v| v.as_i64()).unwrap_or(0),
     }
 }
 

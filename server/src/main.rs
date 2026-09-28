@@ -46,6 +46,10 @@ mod members;
 mod comments;
 mod newsletter;
 mod subscriptions;
+// 订阅状态机（阶段 1）：把 Stripe 事件收敛成 members 的有效期。
+// 独立成模块是因为它比"接入 Stripe"更靠近业务：判据、覆盖语义、到期兜底
+// 三件事都与 HTTP/Stripe 无关，可单测。
+mod sub_state;
 mod webhooks_out;
 mod graphql_api;
 mod i18n;
