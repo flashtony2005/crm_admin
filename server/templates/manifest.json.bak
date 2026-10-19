@@ -1,0 +1,47 @@
+{
+  "active": "member",
+  "items": [
+    {
+      "slug": "coucouya",
+      "name": "可可鸭（默认）",
+      "kind": "app",
+      "port": "5199",
+      "note": "默认数据驱动首页；构建产物可部署到 templates/coucouya/ 由后端同源伺服；支持多套版式预设",
+      "created_at": "2026-08-31T09:19:10.699Z",
+      "presets": [
+        "classic",
+        "editorial",
+        "gallery",
+        "sidebar",
+        "minimal"
+      ]
+    },
+    {
+      "slug": "fastshot",
+      "name": "Fastshot 风格",
+      "kind": "app",
+      "port": "5199",
+      "note": "Fastshot 视觉克隆（数据来自后台）",
+      "created_at": "2026-08-31T09:19:10.699Z",
+      "presets": []
+    },
+    {
+      "slug": "neon",
+      "name": "霓虹赛博风",
+      "kind": "upload",
+      "port": "5199",
+      "note": "霓虹赛博：纯黑底 + 荧光青/品红 + 故障标题（数据来自后台）",
+      "created_at": "2026-09-01T03:08:00.318Z",
+      "presets": []
+    },
+    {
+      "slug": "member",
+      "name": "会员中心",
+      "kind": "upload",
+      "port": "",
+      "note": "会员中心页（概览/钱包/订阅/订单，自适应 active 模板主题）",
+      "created_at": "2026-09-04T04:05:00.000Z",
+      "presets": []
+    }
+  ]
+}
