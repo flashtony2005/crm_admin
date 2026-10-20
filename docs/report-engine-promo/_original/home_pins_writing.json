@@ -1,0 +1,22 @@
+[
+  {
+    "id": "7cd91472-e012-470a-a57a-07f96e2b0c4c",
+    "tenant_id": "t_demo",
+    "slot": "writing",
+    "article_id": "de778cfa-49d2-45ac-82f7-fc5e299c3390",
+    "sort": 1,
+    "enabled": 1,
+    "created_at": "2026-08-29T03:17:59.502Z",
+    "updated_at": "2026-08-29T03:17:59.502Z"
+  },
+  {
+    "id": "39721d94-bf7f-435f-8187-b12875c2df6c",
+    "tenant_id": "t_demo",
+    "slot": "writing",
+    "article_id": "356116cd-ab0d-478e-a89b-1ada50fa6e5b",
+    "sort": 2,
+    "enabled": 1,
+    "created_at": "2026-08-29T03:18:09.147Z",
+    "updated_at": "2026-08-29T03:18:09.147Z"
+  }
+]

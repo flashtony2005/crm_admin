@@ -1,0 +1,16 @@
+{
+  "web3": {
+    "title": "探索 Web3",
+    "desc": "把我正在使用与合作的 Web3 产品入口集中在这里。先看清产品类型、复制邀请码，再前往官方页面。",
+    "disclaimer": "以下链接包含邀请关系；你通过链接注册时，我可能获得平台奖励，但不会增加你的注册费用。",
+    "items": [
+      {
+        "name": "Bitget Wallet",
+        "desc": "Bitget Wallet 支持多链资产管理、交易与 Web3 应用探索；私钥由你自己掌握，请离线保管助记词。",
+        "inviteCode": "JtTDj8Se",
+        "ctaLabel": "前往官方注册链接",
+        "ctaHref": "https://web3.bitget.com/share/25AasN?inviteCode=JtTDj8Se"
+      }
+    ]
+  }
+}

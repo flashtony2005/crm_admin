@@ -1,0 +1,93 @@
+<section>
+  <p><strong>如果只能保留一个概念来解释“中国式报表”，那一定是扩展格。</strong>它决定了报表能不能用一份模板，跑出成千上万行数据；也决定了合计、排名、占比这些公式能不能算对。</p>
+
+  <h2>一、什么是扩展格</h2>
+
+  <p>普通单元格是“一格一值”。扩展格是<strong>“一格 → 一格变多格”</strong>：模板里只画一行，运行时按数据集的行数复制成 N 行（纵向扩展），或按列数复制成 N 列（横向扩展）。</p>
+
+  <p>复制不是简单的“往下贴”：扩展会改变整张网格的拓扑——下面的行整体下移、右侧的列整体右移、合并区域跟着重算、分页重新切分。这也是为什么扩展必须在<strong>拓扑层</strong>完成，而不能留到渲染层。</p>
+
+  <h2>二、主格与从格：谁决定扩展</h2>
+
+  <p>同一行里通常有多个扩展格：姓名、工资、部门。它们必须一起扩展，否则就对不齐。引擎用一个<strong>主格</strong>决定扩展的行数，其余同带的扩展格作为<strong>从格</strong>跟随。</p>
+
+  <ul>
+    <li><strong>主格</strong>：通常是该带第一个绑定数据集的格子，例如 <code>ds1.select(name)</code>。</li>
+    <li><strong>从格</strong>：同一行/同一带的其它扩展格，按主格的行号取对应记录，例如 <code>ds1.select(salary)</code>。</li>
+    <li><strong>带区</strong>：主格扩展后形成的行区间；合计、排名、占比都以带区为作用域。</li>
+  </ul>
+
+  <h2>三、方向：纵向与横向</h2>
+
+  <p>扩展方向写在定义 JSON 的 <code>extend_mode</code> 上：</p>
+
+  <table>
+    <thead>
+      <tr><th>取值</th><th>含义</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>"default"</code></td><td>由引擎按表达式自动判定（例如 <code>ds1.select(...)</code> 默认纵向）</td></tr>
+      <tr><td><code>"none"</code></td><td>强制不扩展（常量、标题、固定表头）</td></tr>
+      <tr><td><code>"vertical"</code></td><td>纵向扩展：向下复制，行数随数据增长</td></tr>
+      <tr><td><code>"horizontal"</code></td><td>横向扩展：向右复制，列数随数据增长</td></tr>
+    </tbody>
+  </table>
+
+  <h2>四、一个最小例子：员工工资表</h2>
+
+  <p>模板只有四行：标题、表头、一行明细、一行合计。明细行的姓名与工资都设为纵向扩展，数据来自 SQLite 的 <code>emp</code> 表：</p>
+
+  <pre><code>{
+  "cells": [
+    { "row": 1, "col": 1, "text": "员工工资表" },
+    { "row": 2, "col": 1, "text": "姓名" },
+    { "row": 2, "col": 2, "text": "工资" },
+    { "row": 3, "col": 1, "expr": "ds1.select(name)",   "extend_mode": "vertical" },
+    { "row": 3, "col": 2, "expr": "ds1.select(salary)", "extend_mode": "vertical" },
+    { "row": 4, "col": 1, "text": "合计" },
+    { "row": 4, "col": 2, "expr": "ds1.sum(salary)" }
+  ]
+}</code></pre>
+
+  <p>三名员工，模板的 4 行会变成 6 行：明细行从 1 行扩成 3 行，合计行整体下移。逐格结果：</p>
+
+  <table>
+    <thead>
+      <tr><th>行</th><th>姓名</th><th>工资</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>标题</td><td colspan="2">员工工资表</td></tr>
+      <tr><td>表头</td><td>姓名</td><td>工资</td></tr>
+      <tr><td>明细</td><td>张伟</td><td>8500</td></tr>
+      <tr><td>明细</td><td>李娜</td><td>9200</td></tr>
+      <tr><td>明细</td><td>王强</td><td>12000</td></tr>
+      <tr><td>合计</td><td>合计</td><td>29700</td></tr>
+    </tbody>
+  </table>
+
+  <h2>五、合计为什么容易写错</h2>
+
+  <p>这是我们在实际项目里踩过、也见很多使用者踩过的坑：<strong>不要写 <code>sum(B3)</code>。</strong></p>
+
+  <p>单个单元格引用不会自动展开成带区。引擎只会对<strong>模板格当前的那一个值</strong>求和——上面例子里会得到 8500，而不是 29700。正确的写法有三类，按稳健程度排序：</p>
+
+  <ol>
+    <li><code>ds1.sum(salary)</code>：直接聚合数据集列，最稳，不依赖扩展了多少行。</li>
+    <li><code>sum(ds1.select(salary))</code>：对 select 表达式聚合，语义与数据集聚合一致。</li>
+    <li><code>sum(B2:B4)</code>：显式写出带区范围；一旦数据行数变化就要跟着改，最不推荐。</li>
+  </ol>
+
+  <blockquote>
+    <p>记住一句话：<strong>聚合的是“集合”，不是“格子”。</strong>要合计一条扩展带，就把“产生这条带的集合”交给聚合函数。</p>
+  </blockquote>
+
+  <h2>六、横向扩展：同一个引擎的另一半</h2>
+
+  <p>把 <code>extend_mode</code> 改成 <code>"horizontal"</code>，同一个 <code>ds1.select(name)</code> 就会向右铺开：模板一格变成三列，姓名横向排列。纵向与横向可以组合成二维交叉表——这也是交叉表、动态列、行列对称预算的基础。</p>
+
+  <h2>七、为什么扩展必须“先拓扑、后计算”</h2>
+
+  <p>扩展改变的是网格结构：行号、列号、合并、分页都随之变化。只有先把拓扑定下来，后续的格间引用（上一期、去年同季、块级引用）才有稳定的坐标可算。否则公式会在“还没扩完”的网格上求值，结果一定漂移。</p>
+
+  <p>这也是引擎把扩展算法放在计算之前的根本原因，而不是实现上的偷懒。理解了这一层，再看同比环比、动态排名、块级引用，就会顺很多。</p>
+</section>

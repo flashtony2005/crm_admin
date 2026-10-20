@@ -1,0 +1,46 @@
+{
+  "brand": "可可鸭",
+  "brandEn": "CouCouYa",
+  "nav": {
+    "links": [
+      {
+        "label": "关于",
+        "href": "#about"
+      },
+      {
+        "label": "组织",
+        "href": "#affiliation"
+      },
+      {
+        "label": "文章",
+        "href": "#writing"
+      },
+      {
+        "label": "实验",
+        "href": "#series"
+      },
+      {
+        "label": "Web3",
+        "href": "#web3"
+      }
+    ],
+    "ctaLabel": "关注我"
+  },
+  "footer": {
+    "note": "© 可可鸭 CouCouYa · Community Growth & Learning in Public",
+    "links": [
+      {
+        "label": "X / Twitter",
+        "href": "https://x.com/KeKeYa88"
+      },
+      {
+        "label": "KOSX.ai",
+        "href": "https://kosx.ai/"
+      },
+      {
+        "label": "平台与风险提示",
+        "href": "https://coucouya.com/platforms"
+      }
+    ]
+  }
+}

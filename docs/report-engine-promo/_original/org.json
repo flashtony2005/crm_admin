@@ -1,0 +1,32 @@
+{
+  "affiliation": {
+    "eyebrow": "Current Affiliation / 当前组织",
+    "name": "KOSX.ai",
+    "logo": "https://coucouya.com/assets/kosx-logo-official.png",
+    "desc": "KOSX.ai 是面向 AI-native Builders 的创造者网络：从社群发现人才，以真实项目组织协作，并让成果连接到商业世界。",
+    "ctaLabel": "访问 KOSX.ai",
+    "ctaHref": "https://kosx.ai/"
+  },
+  "pillars": {
+    "eyebrow": "KOSX.ai 创造者网络 / 把线上连接变成真实的见面",
+    "title": "把 AI 时代的创造者，组织成真正能做成事的网络。",
+    "items": [
+      {
+        "no": "01",
+        "title": "AI 带来新的能力"
+      },
+      {
+        "no": "02",
+        "title": "人才带来创造力与判断"
+      },
+      {
+        "no": "03",
+        "title": "商业让价值真正落地"
+      },
+      {
+        "no": "04",
+        "title": "资本与资源让成果持续生长"
+      }
+    ]
+  }
+}

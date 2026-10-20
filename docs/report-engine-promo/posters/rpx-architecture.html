@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1600px; height: 1000px; overflow: hidden; }
+  body {
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: #060A16; color: #F8FAFC; position: relative;
+  }
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(1000px 560px at 90% 0%, rgba(56,189,248,.16), transparent 60%),
+      radial-gradient(820px 620px at 0% 100%, rgba(99,102,241,.16), transparent 60%),
+      linear-gradient(165deg, #080D1C 0%, #060A16 55%, #050813 100%);
+  }
+  .grid {
+    position: absolute; inset: 0; opacity: .45;
+    background-image:
+      linear-gradient(rgba(148,163,184,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,.055) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at 50% 35%, #000 30%, transparent 80%);
+  }
+  .frame { position: absolute; inset: 34px; border: 1px solid rgba(148,163,184,.16); }
+  .corner { position: absolute; width: 14px; height: 14px; border-color: #38BDF8; border-style: solid; }
+  .c1 { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .c2 { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+  .c3 { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+  .c4 { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .inner { position: absolute; inset: 34px; padding: 54px 62px 42px; display: flex; flex-direction: column; }
+  .eyebrow { font-size: 14px; letter-spacing: .26em; color: #7DD3FC; font-weight: 700; }
+  h1 { margin-top: 16px; font-size: 56px; line-height: 1.16; font-weight: 900; letter-spacing: -.025em; }
+  h1 .grad { background: linear-gradient(92deg, #7DD3FC, #818CF8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { margin-top: 14px; font-size: 18px; color: #94A3B8; line-height: 1.7; }
+
+  .pipe { margin-top: 40px; display: flex; align-items: stretch; gap: 0; }
+  .node {
+    flex: 1; position: relative; border-radius: 14px; padding: 20px 18px;
+    background: linear-gradient(180deg, rgba(23,34,56,.82), rgba(12,19,34,.62));
+    border: 1px solid rgba(148,163,184,.16);
+  }
+  .node.on {
+    background: linear-gradient(180deg, rgba(14,116,144,.30), rgba(12,19,34,.70));
+    border-color: rgba(56,189,248,.42);
+    box-shadow: 0 0 0 1px rgba(56,189,248,.10), 0 18px 50px rgba(8,47,73,.35);
+  }
+  .node .step { font-family: "Cascadia Code", Consolas, monospace; font-size: 12px; color: #38BDF8; letter-spacing: .12em; }
+  .node h2 { margin-top: 10px; font-size: 20px; font-weight: 800; color: #F1F5F9; }
+  .node p { margin-top: 8px; font-size: 12.5px; line-height: 1.65; color: #94A3B8; }
+  .arrow { width: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .arrow span { width: 20px; height: 1px; background: linear-gradient(90deg, rgba(56,189,248,.7), rgba(56,189,248,.2)); position: relative; }
+  .arrow span::after {
+    content: ""; position: absolute; right: -1px; top: -4px;
+    border-left: 7px solid rgba(56,189,248,.8); border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  }
+
+  .bottom { margin-top: 34px; flex: 1; display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+  .code {
+    border-radius: 14px; padding: 20px 22px; overflow: hidden;
+    background: rgba(2,6,23,.72); border: 1px solid rgba(148,163,184,.14);
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; line-height: 1.95; color: #94A3B8;
+  }
+  .code .t { color: #64748B; font-size: 11px; letter-spacing: .18em; margin-bottom: 10px; }
+  .code .k { color: #7DD3FC; }
+  .code .s { color: #A5B4FC; }
+  .code .n { color: #FCA5A5; }
+  .principles { display: flex; flex-direction: column; gap: 12px; }
+  .pr {
+    flex: 1; border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(180deg, rgba(23,34,56,.72), rgba(12,19,34,.55));
+    border: 1px solid rgba(148,163,184,.16);
+  }
+  .pr .ico {
+    width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 18px; font-weight: 900; color: #38BDF8;
+    background: rgba(56,189,248,.10); border: 1px solid rgba(56,189,248,.25);
+  }
+  .pr b { display: block; font-size: 17px; font-weight: 800; color: #F1F5F9; }
+  .pr span { display: block; margin-top: 4px; font-size: 12.5px; color: #94A3B8; }
+
+  .foot { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: #64748B; letter-spacing: .1em; }
+  .foot .bar { flex: 1; height: 1px; margin: 0 20px; background: linear-gradient(90deg, rgba(56,189,248,.5), rgba(148,163,184,.08)); }
+</style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="grid"></div>
+  <div class="frame">
+    <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
+  </div>
+
+  <div class="inner">
+    <div class="eyebrow">AI REPORT ENGINE · PIPELINE</div>
+    <h1>从定义到交付，<br /><span class="grad">一条可验证的流水线</span>。</h1>
+    <p class="sub">同一份 JSON，走同一条执行链：CLI、HTTP 服务与 Agent 得到的网格逐格一致。</p>
+
+    <div class="pipe">
+      <div class="node on"><div class="step">STEP 01</div><h2>JSON 定义</h2><p>数据集、公式、扩展方向、样式、打印设置。</p></div>
+      <div class="arrow"><span></span></div>
+      <div class="node"><div class="step">STEP 02</div><h2>解析与校验</h2><p>结构校验、引用检查、能力探测。</p></div>
+      <div class="arrow"><span></span></div>
+      <div class="node on"><div class="step">STEP 03</div><h2>扩展算法</h2><p>主格 / 从格、纵向 / 横向、带区拓扑改写。</p></div>
+      <div class="arrow"><span></span></div>
+      <div class="node"><div class="step">STEP 04</div><h2>计算</h2><p>表达式、聚合、格间引用、排名与占比。</p></div>
+      <div class="arrow"><span></span></div>
+      <div class="node"><div class="step">STEP 05</div><h2>合并与分页</h2><p>动态合并、同值合并、跨页求交。</p></div>
+      <div class="arrow"><span></span></div>
+      <div class="node on"><div class="step">STEP 06</div><h2>导出</h2><p>Excel、HTML、headless PDF，同一网格。</p></div>
+    </div>
+
+    <div class="bottom">
+      <div class="code">
+        <div class="t">DEFINITION / template.json</div>
+        <div>{</div>
+        <div>&nbsp;&nbsp;<span class="k">"grid"</span>: { <span class="k">"rows"</span>: <span class="n">4</span>, <span class="k">"cols"</span>: <span class="n">2</span> },</div>
+        <div>&nbsp;&nbsp;<span class="k">"cells"</span>: [</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="k">"expr"</span>: <span class="s">"ds1.select(name)"</span>,</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">"extend_mode"</span>: <span class="s">"vertical"</span> },</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="k">"expr"</span>: <span class="s">"ds1.sum(salary)"</span> }</div>
+        <div>&nbsp;&nbsp;],</div>
+        <div>&nbsp;&nbsp;<span class="k">"datasets"</span>: [{ <span class="k">"name"</span>: <span class="s">"ds1"</span>, <span class="k">"sql"</span>: { … } }]</div>
+        <div>}</div>
+      </div>
+      <div class="principles">
+        <div class="pr"><div class="ico">01</div><div><b>夹具对拍</b><span>每份样例都有模板、数据与期望取值，改动必须逐格一致。</span></div></div>
+        <div class="pr"><div class="ico">02</div><div><b>零依赖内核</b><span>模型与引擎不依赖第三方库，单二进制即可部署。</span></div></div>
+        <div class="pr"><div class="ico">03</div><div><b>确定性输出</b><span>排序、合并、分页可复现，回归由机器判，不靠人眼。</span></div></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>AI REPORT ENGINE</span>
+      <span class="bar"></span>
+      <span>DEFINE ONCE · RUN ANYWHERE · VERIFY BY FIXTURES</span>
+    </div>
+  </div>
+</body>
+</html>

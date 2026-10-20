@@ -1,0 +1,34 @@
+{
+  "writing": {
+    "eyebrow": "Selected Writing / 代表文章",
+    "title": "在 X 上的实战手册",
+    "desc": "这里记录我在 AI 工具、Web3 与跨境金融领域的实战研究：从支付、外币卡到海外手机卡与 U 卡，把复杂门槛拆成可以直接使用的步骤。",
+    "ctaLabel": "了解更多我的内容",
+    "ctaHref": "https://x.com/KeKeYa88"
+  },
+  "series": {
+    "eyebrow": "From 0 to 1 / 持续实验",
+    "title": "从 0 到 1",
+    "desc": "如何用 AI 工作流创造个人 IP",
+    "items": [
+      {
+        "no": "01",
+        "title": "治愈图文",
+        "desc": "用轻松温柔的图文，记录生活、工具与成长。",
+        "href": "https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzcwNzM3NjY2Mg%3D%3D#wechat_redirect"
+      },
+      {
+        "no": "02",
+        "title": "书评",
+        "desc": "把阅读、思考与创作者视角放进一支支短内容里。",
+        "href": "https://weixin.qq.com/sph/AAmgiDIFxb"
+      },
+      {
+        "no": "03",
+        "title": "建设中",
+        "desc": "小红书和抖音个人 IP 正在建设中。",
+        "coming": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "affiliation": {
+    "ctaHref": "https://kosx.ai/",
+    "ctaLabel": "访问 KOSX.ai",
+    "desc": "KOSX.ai 是面向 AI-native Builders 的创造者网络：从社群发现人才，以真实项目组织协作，并让成果连接到商业世界。",
+    "eyebrow": "Current Affiliation / 当前组织",
+    "logo": "https://coucouya.com/assets/kosx-logo-official.png",
+    "name": "KOSX.ai"
+  },
+  "brand": "可可鸭",
+  "brandEn": "CouCouYa",
+  "footer": {
+    "links": [
+      {
+        "href": "https://x.com/KeKeYa88",
+        "label": "X / Twitter"
+      },
+      {
+        "href": "https://kosx.ai/",
+        "label": "KOSX.ai"
+      },
+      {
+        "href": "https://coucouya.com/platforms",
+        "label": "平台与风险提示"
+      }
+    ],
+    "note": "© 可可鸭 CouCouYa · Community Growth & Learning in Public"
+  },
+  "hero": {
+    "bio": "我是可可鸭，一名在 X 上持续实战的内容创作者。我围绕 AI 工具、Web3 与跨境金融，把复杂信息拆成可以直接使用的方法：单帖最高 120 万浏览，起号一周接到首单商业合作，一个月累计达到 20M+ 流量。\n\n同时，我是 KOSX.ai 社群增长操盘手，也是这个 AI 创造者网络的「第一位实习小子」。我负责 KOSX 的社群运营与增长：运营 300+ 人的「搞钱研究所」创作者社群；从 0 策划并主持「上桌！KOSX」系列 X Space——首期 8 位实战派嘉宾、2.5 小时全程满麦；同时组织线下城市面基局，把线上连接变成真实的握手。\n\n我相信：个人 IP 是这个时代的上桌券，而社群是让同频的人互相看见的引力场。",
+    "ctaHref": "https://x.com/KeKeYa88",
+    "ctaLabel": "查看我的 X 实战主页",
+    "title": "把连接，变成看得见的机会。"
+  },
+  "kicker": "KOSX.ai 社群增长操盘手",
+  "pillars": {
+    "eyebrow": "KOSX.ai 创造者网络 / 把线上连接变成真实的见面",
+    "items": [
+      {
+        "no": "01",
+        "title": "AI 带来新的能力"
+      },
+      {
+        "no": "02",
+        "title": "人才带来创造力与判断"
+      },
+      {
+        "no": "03",
+        "title": "商业让价值真正落地"
+      },
+      {
+        "no": "04",
+        "title": "资本与资源让成果持续生长"
+      }
+    ],
+    "title": "把 AI 时代的创造者，组织成真正能做成事的网络。"
+  },
+  "series": {
+    "desc": "如何用 AI 工作流创造个人 IP",
+    "eyebrow": "From 0 to 1 / 持续实验",
+    "items": [
+      {
+        "desc": "用轻松温柔的图文，记录生活、工具与成长。",
+        "href": "https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzcwNzM3NjY2Mg%3D%3D#wechat_redirect",
+        "no": "01",
+        "title": "治愈图文"
+      },
+      {
+        "desc": "把阅读、思考与创作者视角放进一支支短内容里。",
+        "href": "https://weixin.qq.com/sph/AAmgiDIFxb",
+        "no": "02",
+        "title": "书评"
+      },
+      {
+        "coming": true,
+        "desc": "小红书和抖音个人 IP 正在建设中。",
+        "no": "03",
+        "title": "建设中"
+      }
+    ],
+    "title": "从 0 到 1"
+  },
+  "stats": [
+    {
+      "label": "创作者社群",
+      "note": "社群运营规模",
+      "value": "300+"
+    },
+    {
+      "label": "接商单",
+      "note": "从起号到首单合作",
+      "value": "一周"
+    },
+    {
+      "label": "流量",
+      "note": "一个月 X 账号累计曝光",
+      "value": "20M+"
+    }
+  ],
+  "tagline": "Community Growth & Learning in Public",
+  "web3": {
+    "desc": "把我正在使用与合作的 Web3 产品入口集中在这里。先看清产品类型、复制邀请码，再前往官方页面。",
+    "disclaimer": "以下链接包含邀请关系；你通过链接注册时，我可能获得平台奖励，但不会增加你的注册费用。",
+    "items": [
+      {
+        "ctaHref": "https://web3.bitget.com/share/25AasN?inviteCode=JtTDj8Se",
+        "ctaLabel": "前往官方注册链接",
+        "desc": "Bitget Wallet 支持多链资产管理、交易与 Web3 应用探索；私钥由你自己掌握，请离线保管助记词。",
+        "inviteCode": "JtTDj8Se",
+        "name": "Bitget Wallet"
+      }
+    ],
+    "title": "探索 Web3"
+  },
+  "writing": {
+    "ctaHref": "https://x.com/KeKeYa88",
+    "ctaLabel": "了解更多我的内容",
+    "desc": "这里记录我在 AI 工具、Web3 与跨境金融领域的实战研究：从支付、外币卡到海外手机卡与 U 卡，把复杂门槛拆成可以直接使用的步骤。",
+    "eyebrow": "Selected Writing / 代表文章",
+    "title": "在 X 上的实战手册"
+  }
+}

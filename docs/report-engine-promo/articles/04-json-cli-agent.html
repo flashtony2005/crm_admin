@@ -1,0 +1,80 @@
+<section>
+  <p><strong>传统报表工具的核心资产，锁在产品的图形界面里。</strong>模板是二进制、逻辑藏在属性面板、批量生成只能靠人点。换一个团队、换一套部署，资产就难以复用。</p>
+
+  <p>AI 报表引擎的做法相反：<strong>把报表定义变成一份 JSON，把执行变成命令。</strong>定义即代码，代码即契约。</p>
+
+  <h2>一、一份定义，五类信息</h2>
+
+  <p>JSON v1 的定义结构很克制，核心只有五块：网格尺寸、单元格、数据集、参数、打印设置。</p>
+
+  <pre><code>{
+  "version": 1,
+  "grid": { "rows": 4, "cols": 2 },
+  "cells": [
+    { "row": 2, "col": 1, "text": "姓名" },
+    { "row": 2, "col": 2, "text": "工资" },
+    { "row": 3, "col": 1, "expr": "ds1.select(name)",   "extend_mode": "vertical" },
+    { "row": 3, "col": 2, "expr": "ds1.select(salary)", "extend_mode": "vertical" },
+    { "row": 4, "col": 2, "expr": "ds1.sum(salary)", "format": "#,##0.00" }
+  ],
+  "datasets": [
+    { "name": "ds1", "sql": { "dsn": "erp", "sql": "SELECT name, salary FROM emp" } }
+  ]
+}</code></pre>
+
+  <p>这份文件可以进 Git、可以 Code Review、可以 diff、可以由脚本生成。它不依赖某台机器的注册表，也不依赖某个产品的版本。</p>
+
+  <h2>二、CLI：把“执行”变成可编排的一步</h2>
+
+  <p>围绕这份定义，CLI 提供的不只是“跑一下”：</p>
+
+  <ul>
+    <li><strong>lint</strong>：静态检查定义中的引用、扩展方向、聚合口径等常见错误，在跑之前就报。</li>
+    <li><strong>数据探针</strong>：连上数据源，先看列、类型与样本，避免“公式写对了但列名不存在”。</li>
+    <li><strong>capabilities</strong>：列出当前构建支持的能力与限制，方便 Agent 与集成方做能力探测。</li>
+    <li><strong>layout</strong>：分析版式与分页，提前发现溢出、断页与打印设置问题。</li>
+    <li><strong>run</strong>：执行定义并导出 Excel / HTML / PDF，产物可直接进流水线。</li>
+  </ul>
+
+  <p>这意味着报表可以像其它构建产物一样被自动化：夜间批量出表、按租户生成账单、把结果推到对象存储或邮件，都不需要人打开设计器。</p>
+
+  <h2>三、Agent 面：让 AI 产出“可执行”的报表</h2>
+
+  <p>JSON 定义 + CLI 的组合，恰好是 AI Agent 最需要的接口形态：</p>
+
+  <ol>
+    <li><strong>生成</strong>：Agent 根据字段说明与版式要求，产出一份 JSON 定义。</li>
+    <li><strong>自检</strong>：先跑 lint 与数据探针，把“列名错、扩展方向错、聚合对象错”在本地拦掉。</li>
+    <li><strong>执行</strong>：run 出结果，读取网格快照做逐格校验。</li>
+    <li><strong>迭代</strong>：根据差异改定义，而不是改一堆截图。</li>
+  </ol>
+
+  <p>这也是我们坚持“定义是文本、执行是命令”的原因：<strong>只有文本才能被 Agent 稳定地读写与验证。</strong>二进制模板再强大，也进不了这条闭环。</p>
+
+  <h2>四、工程闭环：样例即回归</h2>
+
+  <p>定义可执行之后，质量保障也跟着变了：</p>
+
+  <ul>
+    <li><strong>夹具对拍</strong>：每份样例都有模板、数据、期望取值；改动后必须逐格一致。</li>
+    <li><strong>机器闸</strong>：格式、lint、单测、行数门禁、依赖分层、文档引用完整性，一条命令全部跑完。</li>
+    <li><strong>确定性</strong>：同一输入得到同一网格；排序、合并、分页都可复现，回归不靠人眼。</li>
+  </ul>
+
+  <p>今天仓库里的 20+ 份样例，既是给客户的演示，也是引擎的行为契约。新增能力先加样例，再改实现——顺序反了，回归就会失守。</p>
+
+  <h2>五、适合谁</h2>
+
+  <ul>
+    <li><strong>行业软件厂商</strong>：把报表引擎嵌进自己的产品，不再受制于商业报表控件。</li>
+    <li><strong>企业信息化团队</strong>：财务、保险、烟草、制造、政务等复杂报表，用一份定义统一交付。</li>
+    <li><strong>SaaS / 数据平台</strong>：多租户批量出表，按定义生成，按 API 交付。</li>
+    <li><strong>AI 产品团队</strong>：把“生成报表”做成 Agent 能力，而不是一段无法验证的提示词。</li>
+  </ul>
+
+  <blockquote>
+    <p>报表引擎的下一站，不是更花哨的设计器，而是<strong>可版本化、可执行、可验证的定义</strong>。</p>
+  </blockquote>
+
+  <p>如果你手里也有一批“只有老报表工具才能跑”的复杂模板，欢迎拿一份来对拍：同一份数据、同一张网格，我们用定义和命令把它跑出来。</p>
+</section>

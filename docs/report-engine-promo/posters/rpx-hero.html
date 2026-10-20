@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1600px; height: 900px; overflow: hidden; }
+  body {
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: #060A16;
+    color: #F8FAFC;
+    position: relative;
+  }
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(900px 520px at 82% 18%, rgba(56,189,248,.20), transparent 62%),
+      radial-gradient(760px 520px at 12% 92%, rgba(99,102,241,.18), transparent 60%),
+      linear-gradient(160deg, #080D1C 0%, #060A16 52%, #050813 100%);
+  }
+  .grid {
+    position: absolute; inset: 0; opacity: .5;
+    background-image:
+      linear-gradient(rgba(148,163,184,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,.055) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at 50% 40%, #000 35%, transparent 78%);
+  }
+  .frame { position: absolute; inset: 34px; border: 1px solid rgba(148,163,184,.16); }
+  .corner { position: absolute; width: 14px; height: 14px; border-color: #38BDF8; border-style: solid; }
+  .c1 { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .c2 { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+  .c3 { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+  .c4 { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .inner { position: absolute; inset: 34px; display: flex; padding: 62px 68px 54px; gap: 46px; }
+
+  .left { flex: 1; display: flex; flex-direction: column; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-size: 15px; letter-spacing: .26em; color: #7DD3FC; font-weight: 700;
+  }
+  .eyebrow .dot { width: 8px; height: 8px; background: #38BDF8; border-radius: 50%; box-shadow: 0 0 16px #38BDF8; }
+  h1 {
+    margin-top: 30px;
+    font-size: 86px; line-height: 1.14; font-weight: 900; letter-spacing: -.03em;
+  }
+  h1 .grad {
+    background: linear-gradient(92deg, #7DD3FC 0%, #38BDF8 38%, #818CF8 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub {
+    margin-top: 26px; font-size: 23px; line-height: 1.8; color: #A7B4C8; max-width: 760px;
+  }
+  .sub b { color: #E2E8F0; font-weight: 700; }
+  .spacer { flex: 1; }
+  .stats { display: flex; gap: 14px; }
+  .stat {
+    flex: 1; padding: 18px 18px 16px; border-radius: 12px;
+    background: linear-gradient(180deg, rgba(30,41,59,.62), rgba(15,23,42,.42));
+    border: 1px solid rgba(148,163,184,.16);
+  }
+  .stat .v { font-size: 40px; font-weight: 900; letter-spacing: -.02em; color: #F8FAFC; line-height: 1; }
+  .stat .v em { font-style: normal; color: #38BDF8; }
+  .stat .l { margin-top: 9px; font-size: 14px; color: #94A3B8; }
+  .foot { margin-top: 26px; display: flex; align-items: center; gap: 14px; font-size: 13px; color: #64748B; letter-spacing: .12em; }
+  .foot .bar { width: 54px; height: 2px; background: linear-gradient(90deg, #38BDF8, transparent); }
+
+  .right { width: 560px; display: flex; flex-direction: column; justify-content: center; }
+  .report {
+    border-radius: 16px; overflow: hidden;
+    background: linear-gradient(180deg, #0F172A 0%, #0B1220 100%);
+    border: 1px solid rgba(148,163,184,.22);
+    box-shadow: 0 40px 90px rgba(2,6,23,.65), 0 0 0 1px rgba(56,189,248,.06);
+  }
+  .report-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid rgba(148,163,184,.14);
+    background: rgba(30,41,59,.45);
+  }
+  .report-head .t { font-size: 15px; font-weight: 700; color: #E2E8F0; }
+  .report-head .tag { font-size: 11px; color: #7DD3FC; border: 1px solid rgba(56,189,248,.35); padding: 3px 8px; border-radius: 99px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 12px 20px; text-align: left; border-bottom: 1px solid rgba(148,163,184,.10); }
+  th { font-size: 12px; letter-spacing: .08em; color: #94A3B8; font-weight: 700; background: rgba(30,41,59,.30); }
+  td { color: #CBD5E1; }
+  td.num { text-align: right; font-family: "Cascadia Code", Consolas, monospace; }
+  .hl { background: rgba(56,189,248,.09); }
+  .hl td { color: #E0F2FE; }
+  .total { background: rgba(99,102,241,.14); }
+  .total td { color: #FFFFFF; font-weight: 800; }
+  .total td.num { color: #A5B4FC; }
+  .code {
+    margin-top: 18px; border-radius: 12px; padding: 16px 18px;
+    background: rgba(2,6,23,.72); border: 1px solid rgba(148,163,184,.14);
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; line-height: 1.85; color: #94A3B8;
+  }
+  .code .k { color: #7DD3FC; }
+  .code .s { color: #A5B4FC; }
+  .badge {
+    margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .badge span {
+    font-size: 12px; color: #CBD5E1; padding: 7px 12px; border-radius: 99px;
+    background: rgba(30,41,59,.55); border: 1px solid rgba(148,163,184,.16);
+  }
+</style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="grid"></div>
+  <div class="frame">
+    <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
+  </div>
+
+  <div class="inner">
+    <div class="left">
+      <div class="eyebrow"><span class="dot"></span>AI REPORT ENGINE · RUST</div>
+      <h1>把复杂报表，<br />交给<span class="grad">AI 报表引擎</span>。</h1>
+      <p class="sub">
+        Rust 重写的报表引擎。多源分片、不规则分组、自由格间运算、交叉表合并、统计图与条码，
+        <b>从定义直接交付 Excel / HTML / PDF</b>。
+      </p>
+      <div class="spacer"></div>
+      <div class="stats">
+        <div class="stat"><div class="v">20<em>+</em></div><div class="l">可运行报表样例</div></div>
+        <div class="stat"><div class="v">8<em> 类</em></div><div class="l">中国式复杂能力</div></div>
+        <div class="stat"><div class="v">1<em> 份</em></div><div class="l">JSON 贯穿全链路</div></div>
+        <div class="stat"><div class="v">3<em> 种</em></div><div class="l">Excel / HTML / PDF</div></div>
+      </div>
+      <div class="foot"><span class="bar"></span>DEFINE ONCE · RUN ANYWHERE · VERIFY BY FIXTURES</div>
+    </div>
+
+    <div class="right">
+      <div class="report">
+        <div class="report-head"><span class="t">员工工资表</span><span class="tag">extend · vertical</span></div>
+        <table>
+          <thead><tr><th>姓名</th><th>部门</th><th style="text-align:right">实发</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td>张伟</td><td>销售部</td><td class="num">10,400</td></tr>
+            <tr class="hl"><td>李娜</td><td>销售部</td><td class="num">10,850</td></tr>
+            <tr class="hl"><td>王强</td><td>销售部</td><td class="num">8,400</td></tr>
+            <tr><td>陈晨</td><td>技术部</td><td class="num">14,800</td></tr>
+            <tr><td>刘洋</td><td>技术部</td><td class="num">13,400</td></tr>
+            <tr><td>赵敏</td><td>财务部</td><td class="num">10,800</td></tr>
+            <tr class="total"><td>合计</td><td>—</td><td class="num">68,650</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code">
+        <div><span class="k">"expr"</span>: <span class="s">"ds1.select(name)"</span></div>
+        <div><span class="k">"extend_mode"</span>: <span class="s">"vertical"</span></div>
+        <div><span class="k">"expr"</span>: <span class="s">"ds1.sum(salary)"</span></div>
+      </div>
+      <div class="badge">
+        <span>多源分片</span><span>格间运算</span><span>动态合并</span><span>Code 128B</span><span>ECharts</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
