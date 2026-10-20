@@ -704,8 +704,12 @@ pub struct HeadInjection {
     pub noscript: Option<String>,
 }
 
-/// 站点首页头注
-pub fn build_site_head(f: &Facts) -> HeadInjection {
+/// 站点首页头注。
+///
+/// `is_home`：该模板是否是**当前激活的首页模板**。只有首页才用站点名称覆盖
+/// `<title>`；`/t/member`（会员中心）、上传样例、被预览的旧模板等都有各自
+/// 的功能性标题，篡改它们反而是错的。
+pub fn build_site_head(f: &Facts, is_home: bool) -> HeadInjection {
     let (total, paid) = f.counts();
     let desc = if !f.description.is_empty() {
         f.description.clone()
@@ -760,13 +764,18 @@ pub fn build_site_head(f: &Facts) -> HeadInjection {
         json_ld.push(q.to_string());
     }
 
+    // 站点首页的 `<title>` 以**后台「站点名称 + 站点标语」**为准；模板 index.html
+    // 里写死的那行只是后台没配时的兜底。这里原先是 `title: None`（"保留模板自带"），
+    // 结果后台改名后直出 HTML 仍停在旧品牌名 —— 爬虫与 AI 抓到的是过期事实，
+    // 而 og:site_name 又已经是新名字，同页两处品牌名互相打架。
+    let site_title = if f.tagline.is_empty() {
+        f.title.clone()
+    } else {
+        format!("{} · {}", f.title, f.tagline)
+    };
     HeadInjection {
-        title: None,
-        fallback_title: Some(if f.tagline.is_empty() {
-            f.title.clone()
-        } else {
-            format!("{} · {}", f.title, f.tagline)
-        }),
+        title: if is_home { Some(site_title.clone()) } else { None },
+        fallback_title: Some(site_title),
         description: None,
         canonical: Some(f.site_url.clone()),
         og_type: "website",
@@ -1330,7 +1339,8 @@ fn replace_title(html: &str, title: &str) -> String {
 ///
 /// 顺序与语义：
 /// 1. 已含 `MARKER` → 原样返回（幂等）；
-/// 2. 标题：有 `title` 则替换 `<title>`；模板无 `<title>` 时用 `fallback_title` 插入；
+/// 2. 标题：有 `title` 则以它为准（有 `<title>` 就替换、没有就插入）；
+///    没给 `title` 时才用 `fallback_title` 在模板缺 `<title>` 时补一个；
 /// 3. description：有 `description` 则先删旧 `<meta name="description">` 再插入；
 /// 4. 删掉旧的 canonical 与 ld+json（我们总会重新给出）；
 /// 5. 我们的 og/twitter 属性若模板已有，先删旧再插，避免重复；
@@ -1375,8 +1385,17 @@ pub fn inject_head(html: &str, h: &HeadInjection) -> String {
     out = strip_ldjson(&out);
 
     // ── title ──
+    // `title` 是**权威值**：模板有 `<title>` 就替换，没有就插入。
+    // 旧实现只做替换，模板缺 `<title>` 时会被静默跳过 —— 那会让
+    // 「用站点名称覆盖模板标题」在无标题模板上退化成完全没有标题。
+    // `fallback_title` 只在调用方没给 `title`（即「保留模板原值」）时兜底。
     if let Some(t) = h.title.as_ref() {
         out = replace_title(&out, t);
+        if find_ci(&out, "<title").is_none() {
+            if let Some(i) = find_ci(&out, "</head") {
+                out.insert_str(i, &format!("<title>{}</title>\n", esc_html(t)));
+            }
+        }
     } else if let Some(fb) = h.fallback_title.as_ref() {
         if find_ci(&out, "<title").is_none() {
             if let Some(i) = find_ci(&out, "</head") {
@@ -1879,6 +1898,9 @@ pub async fn head_for(st: &AppState, slug: &str, rest: &str) -> Option<HeadInjec
             return None;
         }
     };
+    // 只有当前激活的首页模板才把 `<title>` 换成站点名称（见 build_site_head）。
+    // 真相源与 /t/active 同一个函数，避免两处各判一次而漂移。
+    let is_home = crate::templates::resolve_active(st).await == slug;
     let rel = rest.trim_matches('/');
     if let Some(key) = article_key_from_path(rel) {
         match article_full(st, site_url.as_str(), &key).await {
@@ -1886,15 +1908,15 @@ pub async fn head_for(st: &AppState, slug: &str, rest: &str) -> Option<HeadInjec
             Ok(None) => {
                 // 文章不存在（可能是前端路由的其它深链）→ 退回站点头注，
                 // 总比让爬虫拿到空壳好。
-                return Some(build_site_head(&f));
+                return Some(build_site_head(&f, is_home));
             }
             Err(e) => {
                 eprintln!("[agent] 查询文章失败（{key}）：{e}");
-                return Some(build_site_head(&f));
+                return Some(build_site_head(&f, is_home));
             }
         }
     }
-    Some(build_site_head(&f))
+    Some(build_site_head(&f, is_home))
 }
 
 /// 从模板内相对路径里提取文章 key：`post/<key>`、`read/<key>`、`articles/<key>`。
@@ -1982,7 +2004,7 @@ mod tests {
                     <script type=\"module\" src=\"/t/x/assets/a.js\"></script></head>\
                     <body><div id=\"root\"></div></body></html>";
         let f = facts_fixture();
-        let out = inject_head(html, &build_site_head(&f));
+        let out = inject_head(html, &build_site_head(&f, true));
 
         assert!(out.contains(MARKER));
         assert!(out.contains("rel=\"canonical\""));
@@ -1991,19 +2013,28 @@ mod tests {
         assert!(out.contains("FAQPage"));
         assert!(out.contains("<noscript>"));
         assert!(out.contains("U 卡横评"));
-        // 站点根保留模板自己写的 title / description（那是"对人"的门面文案），
-        // 但 og:* 必须与它们**同源**：每个值恰好出现 2 次
-        // （<title> + og:title / meta description + og:description）。
+        // 站点根的 <title> 以后台「站点名称 + 标语」为准 —— 模板 index.html 里
+        // 写死的那行只是后台没配时的兜底，不能反过来盖住 CMS 配置。
+        let site_title = "可可鸭 KeKeYa · 把连接，变成看得见的机会。";
+        assert!(
+            out.contains(&format!("<title>{site_title}</title>")),
+            "站点根应覆盖模板 title"
+        );
+        assert!(!out.contains("旧标题"), "模板里的旧标题必须被替换掉");
+        // title 共 3 处：<title> / og:title / twitter:title
+        assert_eq!(
+            out.matches(site_title).count(),
+            3,
+            "og/twitter title 应与 <title> 同文本"
+        );
+        // description 站点级不覆盖（保留模板门面文案），
+        // 但 og/twitter 必须与它同源：共 3 处。
         assert_eq!(out.matches("name=\"description\"").count(), 1);
-        // description 共 3 处：meta description / og:description / twitter:description（三处同源）
         assert_eq!(
             out.matches("旧描述").count(),
             3,
             "og/twitter description 应与 meta description 同文本"
         );
-        assert!(out.contains("<title>旧标题</title>"));
-        // title 共 3 处：<title> / og:title / twitter:title
-        assert_eq!(out.matches("旧标题").count(), 3, "og/twitter title 应与 <title> 同文本");
         // Twitter 卡必须显式给出（X 对 og 的回落不可靠）
         assert!(out.contains("twitter:card"));
         assert!(out.contains("twitter:title"));
@@ -2013,7 +2044,7 @@ mod tests {
         assert!(out.contains("content=\"summary\""), "无封面时应给 summary");
         assert!(!out.contains("summary_large_image"), "无封面时不该声明大卡");
         // 幂等
-        assert_eq!(inject_head(&out, &build_site_head(&f)), out);
+        assert_eq!(inject_head(&out, &build_site_head(&f, true)), out);
     }
 
     /// 有封面时 Twitter 卡升级为大卡，并与 og:image 一致
@@ -2021,7 +2052,7 @@ mod tests {
     fn twitter_card_upgrades_with_image() {
         let f = facts_fixture();
         let html = "<html><head><title>t</title></head><body></body></html>";
-        let mut h = build_site_head(&f);
+        let mut h = build_site_head(&f, true);
         h.image = Some("https://example.com/cover.png".into());
         let out = inject_head(html, &h);
         assert!(out.contains("content=\"summary_large_image\""));
@@ -2029,12 +2060,13 @@ mod tests {
         assert!(out.contains("og:image"));
     }
 
-    /// 站点根：模板缺 <title> 时用 fallback 补上
+    /// 站点根：模板连 `<title>` 都没有时，`title` 也必须能插进去
+    /// （旧实现只做替换，模板缺标题就会静默跳过，最终一个标题都没有）
     #[test]
     fn fallback_title_when_missing() {
         let html = "<html><head></head><body></body></html>";
         let f = facts_fixture();
-        let out = inject_head(html, &build_site_head(&f));
+        let out = inject_head(html, &build_site_head(&f, true));
         assert!(out.contains("<title>可可鸭 KeKeYa · 把连接，变成看得见的机会。</title>"));
     }
 
@@ -2066,11 +2098,24 @@ mod tests {
     #[test]
     fn jsonld_escapes_script_close() {
         let html = "<html><head></head><body></body></html>";
-        let mut h = build_site_head(&facts_fixture());
+        let mut h = build_site_head(&facts_fixture(), true);
         h.jsonld = vec!["{\"a\":\"</script><b>\"}".to_string()];
         let out = inject_head(html, &h);
         assert!(!out.contains("</script><b>"));
         assert!(out.contains("\\u003c/script\\u003e"));
+    }
+
+    /// 非激活模板（会员中心 / 上传样例 / 被预览的旧模板）必须保留自己的标题：
+    /// 只有站点首页才该叫站点名。
+    #[test]
+    fn non_home_template_keeps_own_title() {
+        let html = "<html><head><title>会员中心</title></head><body></body></html>";
+        let out = inject_head(html, &build_site_head(&facts_fixture(), false));
+        assert!(
+            out.contains("<title>会员中心</title>"),
+            "非首页模板的标题不该被站点名覆盖"
+        );
+        assert!(!out.contains("可可鸭 KeKeYa · 把连接"));
     }
 
     /// 正文提取：去标签、剔 script、解实体、超长截断
