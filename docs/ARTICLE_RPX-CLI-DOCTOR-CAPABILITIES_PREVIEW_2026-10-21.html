@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>不读文档也能接上：rpx capabilities 与 doctor 的自描述设计 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-cli-doctor-capabilities</code>
+    （生产形态 <code>/t/coucouya/post/rpx-cli-doctor-capabilities</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 08:24 ｜ 正文字符数：6352 ｜ 章节 6 ／ 表格 3 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">不读文档也能接上：rpx capabilities 与 doctor 的自描述设计</h1>
+  <article class="article-body">
+<h2>为什么 CLI 要先会自述</h2>
+
+<p>报表引擎的 CLI 有个不太常见的设计：<strong>它把自己能干什么、会怎么失败、边界在哪，全部作为一条命令的输出返回</strong>，而不是写在文档里等你去读。</p>
+
+<pre><code>rpx capabilities
+rpx doctor</code></pre>
+
+<p>本文是 CLI 系列的第一篇，其余四篇分别讲<a href="/post/rpx-cli-lint">静态检查</a>、<a href="/post/rpx-cli-run-export">执行与导出</a>、<a href="/post/rpx-cli-template-patch">模板的查看与补丁</a>、<a href="/post/rpx-cli-library-report">目录库与生命周期</a>。
+
+<p>这两条命令都不需要数据、不需要网络、不需要鉴权——<code>offline: true</code>、<code>authentication: "not_required"</code>。它们是给<strong>程序</strong>准备的：一个 Agent 拿到 <code>capabilities</code> 的输出，就知道有哪些命令、参数怎么传、失败会长什么样，不需要先去啃一份人类文档。</p>
+
+<p>这不是偷懒省文档，而是把「文档会过期」这个问题从根上绕开：<strong>输出是代码当场生成的，不会和实现对不上</strong>。当然，前提是你真的把每一项都从实现里取——本文后面会讲一处没做到的地方。</p>
+
+<h2>capabilities：一张清单顶一份文档</h2>
+
+<p>输出是一个 JSON，我们按用途拆成五块看。</p>
+
+<h3>一、命令面：26 条，每条带一句话摘要</h3>
+
+<p>实测当前版本（<code>0.16.0</code>，<code>protocol_version: 1</code>）返回 26 条命令，每条有 <code>name</code> / <code>summary</code> / <code>offline</code>。按职责大致分五组：</p>
+
+<ul>
+<li><strong>自述与自检</strong>：<code>doctor</code>、<code>capabilities</code>、<code>schema.template</code></li>
+<li><strong>定义面</strong>：<code>template.inspect</code>、<code>template.validate</code>、<code>template.create</code>、<code>template.patch</code>、<code>lint</code></li>
+<li><strong>执行与产物</strong>：<code>run</code>、<code>result.inspect</code></li>
+<li><strong>数据面</strong>：<code>dataset.inspect</code>、<code>catalog.functions</code>、<code>catalog.examples</code></li>
+<li><strong>目录库</strong>：<code>library.init</code> 加 <code>report.*</code> 共 12 条（list / show / runs / copy / patch / validate / run / update / import-json / delete / migrate / prune）</li>
+</ul>
+
+<h3>二、错误码：32 个，每个带退出码与阶段</h3>
+
+<p>这是我认为最实用的一块。32 个错误码，每个都给了 <code>code</code> / <code>exit</code> / <code>meaning</code> / <code>stage</code>，部分还标了 <code>hint: true</code>（表示错误信息里会附带可执行的提示）。</p>
+
+<p>退出码是<strong>分层的</strong>，而且分层方式对自动化很关键：</p>
+
+<table>
+<tr><th>退出码</th><th>含义</th><th>该不该重试</th></tr>
+<tr><td>0</td><td>成功（可能带 warning 诊断）</td><td>—</td></tr>
+<tr><td>2</td><td>用法/参数错误</td><td><strong>不重试</strong>，重试同样参数无用</td></tr>
+<tr><td>3</td><td>定义错误（JSON 不合法、表达式语法错、结构冲突）</td><td>改模板后再试</td></tr>
+<tr><td>4</td><td>输入/数据错误（文件缺失、列不存在、连不上库）</td><td>修输入后再试</td></tr>
+<tr><td>5</td><td>计算错误（表达式求值失败）</td><td>多为作用域/列引用问题</td></tr>
+<tr><td>6</td><td>IO/导出/内部错误</td><td>看具体诊断</td></tr>
+</table>
+
+<p>「2 不重试」这一条看着简单，实际能省掉大量无效循环：Agent 最常见的坏行为就是<strong>拿到参数错误后换个姿势再试八次</strong>。</p>
+
+<h3>三、限制值：这些是硬边界，不是建议</h3>
+
+<table>
+<tr><th>项</th><th>值</th></tr>
+<tr><td>Excel 最大列数</td><td>16384</td></tr>
+<tr><td>Excel 最大行数</td><td>1048576</td></tr>
+<tr><td>分页每页上限</td><td>500</td></tr>
+<tr><td>SQL 结果默认行数</td><td>100000（可用 <code>RPX_SQL_MAX_ROWS</code> 覆盖）</td></tr>
+</table>
+
+<p>把它们放进自述而不是文档，是因为<strong>它们会变</strong>。程序读的是当场的值，人读文档可能读到上一版。</p>
+
+<h3>四、约定（conventions）：四条容易踩的口径</h3>
+
+<p>这一块是纯经验，读一遍能省掉几次调试：</p>
+
+<ul>
+<li><strong><code>border</code>：模板可声明，但当前导出不落地</strong>——写了等于没写；</li>
+<li><strong>坐标从 1 起，A1 风格</strong>——不是 0 起；</li>
+<li><strong>同排多个 <code>vertical</code> 必须用 <code>left_head</code> 串父子链</strong>——否则扩展相乘；</li>
+<li><strong>宏只在 <code>expr</code> 里替换，写进 <code>text</code> 会原样上屏</strong>。</li>
+</ul>
+
+<h3>五、数据源与导出</h3>
+
+<p><code>datasources</code> 列出 6 种：CSV、TSV、Excel、SQLite、PostgreSQL、MySQL。<code>exports</code> 列出 5 种：csv、xlsx、print-xlsx、html、pdf。</p>
+
+<h2>doctor：当前环境到底能跑什么</h2>
+
+<p><code>capabilities</code> 说的是「引擎支持什么」，<code>doctor</code> 说的是「这台机器上现在能用什么」。两者的区别很重要。</p>
+
+<h3>binary：版本是否与源码一致</h3>
+
+<p>实测输出里有一项 <code>binary</code>，带 <code>version</code>、<code>source_version</code>、<code>source_manifest</code>、<code>stale</code>：它拿可执行文件的版本和源码 <code>Cargo.toml</code> 比对，<code>stale: true</code> 就意味着<strong>你跑的二进制比源码旧</strong>。这在「改了引擎却忘了重编 CLI」时非常有用——症状往往是莫名其妙的行为差异，很难往版本上想。</p>
+
+<h3>pdf：有没有可用的浏览器</h3>
+
+<p>PDF 导出走 <code>chrome-headless</code>，所以能不能用取决于机器上有没有浏览器。实测这台机器：</p>
+
+<pre><code>"available": false,
+"detail": "未找到 Chrome/Chromium/Edge；--export pdf 不可用，可设 RPX_CHROME 指定浏览器路径"</code></pre>
+
+<p>注意它<strong>没有把这条算作失败</strong>——<code>ok: true</code>。这是有意的：缺浏览器不影响其他 4 种导出，不该让整个自检红掉。真正的失败会在你真的请求 pdf 时以 warning 形式出现。</p>
+
+<h3>library / datasources：按需才查</h3>
+
+<p>这两项默认显示 <code>"not requested"</code>。要查就显式传参：</p>
+
+<pre><code>rpx doctor --library /path/to/lib
+rpx doctor --datasources /path/to/datasources.json</code></pre>
+
+<h2>一个不一致：5 种导出 vs 3 种</h2>
+
+<p>把两条命令的输出放在一起看，会发现一处对不上：</p>
+
+<table>
+<tr><th>来源</th><th>exports</th></tr>
+<tr><td><code>capabilities</code></td><td>csv、xlsx、print-xlsx、html、pdf（5 种）</td></tr>
+<tr><td><code>doctor</code></td><td>csv、xlsx、print-xlsx（3 种）</td></tr>
+<tr><td><code>run --export</code> 参数</td><td>接受 5 种</td></tr>
+</table>
+
+<p>我核对了实现：<code>run</code> <strong>确实实现了全部 5 种</strong>——html 和 pdf 都先渲染成页面，pdf 再交给 Chrome。所以 <code>capabilities</code> 是对的，<code>doctor</code> 那份列表是<strong>硬编码的常量，没跟着更新</strong>。</p>
+
+<p>这类不一致正是「自描述」要防的东西，而它恰恰在自描述里漏了一处。用法上的结论是：<strong>想知道当前能导出什么，以 <code>doctor</code> 为准；想知道一共支持什么，以 <code>capabilities</code> 为准</strong>——但在修好之前，更稳的做法是直接请求你要的格式，然后看返回的诊断。</p>
+
+<p>顺带说一句：<code>REVISION_CONFLICT</code> 也是同样情况——它是目录库写入时真实会返回的错误码，但不在 <code>capabilities</code> 的 32 条清单里。</p>
+
+<h2>Agent 的接入回路</h2>
+
+<p>把这两条命令用起来，一个最小但完整的回路是这样的：</p>
+
+<ol>
+<li><strong>先 <code>rpx doctor</code></strong>：确认版本没过期、pdf 可不可用、数据源通不通；</li>
+<li><strong>再 <code>rpx capabilities</code></strong>：拿到命令面、错误码表、限制值，之后所有调用都按这张表来；</li>
+<li><strong>写定义 → <code>rpx lint</code></strong>：静态自检；</li>
+<li><strong><code>rpx run</code></strong>：真跑，看 <code>diagnostics</code> 而不是只看 <code>ok</code>；</li>
+<li><strong>失败时按退出码分层处理</strong>：2 不重试，3 改定义，4 修输入，5 查引用。</li>
+</ol>
+
+<p>第 4 步那句「看 <code>diagnostics</code>」值得强调：<strong>一次 <code>run</code> 可以 <code>ok: true</code> 但带着 warning</strong>（比如某个导出格式失败了）。只看 <code>ok</code> 会漏掉这些信息——<a href="/post/rpx-cli-run-export">这篇</a>里有实测的完整返回。</p>
+
+<h2>常见问题</h2>
+
+<h3>输出太长，能只看人话吗？</h3>
+
+<p>可以。所有命令都支持 <code>--output text</code>，全局参数，默认 <code>json</code>。<strong>程序用 json，人看 text。</strong></p>
+
+<h3>它需要联网吗？</h3>
+
+<p>不需要。<code>offline: true</code> 是写在自述里的，全部命令都不依赖网络（连数据源也是本地文件或你自己的库）。</p>
+
+<h3><code>web_executes_engine: false</code> 是什么意思？</h3>
+
+<p>意思是<strong>网页端不执行计算</strong>。引擎的 HTTP 服务只伺服固定产物，不做实时求值；要算就得走 CLI 或库。这也是为什么样例画廊是预先生成好的。<a href="/post/rpx-json-cli-agent">这篇</a>讲了这个取舍。</p>
+
+<h3>版本会变，我要锁死吗？</h3>
+
+<p><code>protocol_version</code> 就是为这个准备的：它是<strong>输出结构的版本</strong>，和 <code>version</code>（引擎版本）分开。结构不兼容时 <code>protocol_version</code> 会变，程序应该先看这个字段再解析。</p>
+
+  </article>
+</div>
+</body>
+</html>

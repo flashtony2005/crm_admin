@@ -1,0 +1,51 @@
+{
+  "artifacts": {
+    "report-print.xlsx": "artifacts/report-print.xlsx",
+    "report.csv": "artifacts/report.csv",
+    "report.xlsx": "artifacts/report.xlsx",
+    "result.json": "artifacts/result.json",
+    "workbook.json": "artifacts/workbook.json"
+  },
+  "diagnostics": [],
+  "engine_version": "0.16.0",
+  "finished_at": "2026-10-21T02:00:39.3599156Z",
+  "inputs": [
+    {
+      "kind": "parameters",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "dataset": "sales",
+      "kind": "file",
+      "path": "F:\\tmp\\rpx-agent-store\\data\\store-sales.csv",
+      "sha256": "b373c241e53e24c96011e4bb1971ee05324c18d3f96781a490d9e3a62f61346e"
+    }
+  ],
+  "layout": {
+    "cols": 6,
+    "page_columns": 1,
+    "page_count": 1,
+    "paginated": true,
+    "paper_h_pt": 700.157470703125,
+    "paper_w_pt": 487.5590515136719,
+    "row_num_per_page": 20,
+    "rows": 15,
+    "x_pages": 1,
+    "y_pages": 1
+  },
+  "parameters": {},
+  "report_id": null,
+  "revision": "817532f4b206502393665e65205f849557e6e939524009488ec6bea02070412c",
+  "run_id": "run",
+  "shape": {
+    "cols": 6,
+    "pages": 1,
+    "rows": 15
+  },
+  "source_files": [
+    "source/template.json"
+  ],
+  "started_at": "2026-10-21T02:00:38.8004581Z",
+  "status": "succeeded",
+  "version": 1
+}

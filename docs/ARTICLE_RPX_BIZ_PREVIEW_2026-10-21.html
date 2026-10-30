@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7 份业务报表，逐格拆解：中国式报表真正的难点不在渲染 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-business-reports</code>
+    （生产形态 <code>/t/coucouya/post/rpx-business-reports</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 08:01 ｜ 正文字符数：15425 ｜ 章节 12 ／ 表格 6 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">7 份业务报表，逐格拆解：中国式报表真正的难点不在渲染</h1>
+  <article class="article-body">
+<h2>为什么从这 7 份开始</h2>
+
+<p>AI 报表引擎的样例库里有 29 份可运行报表，分成 11 个能力域。其中最大的一类叫<strong>典型业务报表</strong>，7 份——员工工资表、销售发货单、库存进销存台账、资金日记账、应收账款账龄分析表、利润表、资产负债表。</p>
+
+<p>之所以先拆这 7 份，不是因为它们简单，恰恰相反：<strong>它们是最难被「通用报表工具」对付的一类</strong>。前面那些能力域——多源关联分片、不规则分组、交叉表合并——考验的是引擎的构造能力；而这 7 份考验的是另一件事：<strong>你做出来的东西，业务人员敢不敢拿去用。</strong></p>
+
+<ul>
+<li><strong>员工工资表</strong>——分组小计、逐行计算列，最日常的一份；</li>
+<li><strong>销售发货单</strong>——单据式版式，要能直接打印交付；</li>
+<li><strong>库存进销存台账</strong>——期初 + 入库 − 出库 = 期末，行内表达式；</li>
+<li><strong>资金日记账</strong>——余额逐行结转，相对偏移引用；</li>
+<li><strong>应收账款账龄分析表</strong>——条件汇总与区间边界；</li>
+<li><strong>利润表</strong>——多级科目逐级汇总、两期对比；</li>
+<li><strong>资产负债表</strong>——左右双栏，平衡校验差额必须是 0。</li>
+</ul>
+
+<p>工资表要能直接发给员工，发货单要能打印出来交给客户，资产负债表左右两栏必须相等。这些要求跟「引擎能不能算」是两回事，但<strong>它们才是决定这套东西能不能上桌的东西</strong>。</p>
+
+<p>这 7 份样例的另一个特点是：<strong>数据都是能读懂的</strong>。不是「字段 A 加字段 B」，而是「张伟基本工资 8000、奖金 3200、扣款 800，实发 10400」。你可以拿计算器核对，也可以拿自己公司的表对照。</p>
+
+<h2>每份样例都回答三个问题</h2>
+
+<p>7 份样例在画廊里都是同一个结构，每一份都在回答三个问题：<strong>业务上要什么、JSON 里怎么描述、断言验的是什么</strong>。前两个是给人的，第三个是给机器的。29 份样例一共带着 <strong>143 条这样的逐格断言</strong>，这 7 份贡献了其中 32 条。</p>
+
+<h3>数据不是编的，也不是引擎跑出来的</h3>
+
+<p>先说一件容易被误解的事：<strong>断言里的期望值不是引擎跑完记下来的日志，是人事先算好写进去的</strong>。</p>
+
+<p>比如工资表，我们先在源数据里写下 6 个员工的部门、姓名、基本工资、奖金、扣款，然后手工算出每人实发是多少、合计是多少，把结果写进断言；引擎跑的时候必须逐个对上。<strong>如果期望值由引擎自己产生，那断言就只是引擎跟自己比，任何 bug 都会一起错，等于没验证。</strong></p>
+
+<p>本文里出现的每一个数字，我们都用源数据独立验算过一遍。你可以照着算，算出来的应该跟本文一致——不一致就是文章写错了，欢迎指出。</p>
+
+<h2>员工工资表 · 部门分组小计</h2>
+
+<p>先看最简单的一份，但它已经包含了中国式报表最常见的两个麻烦。画廊里的真实渲染：<strong>部门列纵向合并成一格，员工逐行展开，合计行由明细汇总</strong>，底部一行小字标注口径（同一份内分组内「部门」只出现一次并跨行覆盖；金额跳到千分位两位小数）。</p>
+
+<p><img src="/uploads/rpx-biz-payroll.png" alt="员工工资表 · 部门分组小计（画廊真实渲染）" /></p>
+
+<table>
+<tr><th>部门</th><th>姓名</th><th>基本工资</th><th>奖金</th><th>扣款</th><th>实发</th></tr>
+<tr><td>销售部</td><td>张伟</td><td>8000</td><td>3200</td><td>800</td><td>10400</td></tr>
+<tr><td>销售部</td><td>李娜</td><td>9000</td><td>2800</td><td>950</td><td>10850</td></tr>
+<tr><td>销售部</td><td>王强</td><td>7500</td><td>1500</td><td>600</td><td>8400</td></tr>
+<tr><td>技术部</td><td>陈晨</td><td>12000</td><td>4000</td><td>1200</td><td>14800</td></tr>
+<tr><td>技术部</td><td>刘洋</td><td>11000</td><td>3500</td><td>1100</td><td>13400</td></tr>
+<tr><td>财务部</td><td>赵敏</td><td>9500</td><td>2000</td><td>700</td><td>10800</td></tr>
+<tr><td><strong>合计</strong></td><td></td><td><strong>57000</strong></td><td></td><td></td><td><strong>68650</strong></td></tr>
+</table>
+
+<h3>麻烦一：合并是显示层的事，不是数据层的事</h3>
+
+<p>「销售部」在页面上是一个跨 3 行的合并单元格，但如果你去问引擎「第 3 行的部门是什么」，答案必须是<strong>「销售部」</strong>，而不是空、也不是「同上」。</p>
+
+<p>这条断言写得很直白：部门列逐行取值必须是 <code>["销售部", "销售部", "销售部", "技术部", "技术部", "财务部"]</code>——<strong>六行六个值，一个都不能因为合并而少掉</strong>。在画廊的「运行校验」页里，这条断言连着员工列、实发列一起逐条展示，每条都标着模板原格坐标：</p>
+
+<p><img src="/uploads/rpx-biz-checks.png" alt="工资表的运行校验：断言逐条锚在模板原格上" /></p>
+
+<p>为什么这值得单独写一条断言？因为很多实现把合并做在了数据层：合并之后第 2、3 行的部门就真的没了。这样做出来的表看着对，但一旦你要按部门筛选、按部门做小计、或者导出成 Excel 让别人再加工，<strong>数据就断了</strong>。</p>
+
+<h3>麻烦二：计算列是逐行的，不是填公式</h3>
+
+<p>「实发」这一列，每一行都是 <code>基本工资 + 奖金 − 扣款</code>。它不是一个写死的数，也不是「Excel 里下拉填充」——<strong>它是一行表达式，数据来几行就自动算几行</strong>。</p>
+
+<p>独立验算：张伟 8000 + 3200 − 800 = 10400，李娜 9000 + 2800 − 950 = 10850，王强 7500 + 1500 − 600 = 8400，陈晨 12000 + 4000 − 1200 = 14800，刘洋 11000 + 3500 − 1100 = 13400，赵敏 9500 + 2000 − 700 = 10800。六行与断言逐条一致。</p>
+
+<p>合计行是另一套口径：基本工资合计 57000（8000+9000+7500+12000+11000+9500），实发合计 68650（10400+10850+8400+14800+13400+10800）。<strong>两者都由明细汇总，不是另写一遍公式</strong>——这样改任何一个明细，两处合计都会跟着变。</p>
+
+<h2>销售发货单 · 一单多行明细</h2>
+
+<p>这份样例把报表推到了<strong>交付形态</strong>：抬头带客户与单号，下面是多行商品明细，底部是金额合计、税额、价税合计和签收栏。<strong>一张纸可以直接打印出来交给客户。</strong></p>
+
+<p><img src="/uploads/rpx-biz-sales-order.png" alt="销售发货单：抬头、多行明细、税额与价税合计（画廊真实渲染）" /></p>
+
+<table>
+<tr><th>行</th><th>品名</th><th>数量</th><th>单价（元）</th><th>金额（元）</th></tr>
+<tr><td>1</td><td>工业铝型材 4040</td><td>120</td><td>168.00</td><td>20160</td></tr>
+<tr><td>2</td><td>角件 4040</td><td>480</td><td>12.50</td><td>6000</td></tr>
+<tr><td>3</td><td>直线导轨 HGR20</td><td>36</td><td>265.00</td><td>9540</td></tr>
+<tr><td>4</td><td>滚珠丝杆 SFU1605</td><td>24</td><td>398.00</td><td>9552</td></tr>
+<tr><td>5</td><td>伺服电机 750W</td><td>12</td><td>1860.00</td><td>22320</td></tr>
+<tr><td>6</td><td>联轴器 8×10</td><td>24</td><td>86.00</td><td>2064</td></tr>
+<tr><td colspan="4"><strong>金额合计（不含税）</strong></td><td><strong>69636</strong></td></tr>
+<tr><td colspan="4"><strong>增值税 13%</strong></td><td><strong>9052.68</strong></td></tr>
+<tr><td colspan="4"><strong>价税合计</strong></td><td><strong>78688.68</strong></td></tr>
+</table>
+
+<h3>金额 = 数量 × 单价，逐行算</h3>
+
+<p>六行明细的金额都是数量乘单价：<strong>120 × 168 = 20160</strong>、480 × 12.5 = 6000、36 × 265 = 9540、24 × 398 = 9552、12 × 1860 = 22320、24 × 86 = 2064。全部与断言逐条一致。</p>
+
+<p>合计 69636 = 20160 + 6000 + 9540 + 9552 + 22320 + 2064，独立验算一致。</p>
+
+<h3>税额是乘出来的，不是抄来的</h3>
+
+<p>13% 增值税：<strong>69636 × 0.13 = 9052.68</strong>；价税合计 <strong>69636 + 9052.68 = 78688.68</strong>。两个数字都由合计推导，不是手填常量。</p>
+
+<p>这一点在实际业务里很关键：<strong>税率会变</strong>。如果税额是写死的，改一次税率就要改所有单据模板；如果税额是从合计算出来的，改一处就够。</p>
+
+<h3>单据式版式是另一种要求</h3>
+
+<p>注意这份样例不只是「算得对」，还要求<strong>版式对</strong>：抬头、明细区、合计区、签字栏各在其位，打印出来是一张完整的单据。这跟「能不能算」是两套能力，但少了它，做出来的东西就只能内部看，<strong>交不出去</strong>。</p>
+
+<h2>库存进销存台账</h2>
+
+<p>仓储月度台账，规则一句话就能说完：<strong>期初 + 入库 − 出库 = 期末</strong>。但就是这么简单的一句话，实现方式差别很大。</p>
+
+<table>
+<tr><th>编码</th><th>品名</th><th>期初</th><th>入库</th><th>出库</th><th>期末</th></tr>
+<tr><td>A-1001</td><td>碳钢法兰 DN50</td><td>120</td><td>300</td><td>260</td><td>160</td></tr>
+<tr><td>A-1002</td><td>不锈钢球阀 DN25</td><td>64</td><td>180</td><td>150</td><td>94</td></tr>
+<tr><td>A-1003</td><td>橡胶垫片 DN50</td><td>900</td><td>1200</td><td>1500</td><td>600</td></tr>
+<tr><td>A-1004</td><td>六角螺栓 M12</td><td>45</td><td>120</td><td>90</td><td>75</td></tr>
+<tr><td>A-1005</td><td>轴承 6204-2RS</td><td>28</td><td>60</td><td>72</td><td>16</td></tr>
+<tr><td>A-1006</td><td>液压油 46#</td><td>12</td><td>24</td><td>20</td><td>16</td></tr>
+<tr><td colspan="3"><strong>合计</strong></td><td><strong>1884</strong></td><td><strong>2092</strong></td><td></td></tr>
+</table>
+
+<h3>期末是同一行的表达式结果</h3>
+
+<p>「期末」这一列不是从数据库查出来的字段，而是<strong>同一行里期初、入库、出库三个字段的表达式结果</strong>。逐行验算：120+300−260 = 160，64+180−150 = 94，900+1200−1500 = 600，45+120−90 = 75，28+60−72 = 16，12+24−20 = 16。六行与断言 <code>[160, 94, 600, 75, 16, 16]</code> 完全一致。</p>
+
+<p>注意 A-1005 和 A-1006 的期末都是 16，但一个是 28+60−72、另一个是 12+24−20——<strong>数字相同不代表算法相同，断言逐行钉死才能区分这两种情况</strong>。</p>
+
+<h3>数量与金额混排在同一张表</h3>
+
+<p>入库合计 1884、出库合计 2092 是数量；入库金额合计 15900 是金额（5400+6300+360+720+1440+1680）。<strong>同一行里既有数量列又有金额列，两者的汇总口径不同但互不相扰</strong>——这也是中国式台账的常见形态。</p>
+
+<h2>资金日记账 · 逐行结转</h2>
+
+<p>出纳日记账，规则同样只有一句：<strong>每行余额 = 上一行余额 + 借方 − 贷方</strong>，首行还要加上期初余额。</p>
+
+<table>
+<tr><th>日期</th><th>摘要</th><th>借方</th><th>贷方</th><th>余额</th></tr>
+<tr><td>2025-09-02</td><td>收到华东机械集团货款</td><td>320000</td><td>0</td><td>448500</td></tr>
+<tr><td>2025-09-03</td><td>支付原材料采购款</td><td>0</td><td>186000</td><td>262500</td></tr>
+<tr><td>2025-09-05</td><td>支付职工薪酬</td><td>0</td><td>142000</td><td>120500</td></tr>
+<tr><td>2025-09-08</td><td>收到华南建材预收款</td><td>96000</td><td>0</td><td>216500</td></tr>
+<tr><td>2025-09-10</td><td>支付水电费</td><td>0</td><td>18600</td><td>197900</td></tr>
+<tr><td>2025-09-12</td><td>支付差旅报销</td><td>0</td><td>32400</td><td>165500</td></tr>
+<tr><td>2025-09-15</td><td>收到西部电力货款</td><td>210000</td><td>0</td><td>375500</td></tr>
+<tr><td>2025-09-18</td><td>缴纳增值税</td><td>0</td><td>52400</td><td>323100</td></tr>
+<tr><td colspan="2"><strong>本期合计</strong></td><td><strong>626000</strong></td><td><strong>431400</strong></td><td><strong>323100</strong></td></tr>
+</table>
+
+<h3>相对偏移引用：余额要能指向上一行</h3>
+
+<p>关键在「上一行」这三个字。<strong>余额这一格的表达式要引用它自己上一行的同一列</strong>，这种引用方式叫相对偏移引用。数据多一行少一行，引用关系自动跟着走，不需要改模板。</p>
+
+<p>逐行验算（期初余额 128500）：128500 + 320000 = 448500；448500 − 186000 = 262500；262500 − 142000 = 120500；120500 + 96000 = 216500；216500 − 18600 = 197900；197900 − 32400 = 165500；165500 + 210000 = 375500；375500 − 52400 = 323100。八行与断言逐条一致。</p>
+
+<h3>期初值放在宏里</h3>
+
+<p>期初余额 128500 不是硬编码在某一格里，而是放在<strong>宏</strong>里。换个账户、换个期间，改一处即可。<strong>硬编码期初值的后果是：每换一个账户就要复制一份模板，改的时候还要记得改所有副本。</strong></p>
+
+<h3>两个独立算法必须殊途同归</h3>
+
+<p>这份样例有一条断言特别值得单独说：<strong>「期末余额与最后一行一致」</strong>。</p>
+
+<p>期末余额可以用两种方式算出来：一种是<strong>逐行结转</strong>（一路加加减减到最后一行），另一种是<strong>期初 + 借方合计 − 贷方合计</strong>（128500 + 626000 − 431400 = 323100）。这是两条完全不同的路径，但结果必须相等。</p>
+
+<p>如果它们不相等，说明至少有一处算错了——而这类错误<strong>不会报错，只会让账面慢慢对不上</strong>。把两条路径都写成断言，等于给同一件事上了两把锁。</p>
+
+<h2>应收账款账龄分析表</h2>
+
+<p>按客户逐行统计各账龄区间的金额。规则看着简单，但里面藏着一个<strong>最容易写错的边界</strong>。</p>
+
+<table>
+<tr><th>客户</th><th>应收余额</th><th>账龄天数</th><th>90 天以上</th></tr>
+<tr><td>华东机械集团</td><td>1286000</td><td>18</td><td>0</td></tr>
+<tr><td>华南建材</td><td>742000</td><td>52</td><td>0</td></tr>
+<tr><td>北方重工</td><td>486000</td><td>96</td><td>486000</td></tr>
+<tr><td>西部电力</td><td>318000</td><td>7</td><td>0</td></tr>
+<tr><td>长三角汽配</td><td>264000</td><td>74</td><td>0</td></tr>
+<tr><td>中原化工</td><td>156000</td><td>135</td><td>156000</td></tr>
+<tr><td><strong>合计</strong></td><td><strong>3252000</strong></td><td></td><td><strong>642000</strong></td></tr>
+</table>
+
+<h3>每个区间列都是两个条件的汇总</h3>
+
+<p>「90 天以上」这一列不是简单的筛选，而是<strong>「当前客户」+「天数 &gt; 90」两个条件同时成立时的汇总</strong>。少一个条件，就会把别人的账算到这个客户头上。</p>
+
+<h3>边界：74 天不算 90 天以上</h3>
+
+<p>看长三角汽配这一行：<strong>账龄 74 天，90 天以上列是 0</strong>。这是刻意放进来的一条边界数据。</p>
+
+<p>为什么值得写进断言？因为账龄分段的边界写法很多：<code>&gt; 90</code>、<code>&gt;= 90</code>、<code>&gt;= 91</code>，还有按「区间左闭右开」实现的。这些写法在 74 天这种明显不达标的数据上结果都一样，<strong>只有在边界附近才会分出对错</strong>。样例里同时放了 74 天（不该计入）和 96 天、135 天（该计入），就是为了让错误实现暴露出来。</p>
+
+<p>合计验算：应收总额 3252000 = 1286000+742000+486000+318000+264000+156000；90 天以上合计 642000 = 486000+156000，<strong>占总额 19.74%</strong>。两个数字独立验算与断言一致。</p>
+
+<h2>利润表 · 本期与上期对比</h2>
+
+<p>标准财务报表版式：从营业收入逐级算到净利润，本期与上期两列由同一科目口径汇总，变动率按行计算，三级缩进体现科目层级。</p>
+
+<table>
+<tr><th>科目</th><th>本期</th><th>上期</th></tr>
+<tr><td>营业收入</td><td>2860000</td><td>2540000</td></tr>
+<tr><td>营业成本</td><td>1746000</td><td>1580000</td></tr>
+<tr><td>税金及附加</td><td>42800</td><td>38600</td></tr>
+<tr><td>销售费用</td><td>196000</td><td>178000</td></tr>
+<tr><td>管理费用</td><td>164000</td><td>152000</td></tr>
+<tr><td>研发费用</td><td>98000</td><td>86000</td></tr>
+<tr><td>财务费用</td><td>26000</td><td>24000</td></tr>
+<tr><td>其他收益</td><td>18000</td><td>12000</td></tr>
+<tr><td><strong>营业利润</strong></td><td><strong>605200</strong></td><td></td></tr>
+<tr><td>营业外收入 / 支出</td><td>6000 / 4000</td><td>4000 / 3000</td></tr>
+<tr><td><strong>利润总额</strong></td><td><strong>607200</strong></td><td></td></tr>
+<tr><td>所得税费用</td><td>108000</td><td>86000</td></tr>
+<tr><td><strong>净利润</strong></td><td><strong>499200</strong></td><td><strong>408400</strong></td></tr>
+</table>
+
+<h3>逐级汇总：每一级都引用上一级</h3>
+
+<p>营业利润不是单独配置的，而是<strong>由上面的科目一级一级引用算出来的</strong>：</p>
+
+<p>2860000 − 1746000 − 42800 − 196000 − 164000 − 98000 − 26000 + 18000 = <strong>605200</strong>。</p>
+
+<p>接着：利润总额 = 营业利润 + 营业外收入 − 营业外支出 = 605200 + 6000 − 4000 = <strong>607200</strong>；净利润 = 利润总额 − 所得税费用 = 607200 − 108000 = <strong>499200</strong>。三级结果与断言逐条一致。</p>
+
+<h3>两期对比：上期也要能独立算对</h3>
+
+<p>上期那一列同样要走一遍完整链路：2540000 − 1580000 − 38600 − 178000 − 152000 − 86000 − 24000 + 12000 = 493400（上期营业利润）；+ 4000 − 3000 = 494400（上期利润总额）；− 86000 = <strong>408400</strong>（上期净利润）。与断言一致。</p>
+
+<p>变动率按行计算：<strong>净利润较上期增长 22.23%</strong>（(499200 − 408400) ÷ 408400）。</p>
+
+<p>这里有个容易被忽略的点：<strong>两期必须由同一套科目口径汇总</strong>。如果本期改了科目层级、上期没跟着改，两列就不可比，变动率算出来也是假的。</p>
+
+<h2>资产负债表 · 左右双栏</h2>
+
+<p>最后一份是压轴的：一张 A4 上并排两栏，左栏资产、右栏负债和所有者权益，各自一列期末、一列年初，底部给出平衡校验差额。</p>
+
+<h3>左右各自独立汇总</h3>
+
+<p>资产侧 9 个科目：货币资金 1286400、应收账款 862000、存货 748600、其他流动资产 96000、固定资产 1420000、在建工程 260000、无形资产 158000、长期待摊费用 42000、递延所得税资产 30000，<strong>合计 4903000</strong>。</p>
+
+<p>负债与所有者权益侧 9 个科目：短期借款 600000、应付账款 748000、应付职工薪酬 186000、应交税费 96000、其他应付款 74000、长期借款 800000、实收资本 2000000、资本公积 120000、未分配利润 279000，<strong>合计 4903000</strong>。</p>
+
+<h3>平衡校验差额必须等于 0</h3>
+
+<p>这是整份样例最硬的一条断言：<strong>「平衡校验差额 · 期末」= 0</strong>。</p>
+
+<p>它不是「两边都算出 4903000 所以相等」这种自欺欺人的写法，而是<strong>真的做了一次减法并把结果钉死为 0</strong>。这意味着：只要资产侧或负债侧有任何一个科目算错、漏算、重复算，这个差额就不是 0，样例立即失败。</p>
+
+<p><img src="/uploads/rpx-biz-balance.png" alt="资产负债表：左右双栏与平衡校验（画廊真实渲染）" /></p>
+
+<p>独立验算：资产侧逐项相加 = 4903000，负债权益侧逐项相加 = 4903000，差额 = <strong>0</strong>。两侧各 9 个科目，没有一个被漏掉。</p>
+
+<p><strong>这就是为什么财务报表是最好的测试用例</strong>——它自带一个不需要额外设计的正确性判据。你不用想「正确答案是什么」，答案就是 0。</p>
+
+<h2>七份放一起看：中国式报表的四个共同难点</h2>
+
+<p>单独看每一份，规则都不复杂。但七份放一起，会浮现出四个反复出现的要求——<strong>它们才是中国式报表真正的难点</strong>。</p>
+
+<ul>
+<li><strong>合并是显示层的事，数据不能断</strong>——工资表的部门列合并了，但引擎逐行取值仍要拿到六个「销售部」；</li>
+<li><strong>计算要能引用「上一行」「上一格」</strong>——日记账的余额、进销存的期末、利润表的逐级汇总，都依赖相对位置的引用；</li>
+<li><strong>同一个数要有两条独立路径算得出</strong>——日记账期末余额的两条算法、资产负债表两栏各自汇总，互为校验；</li>
+<li><strong>边界必须被单独钉死</strong>——74 天不算 90 天以上，这种边界数据要刻意放进样例，否则错误实现暴露不出来。</li>
+</ul>
+
+<h3>难点一：合并是显示层的事，数据不能断</h3>
+
+<p>工资表的部门列要合并成跨行单元格，但数据层必须保留六行六个「销售部」。<strong>显示可以合并，数据不能合并</strong>——否则筛选、小计、导出全部失效。</p>
+
+<h3>难点二：计算要能引用「上一行」「上一格」</h3>
+
+<p>日记账的余额引用上一行同一列，进销存的期末引用同一行的其他字段，利润表的营业利润引用上面多个科目。<strong>这些引用必须随数据行数自动跟随</strong>，不能写死行号。</p>
+
+<h3>难点三：同一个数要有两条独立路径算得出</h3>
+
+<p>日记账的期末余额，逐行结转是一个答案，期初加借贷合计是另一个答案；资产负债表两栏各自汇总，减出来必须是 0。<strong>两条路径对不上，说明有地方错了</strong>——而这类错误不报错，只会让账面慢慢失真。</p>
+
+<h3>难点四：边界必须被单独钉死</h3>
+
+<p>账龄表里 74 天不计入 90 天以上，96 天计入。<strong>边界数据要刻意放进样例</strong>，否则正确实现和错误实现在大部分数据上表现一致，只有到边界才分出对错。</p>
+
+<h2>怎么拿到并运行这些样例</h2>
+
+<p>这 7 份（以及全部 29 份）都是<strong>可运行</strong>的，不是截图。三条路都可以走通。</p>
+
+<h3>用 CLI 跑一份</h3>
+
+<p>最轻的一条路，装好 CLI 之后两步走：先静态检查，再真正执行导出。这条链路是给<strong>自动化和 Agent</strong>用的——命令默认输出 JSON，方便程序消费。</p>
+
+<pre><code>rpx lint examples/r-model/payroll.json --data-dir examples/r-model
+rpx run  examples/r-model/payroll.json --out-dir /tmp/out --export xlsx</code></pre>
+
+<ul>
+<li><code>rpx lint</code>：静态检查，拦截<strong>「不报错但产物错」</strong>的写法；<code>--strict</code> 时 warning 也返回非零退出码，可当 CI 闸门用；</li>
+<li><code>rpx run</code>：真正执行，<code>--export</code> 可选 <code>csv</code> / <code>xlsx</code> / <code>print-xlsx</code> / <code>html</code> / <code>pdf</code>；</li>
+<li><code>rpx doctor</code>：环境与能力自检，不确定环境是否就绪先跑它；</li>
+<li><code>rpx capabilities</code>：返回引擎的自描述——命令面、导出格式、限制、错误码，<strong>Agent 无需读文档就能接上</strong>。</li>
+</ul>
+
+<h3>用画廊一次看全部 29 份</h3>
+
+<p>画廊是预生成的静态页面，每一份都有<strong>结果画布 / 图形 / 模板定义 / 数据来源 / 运行校验</strong>五个视图，还可以直接下载 Excel、CSV 与 JSON 定义。构建一次即可：</p>
+
+<pre><code>python3 scripts/prepare_r_model.py
+cargo run --locked -p rpx-runtime --example report_gallery -- \
+  examples/r-model web/public/report-gallery output/r-model/datasources.json</code></pre>
+
+<p>然后用 <code>rpx-server serve --library …</code> 起服务，打开 <code>/gallery.html</code>，深链格式是 <code>/gallery.html#&lt;报表 id&gt;</code>——比如本文的工资表就是 <code>#payroll</code>。</p>
+
+<h3>想要源码与数据</h3>
+
+<p>每一份样例都包含三样东西：<strong>一份 JSON 模板定义、一份 CSV 源数据、一组逐格断言</strong>。断言写在 <code>catalog.json</code> 里，跟模板分开存放——这样才能保证期望值不是引擎自己算出来的。</p>
+
+<h2>常见问题</h2>
+
+<h3>这些数字是真实的吗？</h3>
+
+<p>是<strong>自洽的演示数据</strong>，不是某家公司的真账。但每一份都按真实业务规则构造：工资表的实发公式、发货单的 13% 税率、账龄的 90 天分界、资产负债表的平衡关系，都是照着实际做法来的。<strong>你可以把自己公司的 CSV 换进去跑同一份模板。</strong></p>
+
+<h3>为什么断言里会出现 0？</h3>
+
+<p>比如账龄表 90 天以上列有好几个 0，资产负债表的差额是 0。<strong>「这里是 0」和「这里没算」是两回事</strong>——前者是正确答案，后者是 bug。把 0 写成断言，才能区分这两种情况。</p>
+
+<h3>29 份里另外 22 份是什么？</h3>
+
+<p>另外 10 个能力域，包括多源关联分片（3 份）、自由格间运算（5 份）、交叉表合并（3 份）、统计图与图形（4 份）、不规则分组（2 份）、多口径分组合计、行列对称、混合数据源、条码与标签、表单与序号列。它们考验的是引擎的构造能力，<a href="/post/rpx-json-report-catalog">另一篇文章</a>专门讲这些样例的断言机制。</p>
+
+<h3>我能改这些样例吗？</h3>
+
+<p>可以，而且建议改。每份样例都是一份 JSON 定义加一份 CSV，改完再跑一遍 <code>rpx lint</code> 和 <code>rpx run</code>，<strong>断言会告诉你改坏了没有</strong>。这也是这套样例最主要的用途：不是给你看结果，是让你改的时候有安全网。</p>
+
+<h3>引擎是怎么保证换语言不换语义的？</h3>
+
+<p>这套引擎是 Rust 重写的，重写过程中靠的正是这类夹具对拍。<a href="/post/rpx-why-rust">这篇文章</a>讲了为什么这么做、换来了什么；<a href="/post/rpx-extend-cell">这篇</a>讲扩展格这个核心算法。</p>
+
+  </article>
+</div>
+</body>
+</html>

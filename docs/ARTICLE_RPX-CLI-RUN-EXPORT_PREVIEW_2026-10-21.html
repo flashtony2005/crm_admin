@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rpx run 与五种导出：从模板到交付物 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-cli-run-export</code>
+    （生产形态 <code>/t/coucouya/post/rpx-cli-run-export</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 08:24 ｜ 正文字符数：5976 ｜ 章节 6 ／ 表格 1 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">rpx run 与五种导出：从模板到交付物</h1>
+  <article class="article-body">
+<h2>从模板到交付物</h2>
+
+<p><code>rpx run</code> 是整条链路里唯一「真算」的一步：读模板、取数据、求值、分页、写产物。前面所有命令（<code>lint</code>、<code>template validate</code>）都是在为它做准备。</p>
+
+<p>最小的一次执行：</p>
+
+<pre><code>rpx run payroll.json --out-dir out --data-dir examples/r-model --export xlsx</code></pre>
+
+<p>本文讲三件事：五种导出分别是什么、返回的 JSON 该看哪些字段、以及两个实测才会遇到的坑。前置的两步是<a href="/post/rpx-cli-doctor-capabilities">环境自检</a>与<a href="/post/rpx-cli-lint">静态检查</a>。</p>
+
+<h2>五种导出格式</h2>
+
+<p><code>--export</code> 接受 5 种，而且<strong>可以重复传</strong>（它是追加语义，不是一次传多个值）：</p>
+
+<pre><code>--export csv --export xlsx --export print-xlsx --export html --export pdf</code></pre>
+
+<blockquote>写成 <code>--export csv xlsx</code> 会直接报参数错误——第一个值之后的会被当成多余的位置参数。</blockquote>
+
+<table>
+<tr><th>格式</th><th>产物</th><th>用途</th></tr>
+<tr><td>csv</td><td>report.csv</td><td>给程序消费；不带样式</td></tr>
+<tr><td>xlsx</td><td>report.xlsx</td><td>给人在 Excel 里再用</td></tr>
+<tr><td>print-xlsx</td><td>report-print.xlsx</td><td>带打印设置（分页、纸张）的 Excel</td></tr>
+<tr><td>html</td><td>report.html</td><td>网页预览；走打印渲染管线</td></tr>
+<tr><td>pdf</td><td>report.pdf</td><td>需要本机有 Chrome/Chromium/Edge</td></tr>
+</table>
+
+<p>html 和 pdf 共用同一条渲染管线（先渲染成页面，pdf 再交给浏览器打印），所以<strong>两者的版式是一致的</strong>——你在 html 里看到的，就是 pdf 会出的样。</p>
+
+<h2>返回的 JSON 该看哪些字段</h2>
+
+<p>我拿工资表实测了一次五种全导，返回大致这样（节选）：</p>
+
+<pre><code>{
+  "ok": true,
+  "data": {
+    "layout": { "cols": 7, "rows": 11, "page_count": 1,
+                "paginated": true, "x_pages": 1, "y_pages": 1,
+                "paper_w_pt": 487.56, "paper_h_pt": 700.16,
+                "row_num_per_page": 20 },
+    "result":  "out/artifacts/result.json",
+    "run": {
+      "artifacts": { "report.csv": ..., "report.xlsx": ...,
+                     "report-print.xlsx": ..., "report.html": ...,
+                     "result.json": ..., "workbook.json": ... },
+      "diagnostics": [ ... ],
+      "engine_version": "0.16.0",
+      "inputs": [ { "kind": "file", "dataset": "pay",
+                    "path": ".../payroll.csv", "sha256": "2522d3..." } ]
+    }
+  }
+}</code></pre>
+
+<h3>layout：先看分页，不是先看数据</h3>
+
+<p><strong><code>page_count</code> / <code>x_pages</code> / <code>y_pages</code> 是第一时间该看的字段。</strong>如果 <code>x_pages</code> 大于 1，说明表格横向溢出了纸张——纸面上通常不可接受。纵向多页是正常的分页，横向多页基本都是要修的。</p>
+
+<p><code>paper_w_pt</code> / <code>paper_h_pt</code> 给的是纸张尺寸（点），<code>row_num_per_page</code> 是每页行数。<strong>这几个数字一起决定了你的表能不能打印成一页。</strong></p>
+
+<h3>inputs：数据溯源</h3>
+
+<p>每个输入数据集都记录了 <code>path</code> 和 <strong><code>sha256</code></strong>。这看着不起眼，但排查时极其有用：同一份模板、同样的命令，两次结果不一样，<strong>先比对 sha256</strong>——数据换了，结果当然会变。</p>
+
+<h3>diagnostics：比 ok 更重要</h3>
+
+<p>这是最需要注意的一点：<strong><code>ok: true</code> 不代表一切顺利。</strong></p>
+
+<p>实测一次请求了五种导出、其中 pdf 失败（本机没有浏览器），返回是这样的：</p>
+
+<pre><code>"ok": true,
+"diagnostics": [
+  { "code": "EXPORT_FAILED", "format": "pdf", "severity": "warning",
+    "stage": "export",
+    "message": "未找到 Chrome/Chromium/Edge，无法导出 PDF；可设环境变量 RPX_CHROME=<浏览器可执行文件路径>" }
+]</code></pre>
+
+<p>pdf 没生成，但<strong>整次 run 仍然算成功</strong>，csv / xlsx / print-xlsx / html 全部正常产出。这是有意的降级设计：<strong>单个导出失败不该拖垮整次运行</strong>，失败以 warning 形式挂在诊断里，带 <code>format</code> 字段指明是哪一种。</p>
+
+<p>所以正确的判读顺序是：<strong>先看 <code>ok</code>，再看 <code>diagnostics</code>，最后按 <code>artifacts</code> 里实际有哪些文件来确认你要的格式在不在。</strong></p>
+
+<h2>两个实测才遇得到的坑</h2>
+
+<h3>坑一：<code>--out-dir</code> 必须是不存在的目录</h3>
+
+<p>第一次跑我顺手先建好了输出目录，结果：</p>
+
+<pre><code>IO_ERROR | 当文件已存在时，无法创建该文件。 (os error 183)</code></pre>
+
+<p>把目录删掉、让 CLI 自己建，就正常了。也就是说 <code>--out-dir</code> 的语义是<strong>「创建这个新目录」而不是「输出到这个目录」</strong>。</p>
+
+<p>重复跑同一个目录也会撞上同一个错。自动化脚本里记得每次用新目录，或者跑之前先清掉：</p>
+
+<pre><code>rm -rf out &amp;&amp; rpx run tpl.json --out-dir out --export xlsx</code></pre>
+
+<h3>坑二：pdf 依赖本机浏览器，且失败是静默的</h3>
+
+<p>前面已经说了失败会降级成 warning。这里补一句怎么让它成功：<strong>设 <code>RPX_CHROME</code> 环境变量指向浏览器可执行文件</strong>。</p>
+
+<pre><code>RPX_CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe" \
+  rpx run tpl.json --out-dir out --export pdf</code></pre>
+
+<p>不确定本机有没有、能不能用，先跑 <code>rpx doctor</code>，它会明确告诉你 <code>pdf.available</code> 是 true 还是 false。<a href="/post/rpx-cli-doctor-capabilities">这篇</a>讲了 doctor 的自检逻辑。</p>
+
+<h2>跑完之后：result.json 才是证据</h2>
+
+<p>产物目录里有两个值得单独说的文件：</p>
+
+<ul>
+<li><strong><code>result.json</code></strong>：逐格结果。每一格都带 <code>address</code>（如 <code>A1</code>）、<code>origin</code>（来自模板哪一格）、<code>origin_coordinates</code>、以及 <code>value</code>。它是<strong>断言对拍的对象</strong>——「这一格应该等于什么」就是在跟它比。</li>
+<li><strong><code>workbook.json</code></strong>：带样式的完整工作簿快照，html / pdf 就是从它渲染的。</li>
+</ul>
+
+<p>想改定义再来一遍，走<a href="/post/rpx-cli-template-patch">模板补丁</a>；想不打开 Excel 就核对结果，用：</p>
+
+<pre><code>rpx result inspect out/artifacts/result.json --limit 5</code></pre>
+
+<p>它支持 <code>--range</code>（按区域）、<code>--origin</code>（按模板原格筛）、<code>--limit</code> / <code>--offset</code>（分页，每页上限 500）。实测返回的每格长这样：</p>
+
+<pre><code>{ "address": "A1", "row": 1, "col": 1,
+  "origin": "A1", "origin_coordinates": [1, 1],
+  "left_head_origin": "0", "top_head_origin": "0",
+  "value": { "type": "string", "value": "员 工 工 资 表" } }</code></pre>
+
+<p><strong><code>origin</code> 与 <code>address</code> 的区分是关键</strong>：扩展之后，结果里的第 3 行可能来自模板的同一格。断言要锚在 <code>origin</code>（模板原格）上才不会被数据行数变化带偏——这一点在<a href="/post/rpx-json-report-catalog">样例的断言机制</a>里是核心。</p>
+
+<h2>常见问题</h2>
+
+<h3>能不写盘、直接输出到 stdout 吗？</h3>
+
+<p><code>run</code> 必须给 <code>--out-dir</code>，产物是文件。但它的<strong>摘要</strong>会打到 stdout（JSON），你可以从中读 <code>layout</code> 和 <code>diagnostics</code>；要看具体格值，再对 <code>result.json</code> 用 <code>result inspect</code>。</p>
+
+<h3>参数怎么传？</h3>
+
+<p>模板里声明的参数用 <code>--params-file</code> 给，<code>-</code> 表示从 stdin 读——方便管道里串。注意 <strong>源码与结果必须用文件路径，只有 <code>--params-file</code> 和 <code>--patch-file</code> 支持 stdin</strong>。</p>
+
+<h3>一次能导多少数据？</h3>
+
+<p>Excel 有硬边界：16384 列 / 1048576 行。SQL 数据集默认最多取 100000 行，可用 <code>RPX_SQL_MAX_ROWS</code> 覆盖。这些值都能从 <code>rpx capabilities</code> 当场读到，不必记。</p>
+
+<h3>导出成功了但内容不全，会提示吗？</h3>
+
+<p>会。有专门的 <code>EXPORT_PARTIAL</code> 诊断码，用于「导出成功但内容不全」的情况（当前只用于 html / pdf 跳过图表），诊断里会列出被跳过的图表名。同样是 warning，不影响 <code>ok</code>。</p>
+
+  </article>
+</div>
+</body>
+</html>

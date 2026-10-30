@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rpx library 与 report：目录库里的报表生命周期 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-cli-library-report</code>
+    （生产形态 <code>/t/coucouya/post/rpx-cli-library-report</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 08:24 ｜ 正文字符数：5275 ｜ 章节 7 ／ 表格 1 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">rpx library 与 report：目录库里的报表生命周期</h1>
+  <article class="article-body">
+<h2>从「一份文件」到「一个库」</h2>
+
+<p>前面几篇讲的都是<strong>单份模板</strong>的操作：lint、run、patch。但真到工程里，你面对的是几十份报表、多个版本、谁改过什么、上次跑的结果是什么。</p>
+
+<p><code>rpx library</code> 和 <code>rpx report</code> 就是为这个尺度准备的（前四篇分别讲<a href="/post/rpx-cli-doctor-capabilities">自描述</a>、<a href="/post/rpx-cli-lint">静态检查</a>、<a href="/post/rpx-cli-run-export">执行导出</a>、<a href="/post/rpx-cli-template-patch">模板补丁</a>）：<strong>目录库（library）是报表定义的家，report 是库内报表的完整生命周期。</strong></p>
+
+<h2>library init：建一个库</h2>
+
+<pre><code>rpx library init my-reports</code></pre>
+
+<p>注意 <code>&lt;DIR&gt;</code> 是<strong>位置参数</strong>，不是 <code>--dir</code>。建完之后目录里是两个文件：一个 <code>.library.json</code>（库清单）和一个 <code>.gitignore</code>——<strong>库被设计成可以直接进 git 的</strong>，这就是「定义即代码」落到工程上的样子。</p>
+
+<p>想直接要一批可跑的样例，加 <code>--presets</code>：</p>
+
+<pre><code>rpx library init my-reports --presets</code></pre>
+
+<p>实测它会把 5 份预制报表（区域分组销售、复杂主格经营分析、多栏报表、统计图集、图片与背景）连模板带数据一起放进库里，每份一个目录：</p>
+
+<pre><code>my-reports/
+  .library.json
+  .gitignore
+  grouped-sales/
+    manifest.json
+    template.json
+    data/sales.csv
+  ...</code></pre>
+
+<p>每份报表由 <code>manifest.json</code> 描述：<code>id</code>、<code>name</code>、<code>description</code>、<code>tags</code>、<code>template</code>、<code>data_dir</code>、<code>version</code>。<strong>数据跟着定义走</strong>（<code>data/</code> 目录），所以一份报表是自包含的，拷给别人就能跑。</p>
+
+<h2>report：12 个动作</h2>
+
+<p>库内报表的生命周期命令有 12 条，按用途分：</p>
+
+<table>
+<tr><th>动作</th><th>用途</th></tr>
+<tr><td>list</td><td>列出库内报表（带结果状态与修订号）</td></tr>
+<tr><td>show</td><td>看某份的源码与状态</td></tr>
+<tr><td>validate</td><td>离线校验（同 template validate）</td></tr>
+<tr><td>run</td><td>运行库内报表</td></tr>
+<tr><td>runs</td><td>查看运行历史</td></tr>
+<tr><td>copy / delete</td><td>复制 / 删除</td></tr>
+<tr><td>patch</td><td>应用 RFC 6902 补丁</td></tr>
+<tr><td>update</td><td>改名称 / 描述</td></tr>
+<tr><td>import-json</td><td>从外部 JSON 定义入库</td></tr>
+<tr><td>migrate</td><td>v0 → v1 模板迁移（可备份）</td></tr>
+<tr><td>prune</td><td>清理旧运行记录</td></tr>
+</table>
+
+<h2>revision：库内写入的乐观锁</h2>
+
+<p>这是目录库设计里我最想讲的一点。</p>
+
+<p>每次 <code>report list</code> 或 <code>show</code>，每份报表都会带一个 <code>revision</code> 字段——实测是一个 sha256（如 <code>d90469fb…40ee73</code>）。<strong>任何库内写操作都必须带上它。</strong></p>
+
+<pre><code>rpx report show --library my-reports grouped-sales   # 取 revision
+rpx report update --library my-reports grouped-sales \
+    --name "区域销售（2026）" --if-match d90469fb...</code></pre>
+
+<h3>不带会怎样？</h3>
+
+<p>不是「警告一下继续」，而是<strong>命令根本跑不起来</strong>：<code>--if-match</code> 在参数层就是必填项，缺了直接返回 <code>USAGE</code>（退出码 2），并提示缺少哪个参数。</p>
+
+<h3>带错了会怎样？</h3>
+
+<p>我用一个错误的修订号实测：</p>
+
+<pre><code>rpx report update --library my-reports grouped-sales \
+    --name "新名字" --if-match deadbeef</code></pre>
+
+<pre><code>REVISION_CONFLICT | 源码已变化，请重新读取后处理修改</code></pre>
+
+<p>错误信息很明确：<strong>你手里的修订号过期了，重新读一次再改。</strong></p>
+
+<h3>为什么值得单独设计？</h3>
+
+<p>因为报表定义是<strong>多人、多进程、还会被 Agent 改</strong>的东西。典型事故是：A 读了一份定义，慢慢改；这期间 B 已经改过一版；A 再写回去，把 B 的改动整个盖掉——而且<strong>不会有任何报错</strong>。</p>
+
+<p>revision 把这种覆盖变成了一个明确的失败：<code>REVISION_CONFLICT</code>，并告诉你该怎么办（重新读取）。这对 Agent 尤其重要——它最容易在「读—想—写」的长间隔里拿到过期上下文。</p>
+
+<blockquote>顺带一个实测发现：<code>REVISION_CONFLICT</code> 是真实会返回的错误码，但它<strong>不在 <code>rpx capabilities</code> 的 32 条错误码清单里</strong>（清单里只有 <code>REVISION_REQUIRED</code>）。所以别只依赖错误码清单做兜底判断，把错误信息本身也读进去。</blockquote>
+
+<h2>run 与 runs：运行留痕</h2>
+
+<p>库内运行同样要带 revision：</p>
+
+<pre><code>rpx report run --library my-reports grouped-sales \
+    --if-match d90469fb... --export csv</code></pre>
+
+<p>产物不是写到随便一个目录，而是进<strong>库内的运行记录区</strong>：</p>
+
+<pre><code>my-reports/.runs/grouped-sales/run-01792541419425929300-8712-0/artifacts/...</code></pre>
+
+<p>实测返回里同时给了 <code>layout</code>（含 <code>page_count</code>）、<code>result</code>、<code>workbook</code> 三个路径。也就是说<strong>每一次运行都被留在库里了</strong>，不是跑完就散。</p>
+
+<p>然后可以随时回看：</p>
+
+<pre><code>rpx report runs --library my-reports grouped-sales</code></pre>
+
+<p>返回分页的运行记录（<code>items</code> / <code>total</code> / <code>next_offset</code>）。跑久了记得用 <code>report prune</code> 清理旧记录，否则 <code>.runs</code> 会一直长大。</p>
+
+<p>这套「运行留痕」配合 <code>result.json</code> 里的 <code>origin</code> 字段，就形成了一个可追溯的链条：<strong>这次结果 → 哪次运行 → 哪份定义（revision）→ 哪个数据（sha256）</strong>。<a href="/post/rpx-cli-run-export">这篇</a>讲过 run 产物里的溯源字段。</p>
+
+<h2>什么时候该用库，什么时候不用</h2>
+
+<p>不是所有场景都需要库。我的判断标准：</p>
+
+<ul>
+<li><strong>用单文件 + CLI</strong>：一次性导出、脚本里临时跑、CI 里校验。轻量，不需要状态。</li>
+<li><strong>用目录库</strong>：报表数量上到两位数、多人协作、需要留运行历史、需要版本化。</li>
+</ul>
+
+<p>库的代价是<strong>多一层结构和 revision 约束</strong>；收益是<strong>可追溯、可协作、可回滚</strong>——而且因为它就是一堆 JSON 加一个清单文件，<strong>整个库可以直接 git 管理</strong>，评审和回滚都用你已有的工具。</p>
+
+<h2>常见问题</h2>
+
+<h3>--library 每次都要写吗？</h3>
+
+<p>是的，库路径没有全局配置项，每个 <code>report</code> 子命令都要显式给。好处是<strong>一台机器上可以同时有多个库互不干扰</strong>（比如按客户、按环境分）。</p>
+
+<h3>能直接改库里的 template.json 吗？</h3>
+
+<p>能——它就是一个文件。但要清楚后果：<strong>直接改会让 revision 变</strong>，而你手里的旧 revision 就过期了，下次用旧值写入会拿到 <code>REVISION_CONFLICT</code>。改完重新 <code>report show</code> 取一次就行。要走正规流程就用 <code>report patch</code>。</p>
+
+<h3>migrate 是干什么的？</h3>
+
+<p>把库内的 v0 模板迁移到 v1（当前定义格式是 <code>rpx-report/v1</code>）。支持备份，所以迁移前会留一份原文件。老库升级时用它。</p>
+
+<h3>delete 也要 revision 吗？</h3>
+
+<p>要，而且删除是<strong>库内最危险的操作</strong>，设计上强制要求先读到最新状态再删。这跟「必须带修订」是同一条规则——<strong>所有写操作（含删除）都必须基于你刚刚确认过的状态。</strong></p>
+
+<h3>库能搬到别的机器吗？</h3>
+
+<p>能。<code>.runs</code> 里的历史记录如果不需要，可以先 <code>prune</code> 掉；剩下的全是 JSON、CSV 和清单，整个目录拷走或提交到 git 都可以。</p>
+
+  </article>
+</div>
+</body>
+</html>

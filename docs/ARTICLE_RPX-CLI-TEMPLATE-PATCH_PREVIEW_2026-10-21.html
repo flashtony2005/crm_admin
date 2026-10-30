@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rpx template：像改代码一样改报表定义 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-cli-template-patch</code>
+    （生产形态 <code>/t/coucouya/post/rpx-cli-template-patch</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 08:24 ｜ 正文字符数：6099 ｜ 章节 8 ／ 表格 1 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">rpx template：像改代码一样改报表定义</h1>
+  <article class="article-body">
+<h2>定义即代码，那就要能像代码一样改</h2>
+
+<p>报表定义是一份 JSON 文件。既然是文件，就该能查看、能校验、能套模板新建、能打补丁——像改代码一样改它，而不是只能靠某个编辑器点来点去。</p>
+
+<p><code>rpx template</code> 提供四个动作：<code>inspect</code>（看）、<code>validate</code>（校）、<code>create</code>（建）、<code>patch</code>（改）。改完要过<a href="/post/rpx-cli-lint">lint</a>、再<a href="/post/rpx-cli-run-export">run</a>。</p>
+
+<p><code>rpx template</code> 的四个动作分别是：配上 <code>rpx schema</code>，就构成了一个不依赖图形界面的完整编辑闭环。</p>
+
+<h2>inspect：看模板里到底写了什么</h2>
+
+<p>最常用的一条。它把模板 JSON 摊成「按地址组织」的形式，比直接读原始 JSON 好懂得多：</p>
+
+<pre><code>rpx template inspect payroll.json</code></pre>
+
+<p>返回三部分：<code>grid</code>（行列数）、<code>datasets</code>（数据集声明）、<code>items</code>（逐格）。每一格给的是：</p>
+
+<pre><code>{
+  "address": "A1",
+  "json_pointer": "/cells/0",
+  "definition": { "row": 1, "col": 1, "text": "员 工 工 资 表",
+                  "extend_mode": "none", "font_size": 18, ... },
+  "left_head": { "state": "inferred_at_run" },
+  "top_head":  { "state": "inferred_at_run" }
+}</code></pre>
+
+<p>三个字段值得说：</p>
+
+<ul>
+<li><strong><code>address</code></strong>：A1 风格地址，坐标从 1 起。看定义时用地址比用行列号直观。</li>
+<li><strong><code>json_pointer</code></strong>：如 <code>/cells/0</code>。<strong>这是给 RFC 6902 补丁用的</strong>——你要改哪一格，path 就写这个。</li>
+<li><strong><code>left_head</code> / <code>top_head</code> 的 <code>state</code></strong>：<code>inferred_at_run</code> 表示主格关系要等运行时才推导出来，定义里没写死。想知道扩展结构，看这里。</li>
+</ul>
+
+<p>只想看一格？加 <code>--cell A1</code>。格子多的时候用 <code>--limit</code> / <code>--offset</code> 分页（每页上限 500）。</p>
+
+<h2>validate：结构成不成立</h2>
+
+<pre><code>rpx template validate payroll.json</code></pre>
+
+<p>实测返回：</p>
+
+<pre><code>"checked": ["schema", "declared_heads", "unconditional_scalar_cycles",
+             "formula_preparation", "parameter_binding", "inferred_heads"],
+"deferred": ["data_loading", "calculation", "pagination", "export"],
+"valid": true</code></pre>
+
+<p>它回答的是<strong>「这份定义能不能被引擎接受」</strong>：schema 对不对、声明的主格关系有没有环路、公式能不能完成准备、参数能不能绑定。</p>
+
+<p>注意 <code>deferred</code> 那四项和 <code>lint</code> 完全一样——取数、计算、分页、导出都不在离线校验范围内。<strong>validate 通过只说明结构合法，不说明产物正确。</strong>要拦「不报错但产物错」的写法，得再跑 <code>rpx lint</code>（<a href="/post/rpx-cli-lint">这篇</a>专门讲它）。</p>
+
+<p>还有一个可选开关：<strong><code>--probe-data</code></strong>。带上它，validate 会顺带探一下数据，把「列名不存在」这类问题提前暴露出来，而不用等到 run。</p>
+
+<h2>create：从内置示例起步</h2>
+
+<p>不想从空文件写起，就用内置示例。当前有 5 个：</p>
+
+<table>
+<tr><th>id</th><th>名称</th></tr>
+<tr><td>grouped-sales</td><td>区域分组销售</td></tr>
+<tr><td>complex-master</td><td>复杂主格经营分析</td></tr>
+<tr><td>multi-column</td><td>多栏报表</td></tr>
+<tr><td>chart-gallery</td><td>统计图集</td></tr>
+<tr><td>images</td><td>图片与背景</td></tr>
+</table>
+
+<pre><code>rpx template create --example grouped-sales --out-dir my-report</code></pre>
+
+<p>实测它会在目标目录里放<strong>两个文件</strong>：<code>template.json</code> 和 <code>sales.csv</code>——也就是一份<strong>立刻能跑的完整包</strong>，不是只有模板还得自己去找数据。</p>
+
+<p>这正是「定义即代码」想要的起步体验：<strong>复制一份能跑的，再改成你自己的。</strong>不知道有哪些示例，<code>rpx catalog examples</code> 会列出来。</p>
+
+<h2>patch：用 RFC 6902 改定义</h2>
+
+<p>这是最适合自动化的一环。补丁是标准 RFC 6902 JSON Patch，通过 <code>--patch-file</code> 传入：</p>
+
+<pre><code>[{ "op": "replace", "path": "/cells/0/text", "value": "2026 年 9 月工资表" }]</code></pre>
+
+<pre><code>rpx template patch payroll.json \
+    --patch-file patch.json --out patched.json</code></pre>
+
+<p>实测打完之后，<code>patched.json</code> 里 <code>cells[0].text</code> 确实变成了新标题，其余部分不动。</p>
+
+<h3>--dry-run：先看效果再落盘</h3>
+
+<pre><code>rpx template patch payroll.json --patch-file patch.json \
+    --out patched.json --dry-run</code></pre>
+
+<p>返回 <code>dry_run: true</code> 并<strong>把补丁后的完整模板回显出来</strong>，但不写文件。这一步很值得养成习惯：补丁里的 <code>path</code> 写错是常事，dry-run 能让你在落盘前看到「改完长什么样」。</p>
+
+<p>补丁无法应用会返回 <code>PATCH_INVALID</code>（退出码 3），不会给你一份半改的文件。</p>
+<blockquote><strong><code>--out</code> 不会覆盖已存在的文件。</strong>实测再跑一次同名输出会直接报 <code>IO_ERROR</code>（「文件存在」，os error 80）。这和 <code>run --out-dir</code> 拒绝已存在目录是同一套策略：<strong>引擎不替你决定要不要覆盖</strong>。脚本里要么每次换新文件名，要么先删。</blockquote>
+
+<h3>为什么用补丁而不是直接改 JSON？</h3>
+
+<p>直接读写 JSON 当然可以，但补丁有三个好处：</p>
+
+<ul>
+<li><strong>可审计</strong>：补丁文件本身就是「改了什么」的记录，能进版本库；</li>
+<li><strong>可复现</strong>：同一份补丁对同一份模板，结果一致；</li>
+<li><strong>可回退</strong>：原模板不动，输出是新文件（<code>--out</code> 指定）。</li>
+</ul>
+
+<h2>schema：给编辑器接上补全</h2>
+
+<pre><code>rpx schema template</code></pre>
+
+<p>输出内置的 JSON Schema（draft 2020-12，<code>additionalProperties: false</code>）。把它配进 VS Code 之类支持 JSON Schema 的编辑器，写定义时就有<strong>字段补全和拼写校验</strong>——字段名写错会在编辑时就被标红，而不是等到 validate 才报。</p>
+
+<p>注意 schema <strong>只覆盖结构和类型</strong>；表达式语法、语义约束是由引擎的定义加载器另外检查的（schema 描述里也写明了这一点）。</p>
+
+<h2>四条命令怎么串起来</h2>
+
+<p>一个典型的「改一份报表」回路：</p>
+
+<ol>
+<li><code>rpx template inspect</code> —— 找到要改的格子和它的 <code>json_pointer</code>；</li>
+<li>写补丁文件（path 用上一步的 pointer）；</li>
+<li><code>rpx template patch --dry-run</code> —— 确认改对了；</li>
+<li><code>rpx template patch</code> —— 落盘；</li>
+<li><code>rpx lint</code> → <code>rpx run</code> —— 自检再真跑。</li>
+</ol>
+
+<p>全程不需要打开任何图形界面，也<strong>每一步都可以被脚本或 Agent 执行</strong>——这是「定义即代码」真正的意思：不是「用 JSON 存配置」，而是<strong>让报表能进版本库、能走评审、能被自动化</strong>。</p>
+
+<h2>常见问题</h2>
+
+<h3>inspect 和 result inspect 有什么区别？</h3>
+
+<p>对象不同。<code>template inspect</code> 看的是<strong>定义</strong>（你写了什么），<code>result inspect</code> 看的是<strong>结果</strong>（算出来是什么）。后者的输入是 run 产出的 <code>result.json</code>，每格带 <code>origin</code> 指回模板原格。</p>
+
+<h3>patch 能改数据集吗？</h3>
+
+<p>能。数据集是 <code>/datasets/0/file/file_name</code> 这样的路径，同样用 <code>json_pointer</code> 定位。<code>rpx lint</code> 报 L005 / L006 时给的就是这类 pointer，可以直接拿去写补丁。</p>
+
+<h3>validate 通过了，为什么 run 还是失败？</h3>
+
+<p>因为 <code>deferred</code> 那四项（取数、计算、分页、导出）validate 不管。最常见的就是<strong>列名对不上</strong>——模板里写 <code>ds1.sum(amount)</code>，数据里那列其实叫 <code>amt</code>。这种问题要么用 <code>--probe-data</code> 提前探，要么先跑 <code>rpx dataset inspect</code> 看真实列名。</p>
+
+<h3>内置函数有哪些？</h3>
+
+<p><code>rpx catalog functions</code>，实测返回 <strong>20 个</strong>：13 个通用函数加 <strong>7 个数据集聚合函数</strong>（<code>ds.sum</code> / <code>ds.avg</code> / <code>ds.max</code> / <code>ds.min</code> / <code>ds.count</code> / <code>ds.group</code> / <code>ds.select</code>）。每个都带 <code>signature</code>、<code>example</code> 和 <code>limitations</code>——比如 <code>sum</code> 会注明「区域聚合；数据集聚合使用 <code>ds.sum(expr[,filter])</code>」，两者不要混用。</p>
+
+  </article>
+</div>
+</body>
+</html>

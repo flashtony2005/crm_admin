@@ -1,0 +1,1751 @@
+{
+  "cells": [
+    {
+      "address": "A1",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A1",
+      "origin_coordinates": [
+        1,
+        1
+      ],
+      "row": 1,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "address": "B1",
+      "col": 2,
+      "left_head_origin": "0",
+      "origin": "A1",
+      "origin_coordinates": [
+        1,
+        1
+      ],
+      "row": 1,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "address": "C1",
+      "col": 3,
+      "left_head_origin": "0",
+      "origin": "A1",
+      "origin_coordinates": [
+        1,
+        1
+      ],
+      "row": 1,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "address": "D1",
+      "col": 4,
+      "left_head_origin": "0",
+      "origin": "A1",
+      "origin_coordinates": [
+        1,
+        1
+      ],
+      "row": 1,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "address": "E1",
+      "col": 5,
+      "left_head_origin": "0",
+      "origin": "A1",
+      "origin_coordinates": [
+        1,
+        1
+      ],
+      "row": 1,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "address": "F1",
+      "col": 6,
+      "left_head_origin": "0",
+      "origin": "A1",
+      "origin_coordinates": [
+        1,
+        1
+      ],
+      "row": 1,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "address": "A2",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A2",
+      "origin_coordinates": [
+        2,
+        1
+      ],
+      "row": 2,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "address": "B2",
+      "col": 2,
+      "left_head_origin": "0",
+      "origin": "A2",
+      "origin_coordinates": [
+        2,
+        1
+      ],
+      "row": 2,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "address": "C2",
+      "col": 3,
+      "left_head_origin": "0",
+      "origin": "A2",
+      "origin_coordinates": [
+        2,
+        1
+      ],
+      "row": 2,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "address": "D2",
+      "col": 4,
+      "left_head_origin": "0",
+      "origin": "A2",
+      "origin_coordinates": [
+        2,
+        1
+      ],
+      "row": 2,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "address": "E2",
+      "col": 5,
+      "left_head_origin": "0",
+      "origin": "A2",
+      "origin_coordinates": [
+        2,
+        1
+      ],
+      "row": 2,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "address": "F2",
+      "col": 6,
+      "left_head_origin": "0",
+      "origin": "A2",
+      "origin_coordinates": [
+        2,
+        1
+      ],
+      "row": 2,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "address": "A3",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A3",
+      "origin_coordinates": [
+        3,
+        1
+      ],
+      "row": 3,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "大区"
+      }
+    },
+    {
+      "address": "B3",
+      "col": 2,
+      "left_head_origin": "0",
+      "origin": "B3",
+      "origin_coordinates": [
+        3,
+        2
+      ],
+      "row": 3,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "门店"
+      }
+    },
+    {
+      "address": "C3",
+      "col": 3,
+      "left_head_origin": "0",
+      "origin": "C3",
+      "origin_coordinates": [
+        3,
+        3
+      ],
+      "row": 3,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "销售额"
+      }
+    },
+    {
+      "address": "D3",
+      "col": 4,
+      "left_head_origin": "0",
+      "origin": "D3",
+      "origin_coordinates": [
+        3,
+        4
+      ],
+      "row": 3,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "组内排名"
+      }
+    },
+    {
+      "address": "E3",
+      "col": 5,
+      "left_head_origin": "0",
+      "origin": "E3",
+      "origin_coordinates": [
+        3,
+        5
+      ],
+      "row": 3,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "组内占比"
+      }
+    },
+    {
+      "address": "F3",
+      "col": 6,
+      "left_head_origin": "0",
+      "origin": "F3",
+      "origin_coordinates": [
+        3,
+        6
+      ],
+      "row": 3,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "组内第一"
+      }
+    },
+    {
+      "address": "A4",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 4,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "address": "B4",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 4,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "深圳南山"
+      }
+    },
+    {
+      "address": "C4",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 4,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 214000
+      }
+    },
+    {
+      "address": "D4",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 4,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 1
+      }
+    },
+    {
+      "address": "E4",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 4,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.4115384615384615
+      }
+    },
+    {
+      "address": "F4",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 4,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "★ 组内第一"
+      }
+    },
+    {
+      "address": "A5",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 5,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "address": "B5",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 5,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "广州越秀"
+      }
+    },
+    {
+      "address": "C5",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 5,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 156000
+      }
+    },
+    {
+      "address": "D5",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 5,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 2
+      }
+    },
+    {
+      "address": "E5",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 5,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.3
+      }
+    },
+    {
+      "address": "F5",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 5,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A6",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 6,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "address": "B6",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 6,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "佛山禅城"
+      }
+    },
+    {
+      "address": "C6",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 6,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 87000
+      }
+    },
+    {
+      "address": "D6",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 6,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 3
+      }
+    },
+    {
+      "address": "E6",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 6,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.1673076923076923
+      }
+    },
+    {
+      "address": "F6",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 6,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A7",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 7,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "address": "B7",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 7,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "珠海香洲"
+      }
+    },
+    {
+      "address": "C7",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 7,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 63000
+      }
+    },
+    {
+      "address": "D7",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 7,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 4
+      }
+    },
+    {
+      "address": "E7",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 7,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.12115384615384615
+      }
+    },
+    {
+      "address": "F7",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 7,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A8",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 8,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "address": "B8",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 8,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "上海浦东"
+      }
+    },
+    {
+      "address": "C8",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 8,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 268000
+      }
+    },
+    {
+      "address": "D8",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 8,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 1
+      }
+    },
+    {
+      "address": "E8",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 8,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.3901018922852984
+      }
+    },
+    {
+      "address": "F8",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 8,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "★ 组内第一"
+      }
+    },
+    {
+      "address": "A9",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 9,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "address": "B9",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 9,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "杭州滨江"
+      }
+    },
+    {
+      "address": "C9",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 9,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 193000
+      }
+    },
+    {
+      "address": "D9",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 9,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 2
+      }
+    },
+    {
+      "address": "E9",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 9,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.28093158660844253
+      }
+    },
+    {
+      "address": "F9",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 9,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A10",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 10,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "address": "B10",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 10,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "南京建邺"
+      }
+    },
+    {
+      "address": "C10",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 10,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 134000
+      }
+    },
+    {
+      "address": "D10",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 10,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 3
+      }
+    },
+    {
+      "address": "E10",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 10,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.1950509461426492
+      }
+    },
+    {
+      "address": "F10",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 10,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A11",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 11,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "address": "B11",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 11,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "苏州姑苏"
+      }
+    },
+    {
+      "address": "C11",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 11,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 92000
+      }
+    },
+    {
+      "address": "D11",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 11,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 4
+      }
+    },
+    {
+      "address": "E11",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 11,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.1339155749636099
+      }
+    },
+    {
+      "address": "F11",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 11,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A12",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 12,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华北"
+      }
+    },
+    {
+      "address": "B12",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 12,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "北京海淀"
+      }
+    },
+    {
+      "address": "C12",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 12,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 241000
+      }
+    },
+    {
+      "address": "D12",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 12,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 1
+      }
+    },
+    {
+      "address": "E12",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 12,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.6965317919075145
+      }
+    },
+    {
+      "address": "F12",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 12,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "★ 组内第一"
+      }
+    },
+    {
+      "address": "A13",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A4",
+      "origin_coordinates": [
+        4,
+        1
+      ],
+      "row": 13,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "华北"
+      }
+    },
+    {
+      "address": "B13",
+      "col": 2,
+      "left_head_origin": "A4",
+      "origin": "B4",
+      "origin_coordinates": [
+        4,
+        2
+      ],
+      "row": 13,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "天津河西"
+      }
+    },
+    {
+      "address": "C13",
+      "col": 3,
+      "left_head_origin": "B4",
+      "origin": "C4",
+      "origin_coordinates": [
+        4,
+        3
+      ],
+      "row": 13,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 105000
+      }
+    },
+    {
+      "address": "D13",
+      "col": 4,
+      "left_head_origin": "B4",
+      "origin": "D4",
+      "origin_coordinates": [
+        4,
+        4
+      ],
+      "row": 13,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 2
+      }
+    },
+    {
+      "address": "E13",
+      "col": 5,
+      "left_head_origin": "B4",
+      "origin": "E4",
+      "origin_coordinates": [
+        4,
+        5
+      ],
+      "row": 13,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 0.30346820809248554
+      }
+    },
+    {
+      "address": "F13",
+      "col": 6,
+      "left_head_origin": "B4",
+      "origin": "F4",
+      "origin_coordinates": [
+        4,
+        6
+      ],
+      "row": 13,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": ""
+      }
+    },
+    {
+      "address": "A14",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A5",
+      "origin_coordinates": [
+        5,
+        1
+      ],
+      "row": 14,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "合计"
+      }
+    },
+    {
+      "address": "B14",
+      "col": 2,
+      "left_head_origin": "0",
+      "origin": "B5",
+      "origin_coordinates": [
+        5,
+        2
+      ],
+      "row": 14,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "10 家门店"
+      }
+    },
+    {
+      "address": "C14",
+      "col": 3,
+      "left_head_origin": "0",
+      "origin": "C5",
+      "origin_coordinates": [
+        5,
+        3
+      ],
+      "row": 14,
+      "top_head_origin": "0",
+      "value": {
+        "type": "int",
+        "value": 1553000
+      }
+    },
+    {
+      "address": "E14",
+      "col": 5,
+      "left_head_origin": "0",
+      "origin": "E5",
+      "origin_coordinates": [
+        5,
+        5
+      ],
+      "row": 14,
+      "top_head_origin": "0",
+      "value": {
+        "type": "double",
+        "value": 1.0
+      }
+    },
+    {
+      "address": "A15",
+      "col": 1,
+      "left_head_origin": "0",
+      "origin": "A6",
+      "origin_coordinates": [
+        6,
+        1
+      ],
+      "row": 15,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "address": "B15",
+      "col": 2,
+      "left_head_origin": "0",
+      "origin": "A6",
+      "origin_coordinates": [
+        6,
+        1
+      ],
+      "row": 15,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "address": "C15",
+      "col": 3,
+      "left_head_origin": "0",
+      "origin": "A6",
+      "origin_coordinates": [
+        6,
+        1
+      ],
+      "row": 15,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "address": "D15",
+      "col": 4,
+      "left_head_origin": "0",
+      "origin": "A6",
+      "origin_coordinates": [
+        6,
+        1
+      ],
+      "row": 15,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "address": "E15",
+      "col": 5,
+      "left_head_origin": "0",
+      "origin": "A6",
+      "origin_coordinates": [
+        6,
+        1
+      ],
+      "row": 15,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "address": "F15",
+      "col": 6,
+      "left_head_origin": "0",
+      "origin": "A6",
+      "origin_coordinates": [
+        6,
+        1
+      ],
+      "row": 15,
+      "top_head_origin": "0",
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    }
+  ],
+  "col_widths": [
+    14.0,
+    20.0,
+    18.0,
+    13.0,
+    20.0,
+    16.0
+  ],
+  "cols": 6,
+  "merges": [
+    {
+      "col": 1,
+      "cols": 6,
+      "row": 1,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "col": 2,
+      "cols": 6,
+      "row": 1,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "col": 3,
+      "cols": 6,
+      "row": 1,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "col": 4,
+      "cols": 6,
+      "row": 1,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "col": 5,
+      "cols": 6,
+      "row": 1,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "col": 6,
+      "cols": 6,
+      "row": 1,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "门店销售 · 组内排名与组内占比"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 6,
+      "row": 2,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "col": 2,
+      "cols": 6,
+      "row": 2,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "col": 3,
+      "cols": 6,
+      "row": 2,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "col": 4,
+      "cols": 6,
+      "row": 2,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "col": 5,
+      "cols": 6,
+      "row": 2,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "col": 6,
+      "cols": 6,
+      "row": 2,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 4,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 5,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 6,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 7,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华南"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 8,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 9,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 10,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 11,
+      "rows": 4,
+      "value": {
+        "type": "string",
+        "value": "华东"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 12,
+      "rows": 2,
+      "value": {
+        "type": "string",
+        "value": "华北"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 1,
+      "row": 13,
+      "rows": 2,
+      "value": {
+        "type": "string",
+        "value": "华北"
+      }
+    },
+    {
+      "col": 1,
+      "cols": 6,
+      "row": 15,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "col": 2,
+      "cols": 6,
+      "row": 15,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "col": 3,
+      "cols": 6,
+      "row": 15,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "col": 4,
+      "cols": 6,
+      "row": 15,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "col": 5,
+      "cols": 6,
+      "row": 15,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    },
+    {
+      "col": 6,
+      "cols": 6,
+      "row": 15,
+      "rows": 1,
+      "value": {
+        "type": "string",
+        "value": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。"
+      }
+    }
+  ],
+  "pagination": {
+    "columns": 1,
+    "page_count": 1,
+    "page_h_pt": 700.157470703125,
+    "page_w_pt": 487.5590515136719,
+    "pages": [
+      {
+        "col_range": [
+          0,
+          5
+        ],
+        "page": 1,
+        "row_range": [
+          0,
+          14
+        ],
+        "rows": 15
+      }
+    ],
+    "row_num_per_page": 20,
+    "x_pages": 1,
+    "y_pages": 1
+  },
+  "row_heights": [
+    30.0,
+    8.0,
+    22.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    8.0,
+    22.0,
+    8.0
+  ],
+  "rows": 15,
+  "template": {
+    "grid": {
+      "cols": 6,
+      "rows": 6
+    }
+  },
+  "version": 1
+}

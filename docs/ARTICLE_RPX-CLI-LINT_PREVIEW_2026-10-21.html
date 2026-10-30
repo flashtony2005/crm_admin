@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rpx lint：拦截「不报错但产物错」的四类写法 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-cli-lint</code>
+    （生产形态 <code>/t/coucouya/post/rpx-cli-lint</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 08:24 ｜ 正文字符数：5326 ｜ 章节 7 ／ 表格 3 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">rpx lint：拦截「不报错但产物错」的四类写法</h1>
+  <article class="article-body">
+<h2>有一类错误，不会报错</h2>
+
+<p>写报表定义时最难防的不是报错，是<strong>不报错</strong>。模板结构合法、校验通过、跑得起来、导出成功——然后产物是错的。</p>
+
+<p>这类问题有个共同特征：<strong>它们在静态层就能看出来，但校验器不管</strong>。因为传统的「校验」只回答「结构对不对」，而这些写法结构完全合法，错的语义要到成品才显形。</p>
+
+<p><code>rpx lint</code> 就是为这四类问题单独开的一条命令。它<strong>只读模板 JSON，不取数、不计算、不导出</strong>。</p>
+
+<h2>四类静默失败</h2>
+
+<p>官方文档（源码里的设计说明）把这四类列成了一张表，我照实测补充了触发条件：</p>
+
+<table>
+<tr><th>写法</th><th>validate</th><th>实际产物</th></tr>
+<tr><td><code>text</code> 里写 <code>${period}</code></td><td>通过</td><td>原样打印出 <code>${period}</code> 这几个字</td></tr>
+<tr><td>单元格声明 <code>border</code></td><td>通过</td><td>导出不落地（写了等于没写）</td></tr>
+<tr><td>扩展块与合计行之间留空行</td><td>通过</td><td>多一行空行，合计整体被推下去</td></tr>
+<tr><td>同排多个 <code>vertical</code> 且不串父子链</td><td>通过</td><td>扩展相乘（6 行明细可能炸成数百行）</td></tr>
+</table>
+
+<p>第四条最危险：它不产生任何可见的错误迹象，只是<strong>行数暴涨</strong>。如果你的报表突然多了几百行、合计对不上，先查这个。</p>
+
+<h2>八个检查项与八个码</h2>
+
+<p>实测一条干净的样例，<code>lint</code> 会告诉你它查了什么、<strong>没查</strong>什么：</p>
+
+<pre><code>"checked": ["text_macros", "extension_shape", "extension_gaps",
+             "border_support", "dataset_files", "dataset_delimiters",
+             "page_width", "number_formats"],
+"deferred": ["data_loading", "calculation", "pagination", "export"]</code></pre>
+
+<p><strong><code>deferred</code> 这四项必须看清楚</strong>：取数、计算、分页、导出，lint 一概不管。所以有了那句写在输出里的提醒：</p>
+
+<p><em>「lint 是静态检查：它证明不了值算对，只拦四类静默失败。值对不对必须真跑并断言产物。」</em></p>
+
+<p>八个检查项各自对应一个码，我从源码和实测两侧核对如下：</p>
+
+<table>
+<tr><th>码</th><th>检查项</th><th>触发条件与提示要点</th></tr>
+<tr><td>L001</td><td>text_macros</td><td>某格的 <code>text</code> 里写了宏。提示：宏只在 <code>expr</code> 里替换，<code>text</code> 会原样上屏</td></tr>
+<tr><td>L002</td><td>extension_shape</td><td>同一行有多个互不指向的纵向扩展根。提示：必须用 <code>left_head</code> 收敛到唯一根</td></tr>
+<tr><td>L003</td><td>extension_gaps</td><td>扩展块内有空行。提示：空行会被算进扩展块，合计整体下移</td></tr>
+<tr><td>L004</td><td>border_support</td><td>有单元格声明了 <code>border</code>。提示：快照与 xlsx 都只带默认边框</td></tr>
+<tr><td>L005</td><td>dataset_files</td><td>数据集文件不存在（相对 <code>--data-dir</code> 解析）</td></tr>
+<tr><td>L006</td><td>dataset_delimiters</td><td>CSV/TSV 没显式声明 <code>delimiter</code>。提示：列名会变成整行文本</td></tr>
+<tr><td>L007</td><td>page_width</td><td>列宽合计超过可用宽度（默认 190mm）</td></tr>
+<tr><td>L008</td><td>number_formats</td><td>窄列（&lt;16mm）放了两位以上小数，会显示 <code>####</code></td></tr>
+</table>
+
+<h2>实测：造一份坏模板</h2>
+
+<p>光看表不算数。我拿一份干净的工资表模板，人为塞进五个问题，再跑 lint：</p>
+
+<pre><code>rpx lint bad_template.json --data-dir examples/r-model</code></pre>
+
+<p>返回 5 条，每一条都带 <code>code</code>、<code>level</code>、<code>message</code>、<code>hint</code> 和 <code>json_pointer</code>：</p>
+
+<pre><code>L001 warning | A1 的 text 里写了宏 ${period}，但宏只在 expr 里替换
+     hint: text 会原样上屏。把宏移到 expr（如 expr: "\"${period} 销售表\""）
+
+L004 warning | 模板有 1 个单元格声明了 border（首个是 A2），但当前导出不落地
+     hint: 快照与 xlsx 都只带默认边框，写了等于没写
+
+L005 warning | 数据集 pay 的文件不存在：...\no_such_file.csv
+     hint: file.file_name 是相对 --data-dir 的路径
+
+L006 warning | 数据集 pay（no_such_file.csv）没有显式声明 delimiter
+     hint: 不写 delimiter 时不会按逗号切分：列名会变成整行文本
+
+L007 warning | 列宽合计 420mm，超过可用宽度 190mm
+     hint: 超宽会横向分页</code></pre>
+
+<p><strong><code>json_pointer</code> 这个字段很有用</strong>：它直接指向 <code>/cells/0/text</code>、<code>/datasets/0/file/file_name</code> 这样的路径，Agent 可以据此定位并自动改，不用去猜是哪一格。</p>
+
+<p>另外注意：单次最多报 50 条（源码里的 <code>MAX_ISSUES</code>），避免一份病态模板刷屏。</p>
+
+<h2>放进 CI：--strict</h2>
+
+<p>默认情况 lint 是<strong>软失败</strong>的：有问题也返回退出码 0，因为 warning 不该阻断流程。要当闸门用，加 <code>--strict</code>。</p>
+
+<pre><code>rpx lint template.json --strict</code></pre>
+
+<table>
+<tr><th>场景</th><th>退出码</th></tr>
+<tr><td>有 5 条 warning，不加 <code>--strict</code></td><td>0</td></tr>
+<tr><td>有 5 条 warning，加 <code>--strict</code></td><td><strong>3</strong></td></tr>
+<tr><td>干净模板，加 <code>--strict</code></td><td>0</td></tr>
+</table>
+
+<p>退出码 3 是「定义错误」那一档，和模板 JSON 不合法同级——也就是说 <strong>--strict 把 warning 提升成了阻断级</strong>。放进 CI 就是一行：</p>
+
+<pre><code>rpx lint templates/*.json --data-dir data --strict || exit 1</code></pre>
+
+<h2>它不替代什么</h2>
+
+<p>再强调一次 <code>deferred</code> 那四项。lint <strong>不保证以下几件事</strong>：</p>
+
+<ul>
+<li><strong>值算得对不对</strong>——公式合法但口径写反，lint 看不出来；</li>
+<li><strong>数据里有没有脏值</strong>——它连数据都不读（只检查文件在不在、分隔符有没有声明）；</li>
+<li><strong>分页会不会超宽</strong>——只查静态列宽合计，动态的扩展后宽度不管；</li>
+<li><strong>导出成不成功</strong>——那要真跑。</li>
+</ul>
+
+<p>所以完整回路是：<strong>lint（静态自检）→ <a href="/post/rpx-cli-run-export">run（真跑）</a>→ 断言产物（逐格对拍）</strong>。三步缺一不可，而 lint 是其中最便宜的一步——不需要数据、毫秒级、能放进每次提交。顺便说，<a href="/post/rpx-business-reports">这 7 份业务报表</a>里每个数字都是走完第三步才敢写出来的。</p>
+
+<h2>常见问题</h2>
+
+<h3>它和 <code>template validate</code> 有什么区别？</h3>
+
+<p>两者都离线，但查的层不同。实测 <code>template validate</code> 检查的是 <code>schema</code>、<code>declared_heads</code>、<code>unconditional_scalar_cycles</code>、<code>formula_preparation</code>、<code>parameter_binding</code>、<code>inferred_heads</code>——都是<strong>结构和公式能不能成立</strong>。lint 查的是「能成立但产物会错」的那四类。<strong>先 validate 后 lint，两者不互相替代。</strong></p>
+
+<h3>为什么全是 warning，没有 error？</h3>
+
+<p>因为这八项<strong>都不阻断执行</strong>——模板照样能跑，只是产物可能不对。设计上刻意保持这个口径：要不要把它们当错误，交给调用方用 <code>--strict</code> 决定。</p>
+
+<h3>不传 <code>--data-dir</code> 会怎样？</h3>
+
+<p>那 L005（文件不存在）和 L006（缺分隔符）就查不了——它们依赖知道数据目录在哪。其余六项照常。<strong>想让 lint 查全，就把 <code>--data-dir</code> 带上。</strong></p>
+
+<h3>扩展相乘具体是怎么发生的？</h3>
+
+<p>同一行放了两组纵向扩展，但没用 <code>left_head</code> 说明谁跟着谁，引擎就当成两个独立的扩展各自铺开，结果是<strong>行数相乘</strong>而不是并列。源码里的提示写得很直白：6 行明细可能炸成数百行。<a href="/post/rpx-extend-cell">这篇</a>专门讲扩展格的父子链怎么串。</p>
+
+  </article>
+</div>
+</body>
+</html>

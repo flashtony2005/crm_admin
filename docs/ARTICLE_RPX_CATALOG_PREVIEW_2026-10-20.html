@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>29 份报表，143 条断言：AI 报表引擎怎么证明自己没算错 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-json-report-catalog</code>
+    （生产形态 <code>/t/coucouya/post/rpx-json-report-catalog</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 00:37 ｜ 正文字符数：14614 ｜ 章节 11 ／ 表格 4 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">29 份报表，143 条断言：AI 报表引擎怎么证明自己没算错</h1>
+  <article class="article-body">
+<section>
+<p><strong>报表引擎最难证明的，不是它能算出什么，而是它算的东西对不对。</strong>一张报表摆在屏幕上，谁都看不出问题——直到某个月财务对账差出 3 万块，你才发现自己花了三周造的模板，合计行在第 3 个分片上多算了一次。</p>
+
+<p>所以我们做的第一件事不是堆能力，是<strong>让每一份样例都带一份"独立算出来的预期答案"</strong>。这份答案写在源数据之外，由人先算一遍、写死；引擎跑完，结果必须逐格对上，对不上就整份失败。这篇文章不讲抽象架构，只讲 29 份样例里挑出的几类具体报表——它们各自难在哪，以及引擎凭什么说它算对了。</p>
+
+<blockquote>
+<p><strong>一句话答案：</strong>判断一份报表引擎靠不靠谱，别看它渲染得多漂亮，看三件事：<strong>一、它的样例有没有写死的期望值</strong>（还是只有截图）；<strong>二、期望值是不是人独立算的</strong>（还是引擎自己算自己比）；<strong>三、边界情况有没有被钉住</strong>（零分母、负数、空基期这些最容易翻车的地方有没有断言覆盖）。本文 29 份样例共 143 条断言，全部由前一种方式产生——这就是下文所有数字的来源。</p>
+</blockquote>
+
+<figure>
+<img src="/uploads/rpx-sample-gallery.png" alt="AI 报表引擎报表实例库：左侧按 11 类能力域列出 29 份样例，右侧为选中样例的报表结果画布" loading="lazy" />
+<figcaption>报表实例库：29 份样例按能力域分组，右侧是 Univer 只读渲染的真实结果。每份都能切到模板定义、数据来源与运行校验。</figcaption>
+</figure>
+
+<h2>一、先说结论：29 份样例，143 条断言，0 条靠截图</h2>
+
+<p>先把这笔账摊开。<strong>29 份样例，覆盖 11 类能力域，一共钉住 143 条断言</strong>。这些断言不是"跑通了"这种模糊结论，而是一行行具体的数字：某个模板原格（第 4 行第 2 列）扩展出来之后，应该等于 <code>486000</code>。</p>
+
+<table>
+<thead>
+<tr><th>能力域</th><th>样例数</th><th>代表样例</th><th>这一类难在哪</th></tr>
+</thead>
+<tbody>
+<tr><td>典型业务报表</td><td>7</td><td>利润表、资产负债表、资金日记账</td><td>逐级汇总与跨行结转，每一行都得对上</td></tr>
+<tr><td>自由格间运算</td><td>5</td><td>收入结构·占比与帕累托、同比环比与累计</td><td>公式要按"结果实例"访问邻居，不是按坐标</td></tr>
+<tr><td>统计图与图形</td><td>4</td><td>销售看板四图共用三源、ECharts JS formatter</td><td>图与表必须绑定同一份数据，不能各算各的</td></tr>
+<tr><td>多源关联分片</td><td>3</td><td>纵向分片、横向分片、综合示例</td><td>一张表里塞多个互不相干的小表</td></tr>
+<tr><td>交叉表合并</td><td>3</td><td>交叉表动态合并格、明细同值合并</td><td>合并几行由数据决定，不能设计期写死</td></tr>
+<tr><td>不规则分组</td><td>2</td><td>按段不完全分组、重叠分组贷款分析</td><td>分组边界不由数据排序决定，一个事实可属多组</td></tr>
+<tr><td>多口径分组合计</td><td>1</td><td>卷烟产值计算表</td><td>同一份明细按四种口径各出一组合计</td></tr>
+<tr><td>行列对称</td><td>1</td><td>行列对称交叉预算</td><td>横纵主格由不同数据集分别驱动</td></tr>
+<tr><td>混合数据源</td><td>1</td><td>Excel / CSV / 双数据库联合报表</td><td>四份独立来源按业务键关联</td></tr>
+<tr><td>条码与标签</td><td>1</td><td>条形码错位显示</td><td>Code 128B 逐行生成，奇偶号错位排版</td></tr>
+<tr><td>表单与序号列</td><td>1</td><td>保险单明细表</td><td>序号列跨整块纵向合并</td></tr>
+</tbody>
+</table>
+
+<h3>期望值必须写在源数据之外</h3>
+
+<p>样例的期望值不是引擎跑完再记下来的日志，而是<strong>人在写样例时先算一遍、手工填进去的常量</strong>。比如"收入结构"这份样例，我们先写下"6 个渠道收入依次是 486000、372500、268000、195000、128000、86500，合计 1536000"，然后引擎去跑，跑完必须逐个对上。<strong>如果期望值由引擎自己产生，那这套断言就只是引擎跟自己比，任何 bug 都会一起错，等于没验证。</strong></p>
+
+<h3>11 类能力域的分布</h3>
+
+<p>每一份样例在实例库里都长成同一个样子：<strong>报表结果、模板定义、数据来源、运行校验</strong>四个标签页，加一组下载链接。前面三个是给人看的，最后一个是给机器看的——也是这篇的重点。</p>
+
+<h2>二、期望值怎么被核对：逐格比对，不是"跑通就算"</h2>
+
+<h3>核对逻辑的三个步骤</h3>
+
+<p>核对逻辑在运行时的 <code>check()</code> 函数里，一共做三件事，顺序不能乱。</p>
+
+<ul>
+<li><strong>定位。</strong>每条断言声明一个"模板原格"的行列坐标，比如 <code>[4, 2]</code>。这个坐标指向<strong>模板里那一格</strong>，而不是结果里的某一行。</li>
+<li><strong>展开。</strong>引擎取出所有从这一格扩展出来的结果实例，按行列排序成数组。</li>
+<li><strong>比对。</strong>把展开后的实际值数组，与断言里写死的期望数组逐个比较。数值按 <code>1e-8</code> 的绝对容差判等，其余走严格相等。<strong>两边都先尝试当数字解析</strong>——CSV 读出来的 <code>"123"</code> 与模板算出的 <code>123</code> 应当判为相等，而不是因为类型不同就失败。</li>
+</ul>
+
+<h3>断言锚在"模板原格"上，不是结果行号</h3>
+
+<p>关键在第二步。<strong>断言锚在"模板原格"上，比对的却是"展开后的整列"</strong>——这正是报表引擎最容易被做错的地方。如果你的引擎把断言写成"结果第 3 行第 2 列等于 486000"，那一旦数据多来一行、扩展方向变了，这条断言就会悄悄指向另一个格子。而锚在模板原格上，数据怎么变、扩展到几行，这个断言的语义都不变。</p>
+
+<p>失败的处理方式同样重要：<strong>任何一条断言不匹配，整份样例直接返回错误</strong>，错误信息里同时给出期望值和实际值。它不是打个警告继续往下跑，是当场中止。</p>
+
+<figure>
+<img src="/uploads/rpx-sample-checks.png" alt="运行校验标签页：5 项独立预期全部通过，逐条列出检查名、模板原格坐标、实际值与通过状态" loading="lazy" />
+<figcaption>「收入结构 · 占比与帕累托」的运行校验页：5 项独立预期全部通过。注意"模板原格（行, 列）"这一列——断言锚在模板坐标上，不是结果行号。</figcaption>
+</figure>
+
+<p>看这张表最上面两行：「各渠道收入」锚在 <code>4, 2</code>，展开出 6 个值；「累计收入」锚在 <code>4, 4</code>，展开出 <code>[486000, 858500, 1126500, 1321500, 1449500, 1536000]</code>。第二行就是第一行的累加结果——<strong>但它不是引擎算出来之后我们再写下来的期望值，而是人事先按同一个口径手算一遍写进去的</strong>。引擎跑出来的和手写的必须一致。</p>
+
+<h3>四个标签页分别给你什么</h3>
+
+<p>一份样例在实例库里的四个标签页，其实对应四种不同用途：</p>
+
+<ul>
+<li><strong>报表结果</strong>——Univer 只读画布渲染出的真实网格，含合并格、格式与分页，<strong>这是给人看的最终形态</strong>。</li>
+<li><strong>模板定义</strong>——完整的 JSON 定义，含数据集、公式、扩展方向与主格关系，<strong>这是可复制的起点</strong>。</li>
+<li><strong>数据来源</strong>——每个数据集的类型、文件或连接名、工作表与附件，<strong>这是溯源用的</strong>。</li>
+<li><strong>运行校验</strong>——逐条列出检查项、模板原格坐标、实际值与通过状态，<strong>这是给机器看的证据</strong>。</li>
+</ul>
+
+<p>四个页签合起来回答的是同一个问题：<strong>这份报表长什么样、它是怎么定义的、数据从哪来、以及凭什么说它算对了</strong>。任何一环缺失，剩下的都只是展示。</p>
+
+<h2>三、这一列数字是怎么算出来的：模板里的公式长什么样</h2>
+
+<h3>六列公式：根坐标、位移坐标与格集</h3>
+
+<p>断言是结果，公式是原因。<strong>模板定义</strong>标签页里能看到每个格子真正的表达式。以「收入结构」为例，六列公式分别是：</p>
+
+<ul>
+<li><code>rev.select(revenue)</code> —— 取渠道与收入两列。</li>
+<li><code>B4/sum(B4[`0]{})</code> —— <strong>根坐标</strong>：<code>B4</code> 是当前格，<code>sum(B4[`0]{})</code> 表示"把这一整列求和"，也就是当前格除以全列合计 = 单行占比。</li>
+<li><code>if(seq(A4)&lt;=1,B4,B4+D4[-1])</code> —— <strong>位移坐标</strong>：<code>D4[-1]</code> 是同一列上一行的值，所以这是逐行累加 = 累计收入。第一行 <code>seq(A4)</code> 等于 1，走 <code>B4</code> 分支。</li>
+<li><code>D4/sum(B4[`0]{})</code> —— 累计收入除以全列合计 = 累计占比。</li>
+<li><code>count(B4[`0]{B4&gt;$B4})+1</code> —— <strong>格集上的条件计数</strong>：数出这一列里比自己大的有几个，加一即降序排名。</li>
+<li><code>if(F4&lt;=3,'TOP3','')</code> —— 排名前三的标 <code>TOP3</code>，其余留空。</li>
+</ul>
+
+<figure>
+<img src="/uploads/rpx-sample-definition.png" alt="模板定义标签页：展示一份 JSON 报表定义的 grid、datasets、col_props、row_props 与 cells 结构，单元格内含 expr 表达式" loading="lazy" />
+<figcaption>模板定义页：一份可读的 JSON。datasets 绑数据源，cells 里是带 expr 的表达式与 extend_mode 扩展方向。下载链接就在页面右上角。</figcaption>
+</figure>
+
+<h3>一个公式 + 一个扩展方向</h3>
+
+<p>值得单独提一句的是 <code>extend_mode</code>。模板里 A4 格（取渠道名的 <code>rev.select(channel)</code>）写的是 <code>vertical</code>——<strong>这一格会向下扩展</strong>。而取收入的 B4、算占比的 C4、算累计的 D4 自己的 <code>extend_mode</code> 都是 <code>none</code>，它们靠一个 <code>left_head: "A4"</code> 字段挂在 A4 上，跟着渠道列一起扩展。</p>
+
+<p>整张表的结构因此是"<strong>一个纵向扩展的主格 + 一组跟随它的公式</strong>"，而不是"六行六个公式"。数据来 6 条就展开 6 行，来 8 条就展开 8 行，<strong>占比、累计、排名、TOP3 标注全部自动跟着变</strong>，不需要改模板。</p>
+<p>这里的关键概念是<strong>扩展格</strong>——它决定了报表能不能用一份模板跑出成千上万行数据，也决定了合计与占比能不能算对。完整推导见 <a href="/post/rpx-extend-cell">扩展格：中国式报表的核心算法，到底怎么工作</a>。</p>
+
+<h3>边界情况被单独钉住</h3>
+
+<p>这就是「同比环比与累计」这类样例真正的难点：<code>period-comparison</code> 里断言写着「基期为零」「—」，因为环比要访问上一期、去年同季与上次累计，<strong>当基期不存在或为 0 时必须给出明确标记，而不是除出 Infinity 或一个假数字</strong>。这类边界被单独写成了断言：</p>
+
+<table>
+<thead>
+<tr><th>检查项</th><th>模板原格</th><th>期望值（前几项）</th></tr>
+</thead>
+<tbody>
+<tr><td>环比及零分母</td><td>[4, 2]</td><td>—、基期为零、1.5、1.3333333333333333、1.25、0.8 …</td></tr>
+<tr><td>同比跨年定位</td><td>[4, 3]</td><td>—、—、—、—、基期为零、2.0、2.0、0.0、1.4 …</td></tr>
+<tr><td>签约总额</td><td>[4, 4]</td><td>3480</td></tr>
+</tbody>
+</table>
+
+<p>注意期望值里的 <code>—</code> 和 <code>基期为零</code> 是<strong>字符串</strong>，不是数字。引擎在这种情况下必须输出可读标记，不能输出 <code>NaN</code>、<code>Infinity</code> 或 <code>0</code>——<strong>0 会被下游当成"确实是零"，是最危险的一种错</strong>。</p>
+
+<p>还有一处值得留意的判定细节：<strong>期望值与实际值会先尝试当数字解析再比较</strong>。所以文本型的"基期为零"走严格相等，而文本型的"486000"与数值型的 486000 会被判为相等——<strong>CSV 里带引号的数字不该让断言假失败</strong>。</p>
+
+<h2>四、合计对不上：最常见也最致命的一类错</h2>
+
+<p>前面讲的是"算得巧不巧"，这一节讲"加得对不对"。<strong>合计写错是财务场景里最高频的故障</strong>，而它往往不是算错，是重复算了一遍。</p>
+
+<p>「重叠分组贷款分析」这份样例专门处理这个：<strong>一个事实可以同时出现在省级、其中行与重点地区三个分组里</strong>。这不是 bug，是业务现实——一笔贷款既是某省的，又在重点地区名单里。但它带来一个陷阱：</p>
+
+<blockquote>
+<p>「其中行」不是视觉缩进，而是<strong>集合语义</strong>：它既参与分组，又不能被重复加总。</p>
+</blockquote>
+
+<h3>重复加总：一个事实属于多个分组</h3>
+
+<p>所以这份样例的断言里有一组特别关键的数字：<strong>分组交叠与其中行</strong>的七个值（1000、1800、2000、2900、1400、1200、3900）、<strong>去重事实合计</strong> 8900，以及<strong>原始不良余额</strong> 4500。</p>
+
+<p>三个数字放在一起才说明问题。8900 是把去重后的事实加起来的正确答案；4500 是源数据里真实的余额；七个分组值加起来远大于这两个数——因为重叠部分被算了多次。<strong>如果引擎偷懒直接对分组结果求和，得到的一定不是 8900</strong>。这条断言就是专门用来杀掉这种实现的。</p>
+
+<h3>边界归属：负价格不能悄悄归到第一段</h3>
+
+<p>「按段不完全分组」处理另一个边界：<strong>分段次序来自 Excel，而不是价格排序</strong>。样例里刻意放了 20、50、80、100、150 这些边界记录，以及一条被排除的负价格。断言「价格段边界归属」给出 <code>[2, 2, 2, 2, 2, 3]</code>，另一条断言「不属于任何段的事实」给出 <code>[2]</code>——<strong>那条负价格必须落不进任何一段，而不是悄悄归到第一段</strong>。</p>
+
+<h3>四种口径，一份明细</h3>
+
+<p>「卷烟产值计算表」是另一种口径压力测试：<strong>同一份牌号明细，按厂、包装形式、卷烟类型、价类四种口径各出一组合计</strong>，每行产值 = 产量 × 调拨价。这意味着一份数据要同时喂给四套不同的分组逻辑，四套结果还都得对。</p>
+
+<h2>五、合并与格式：错一行，整张表就毁</h2>
+
+<p>数据算对了，版式错了，报表照样不能用——因为读者看到的是错行。</p>
+
+<h3>合并几行由数据决定</h3>
+
+<p>「交叉表动态合并格」的要求是：大区、门店两级分组按相邻等值纵向合并，<strong>合并几行由数据决定而不是设计期写死</strong>；月份列因为 1 月 / 2 月交替出现而<strong>不合并</strong>。断言把逐格取值都钉死了：</p>
+
+<table>
+<thead>
+<tr><th>检查项</th><th>实际值</th></tr>
+</thead>
+<tbody>
+<tr><td>大区逐格取值</td><td>华东、华东、华东、华东、华南、华南 …</td></tr>
+<tr><td>月份逐格取值</td><td>1月、2月、1月、2月、1月、2月 …</td></tr>
+<tr><td>金额矩阵</td><td>8000、12000、9000、13000、7600、9800、8100、10200 …</td></tr>
+</tbody>
+</table>
+
+<h3>同值合并：同一条规则，两列不同表现</h3>
+
+<p>「明细同值合并」用 <code>mergeSame</code> 把这件事讲得更细：月份列开纵向同值合并，1 月跨 2 行、2 月跨 2 行；<strong>品类列空调 / 冰箱交替出现，一格都不并</strong>。同一条规则在两列上的不同表现，各自独立断言。</p>
+
+<h3>组内口径：合并与计算同时发生</h3>
+
+<p>「门店销售 · 组内排名与组内占比」则演示了<strong>合并与计算同时发生</strong>的场景：大区纵向同值合并成格，但组内口径要用根坐标把范围收窄到同一大区。断言给出组内排名 <code>[1, 2, 3, 1, 2, 3, 1, 2]</code> 和组内第一标注 <code>['★ 组内第一', '', '', '★ 组内第一', '', '', '★ 组内第一', '']</code>。独立验算：三个大区合计分别是 426000、493000、286000，各区第一名占比 <strong>43.66%、41.58%、69.23%</strong>——<strong>注意这是组内占比，不是全店占比</strong>，两个口径混用是这类报表最常见的错。</p>
+
+<h2>六、多源与图形：数据和图必须同源</h2>
+
+<p>前面所有样例，数据源基本是 CSV 或 Excel。真实项目不是。</p>
+
+<h3>四份来源，两个约束</h3>
+
+<p>「Excel / CSV / 双数据库联合报表」在一张表里挂<strong>四份独立来源</strong>：组织库给负责人姓名、经营库给分区域收入、Excel 给预算、CSV 给带小数和引号的文本，然后按业务键关联。有两条设计约束值得单独讲：</p>
+
+<ul>
+<li><strong>数据库连接只在执行时使用，结果页不需要再访问数据库。</strong>结果算完就固化成产物，之后谁看、什么时候看，都不依赖那两个库还活着。</li>
+<li><strong>来源可溯源。</strong>「数据来源」标签页把每个数据集的类型、文件或连接名、工作表、附件都列出来，源文件可下载。</li>
+</ul>
+
+<figure>
+<img src="/uploads/rpx-sample-sources.png" alt="数据来源标签页：列出报表引用的每个数据集及其类型、文件或连接名、工作表与附件下载" loading="lazy" />
+<figcaption>「Excel / CSV / 双数据库联合报表」的数据来源页：四份独立来源按名称绑定公式、按业务键关联，源文件可下载核对。</figcaption>
+</figure>
+
+<h3>同名不同区：不能串</h3>
+
+<p>「多源关联分片 · 综合示例」把复杂度再叠一层：<strong>两个 SQLite 库、Excel 双工作表、CSV 同时驱动年月×地区城市、人员×产品类别、静态汇总以及九张订单主子片</strong>，浏览时冻结四行两列。它的断言里有几条特别见功力——「同名城市按地区隔离」给出 <code>['E2', 'Shared', 'Shared', 'W2', 'W3']</code>，<strong>两个城市都叫 Shared，但分属不同地区，不能串</strong>。</p>
+
+<h3>图形：尺寸与锚点不能漂</h3>
+
+<p>图形这块，「销售看板」是四张图排一页：柱状、饼图、双系列折线、柱线组合，分别绑定地区、品类、月度三个独立数据集。这里有个容易忽略的要求——<strong>图形尺寸与锚定格在模板里固定，不随扩展漂移</strong>。数据多了，如果图形跟着飘，整页排版就散了。</p>
+
+<figure>
+<img src="/uploads/rpx-sample-graphics.png" alt="图形标签页：销售看板的柱状图、饼图、双系列折线与柱线组合四张图排在一页" loading="lazy" />
+<figcaption>「销售看板 · 四图共用三源」的图形页：四张图各自绑定独立数据集，尺寸与锚点固定在模板里。</figcaption>
+</figure>
+
+<p>「ECharts JS 模板 · formatter 回调」是另一个形态：<strong>template 是一段 JS 函数体，在 sandbox iframe 内执行</strong>，tooltip 与标签用真正的函数做 formatter，而不是字符串模板。这意味着图表配置的表达能力不受字符串拼接的限制，代价是执行环境必须隔离。</p>
+
+<h2>七、那些财务报表：最普通，也最检验语义</h2>
+
+<p>前面六节讲的都是"高级"能力，但真正每天被用的还是标准财务报表。<strong>它们不炫技，却最能暴露语义漏洞</strong>——因为合计口径、跨行结转、平衡校验这些在标准报表里是硬要求，不是可选项。</p>
+
+<h3>资产负债表：把"应该平"写成模板里的一格</h3>
+
+<p>「资产负债表 · 左右双栏」的断言里有四条构成一条完整的自证链：</p>
+
+<table>
+<thead>
+<tr><th>检查项</th><th>模板原格</th><th>期望值</th></tr>
+</thead>
+<tbody>
+<tr><td>资产 · 货币资金</td><td>[4, 2]</td><td>1286400</td></tr>
+<tr><td>所有者权益 · 未分配利润</td><td>[12, 6]</td><td>279000</td></tr>
+<tr><td>资产总计 · 期末</td><td>[13, 2]</td><td>4903000</td></tr>
+<tr><td>负债和所有者权益总计 · 期末</td><td>[13, 6]</td><td>4903000</td></tr>
+<tr><td><strong>平衡校验差额 · 期末</strong></td><td>[14, 2]</td><td><strong>0</strong></td></tr>
+</tbody>
+</table>
+
+<p>资产总计和负债权益总计<strong>各自独立算出，然后必须相等</strong>，差额那一格由引擎自己算出来必须是 0。这不是"我们检查了一下是平的"，而是<strong>把"应该平"写成了模板里的一格</strong>——数据一变，不平了，这一格就会显示非零，断言立刻失败。</p>
+
+<h3>资金日记账：两个独立算法必须殊途同归</h3>
+
+<p>「资金日记账 · 逐行结转」考的是逐行递推：每行余额 = 上一行余额 + 借方 − 贷方，首行加期初余额（期初值放在宏里，改一处即可换账户）。断言「逐行余额结转」给出 8 个值（448500、262500、120500、216500、197900、165500、375500、323100），末行 323100；借方合计 626000、贷方合计 431400，差额 194600 正是本期发生净额。另一条断言「期末余额与最后一行一致」给出同一个 323100——<strong>合计行的余额必须等于最后一行，两个独立算法必须殊途同归</strong>。</p>
+
+<h3>利润表与发货单：逐级汇总与可打印交付</h3>
+
+<p>「利润表 · 本期与上期对比」是逐级汇总：营业收入 2860000、营业成本 1746000，营业利润 605200，利润总额 607200，净利润 499200，上期净利润 408400。三级缩进体现科目层级，变动率按行计算——<strong>本期净利润较上期增长 22.23%</strong>。</p>
+
+<p>「销售发货单」把报表推到交付形态：多行明细、金额合计 69636、13% 增值税 9052.68、价税合计 78688.68，外加签字栏，<strong>一张纸可直接打印</strong>。独立验算：69636 × 13% = 9052.68，69636 + 9052.68 = 78688.68，与断言完全一致。</p>
+
+<h3>账龄分析：双条件汇总与占比</h3>
+
+<p>「应收账款账龄分析表」用一个很典型的结构：<strong>每个账龄区间列都是"当前客户 + 天数区间"两个条件的汇总</strong>，末列给出占总额比重。断言给出六个客户余额（合计 3252000）、逐客户 90 天以上金额（合计 642000）——<strong>这 642000 占总额 19.74%</strong>。</p>
+
+<h2>八、这套机制保证了什么，没保证什么</h2>
+
+<h3>三处最容易被忽略的自我审查</h3>
+
+<p>说清楚边界比吹嘘更有用。</p>
+
+<h3>保证了什么</h3>
+
+<ul>
+<li><strong>结果是确定的。</strong>同一份模板 + 同一份数据，输出同一张网格。排序、合并、分页都可复现，回归可以机器判，不需要人眼比对。</li>
+<li><strong>改动不会悄悄破坏旧模板。</strong>任何一条断言不通过，整份样例失败。这套闸门对引擎每次改动都跑一遍。</li>
+<li><strong>能力边界是显式的。</strong>143 条断言覆盖了哪些场景、哪些边界，一目了然。没覆盖的地方，我们知道它没覆盖。</li>
+</ul>
+
+<h3>没保证什么</h3>
+
+<ul>
+<li><strong>断言是人写的，所以也可能写错。</strong>机制能保证"引擎算的 == 人写的"，但保证不了"人写的"本身对。所以断言要能被独立复核——这也是每条断言都给出模板原格坐标的原因：拿到坐标和源数据，任何人都能自己算一遍。上面那些数字，本文也是重新算过一遍才写出来的。</li>
+<li><strong>143 条断言不等于 143 个场景。</strong>覆盖的是 29 份样例声明的那些场景，不是报表世界的全集。真实项目里的怪需求，一定还有没被样例覆盖的。</li>
+<li><strong>样例通过不等于你的模板能跑。</strong>样例证明的是引擎语义正确。你的业务模板能不能表达出来，是另一件事——这也是为什么每份样例的模板 JSON 都能下载：<strong>它是可复制的起点，不是只能看的展示</strong>。</li>
+</ul>
+
+<h2>九、怎么用这些样例</h2>
+
+<h3>从"看懂了"到"能用起来"</h3>
+
+<p>看完不该只是"哦，厉害"。这些样例有三种用法：</p>
+
+<h3>一、当模板起点</h3>
+
+<p>每个样例页右上角都有三个下载：<strong>Excel、CSV、JSON 定义</strong>。下载 JSON 定义，在设计器里改数据源和公式，就是你自己的报表起点——不用从空白网格开始拼版式。</p>
+
+<h3>二、当能力索引</h3>
+
+<p>按能力域翻一遍实例库，比读功能列表直观得多。<strong>想知道引擎能不能做某种结构，直接找最接近的那份样例，打开看它的模板定义和断言</strong>。模板定义页还提供<strong>下载带模板出处的计算结果</strong>与<strong>下载运行记录</strong>——后者是这一轮的完整运行档案，包含运行 ID、模板尺寸、结果尺寸与全部断言结果。</p>
+
+<h3>三、当验收标准</h3>
+
+<p>这是最重要的一种用法。<strong>你要评估的引擎，先问它三件事：</strong></p>
+
+<ol>
+<li>你们的样例有写死的期望值吗，还是只有截图？</li>
+<li>期望值是独立于引擎算出来的吗？</li>
+<li>零分母、空基期、边界归属这些地方，有没有被单独钉住？</li>
+</ol>
+
+<p>三个问题都答得上，再看它的样例覆盖面，最后看断言是不是真的会因为算错而失败。<strong>跑通不等于算对，能算对且能证明它算对了，才是两回事。</strong></p>
+
+<h2>十、FAQ</h2>
+
+<h3>这些样例的数据是真的业务数据吗？</h3>
+
+<p>不是，是构造的最小可复现数据集。来源是公开的国产报表模型（<code>r-model</code>）的算例思路，但数据经过重新构造，<strong>目的是让每个断言的期望值能手算复核</strong>。真实业务的复杂度更高，这也是为什么样例只覆盖声明过的那 29 个场景。</p>
+
+<h3>143 条断言是哪来的？</h3>
+
+<p>每份样例在源清单里自己声明，检查项、模板原格坐标与期望值都是写死的常量。运行时逐条核对，<strong>不匹配则整份样例失败并报出期望值与实际值</strong>。全部断言与结果都记录在运行产物里，可以下载运行记录复核。</p>
+
+<h3>样例通过，就能保证我的报表也对吗？</h3>
+
+<p>不能。样例通过只证明<strong>引擎在它声明覆盖的场景里算对了</strong>。你的业务模板能不能表达、边界够不够，得看你自己的场景。这是所有回归夹具的共同局限——<strong>它的价值在于把"我以为对的"变成"验过的"</strong>，不是保证世界上没有你没想到的情况。</p>
+
+<h3>这些样例会持续增加吗？</h3>
+
+<p>会。新的报表语义一旦被实现，就该配一份样例和断言进去——<strong>没有断言覆盖的新能力，等于没有回归保护</strong>。这也是"夹具优先"原则的实际含义：先有可复现的样例，再有实现。</p>
+
+<h2>数据口径与检索时间</h2>
+
+<p>本文所有数字来自 <code>rust_report</code> 仓库的一次完整运行产物，检索与核对时间为 <strong>2026-10-20</strong>。具体来源：</p>
+
+<ul>
+<li><strong>样例清单</strong>：仓库 <code>examples/r-model/catalog.json</code>，声明 29 份样例的标题、分类、能力标签与断言。</li>
+<li><strong>断言与结果</strong>：运行产物 <code>run.json</code> 与产物 <code>catalog.json</code>，共 143 条断言，全部为 <code>passed</code>。</li>
+<li><strong>公式与模板结构</strong>：产物目录下的 <code>template.json</code>，含 <code>expr</code>、<code>extend_mode</code>、<code>format</code> 等字段。</li>
+<li><strong>截图</strong>：报表实例库 <code>/gallery.html</code> 于 2026-10-20 的实跑截取，页面 0 报错、29 份样例状态均为「已生成」。</li>
+</ul>
+
+<p>文中出现的合计、占比、排名、余额等数字，本文已按源数据独立复算一遍，与引擎输出一致。<strong>以仓库当期版本为准，不以本文数字为准</strong>——样例数据与断言会随版本更新，本文反映的是 2026-10-20 的状态。</p>
+</section>
+
+  </article>
+</div>
+</body>
+</html>

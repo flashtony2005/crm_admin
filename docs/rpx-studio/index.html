@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>报表工作台 · RPX Studio</title>
+<style>
+  /* ============================================================
+     RPX STUDIO — editorial ledger
+     纸 · 墨 · 朱砂
+     ============================================================ */
+  :root{
+    --paper:#F4F1E9; --paper-2:#FBF9F4; --paper-3:#FFFFFF;
+    --ink:#13100C; --ink-2:#4E483E; --ink-3:#7D7566; --ink-4:#A8A092;
+    --rule:#DFD8C9; --rule-2:#C9C0AE; --rule-3:#EDE7DA;
+    --seal:#B8381C; --seal-2:#94290F; --seal-soft:#F7E8E2;
+    --ok:#2F6B4F; --ok-bg:#E7F0E9;
+    --warn:#8A5B00; --warn-bg:#F8EEDA;
+    --err:#A32B14; --err-bg:#F8E4DE;
+
+    --serif:"Source Han Serif SC","Songti SC",SimSun,Georgia,serif;
+    --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    --mono:"Cascadia Mono",ui-monospace,"SF Mono",Consolas,"Courier New",monospace;
+
+    --ease:cubic-bezier(.22,.72,.28,1);
+    --shell:1240px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:14.5px; line-height:1.68;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    font-variation-settings:"wght" 400;
+    overflow-x:hidden;
+  }
+  /* 账簿网格 + 顶部暖光 */
+  body:before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(to right, rgba(19,16,12,.032) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(19,16,12,.032) 1px, transparent 1px);
+    background-size:68px 68px;
+    -webkit-mask-image:radial-gradient(130% 62% at 50% -6%, #000 12%, transparent 78%);
+    mask-image:radial-gradient(130% 62% at 50% -6%, #000 12%, transparent 78%);
+  }
+  body:after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:radial-gradient(70% 42% at 50% 0%, rgba(184,56,28,.055), transparent 70%);
+  }
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  ::selection{background:var(--seal);color:#fff}
+
+  /* ---------- 顶部条 ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:40;
+    background:rgba(244,241,233,.82);
+    backdrop-filter:saturate(1.4) blur(14px);
+    -webkit-backdrop-filter:saturate(1.4) blur(14px);
+    border-bottom:1px solid var(--rule);
+  }
+  .topbar-in{
+    max-width:var(--shell); margin:0 auto; padding:13px 34px;
+    display:flex; align-items:center; gap:15px;
+  }
+  .mark{
+    width:33px;height:33px;flex:0 0 auto;
+    border-radius:3px;
+    background:var(--seal); color:#FDF6F1;
+    display:grid; place-items:center;
+    font-family:var(--serif); font-weight:700; font-size:16px;
+    letter-spacing:.02em;
+    box-shadow:0 1px 0 rgba(19,16,12,.18), inset 0 0 0 1px rgba(255,255,255,.14);
+  }
+  .brand b{
+    display:block; font-family:var(--serif); font-size:15.5px; font-weight:700;
+    line-height:1.2; letter-spacing:.02em; white-space:nowrap;
+  }
+  .brand small{
+    display:block; color:var(--ink-4); font-family:var(--mono);
+    font-size:9.5px; letter-spacing:.17em; text-transform:uppercase; margin-top:2px;
+  }
+  .topbar .spacer{flex:1}
+  .env{
+    display:flex; align-items:center; gap:9px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.04em; color:var(--ink-3);
+    padding:5px 0 5px 14px; border-left:1px solid var(--rule);
+  }
+  .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--ok); flex:0 0 auto;
+    box-shadow:0 0 0 3px rgba(47,107,79,.14);
+    animation:breathe 3.4s var(--ease) infinite;
+  }
+  .dot.bad{background:var(--err);box-shadow:0 0 0 3px rgba(163,43,20,.14);animation:none}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 3px rgba(47,107,79,.14)}50%{box-shadow:0 0 0 5px rgba(47,107,79,.06)}}
+
+  /* ---------- 头图 ---------- */
+  .hero{
+    position:relative; z-index:1;
+    max-width:var(--shell); margin:0 auto;
+    padding:64px 34px 30px;
+  }
+  .hero-kicker{
+    display:flex; align-items:center; gap:12px;
+    font-family:var(--mono); font-size:10px; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--ink-3);
+    margin-bottom:26px;
+  }
+  .hero-kicker s{
+    display:block; width:44px; height:1px; background:var(--rule-2); text-decoration:none;
+  }
+  .hero h1{
+    margin:0;
+    font-family:var(--serif); font-weight:900;
+    font-size:clamp(36px,5.6vw,64px);
+    line-height:1.02; letter-spacing:-.022em;
+    text-wrap:balance;
+  }
+  .hero h1 em{font-style:normal; color:var(--seal); position:relative}
+  .hero h1 em:after{
+    content:""; position:absolute; left:0; right:0; bottom:.06em; height:.055em;
+    background:var(--seal); opacity:.32;
+    transform:scaleX(0); transform-origin:left;
+    animation:swipe 1.1s var(--ease) .55s forwards;
+  }
+  @keyframes swipe{to{transform:scaleX(1)}}
+  .hero .lede{
+    margin:22px 0 0; max-width:56ch;
+    color:var(--ink-2); font-size:15px; line-height:1.82;
+  }
+  .hero .lede b{color:var(--ink); font-weight:600}
+
+  /* ---------- 头图入场编排 ---------- */
+  .hero h1{animation:heroIn .95s var(--ease) both}
+  .hero .lede{animation:heroIn .95s var(--ease) .16s both}
+  .hero .strip{animation:heroIn .95s var(--ease) .26s both}
+  .hero .hero-kicker{animation:heroIn .8s var(--ease) both}
+  @keyframes heroIn{from{opacity:0; transform:translateY(18px)}to{opacity:1; transform:none}}
+
+  /* ---------- 规格条 ---------- */
+  .strip{
+    display:flex; flex-wrap:wrap; margin:32px 0 0; padding:0;
+    border-top:1px solid var(--rule); max-height:120px;
+    transition:opacity .3s var(--ease), max-height .5s var(--ease), margin .5s var(--ease);
+  }
+  .strip div{
+    display:flex; align-items:baseline; gap:9px;
+    padding:15px 26px 0 0; margin-right:26px;
+    border-right:1px solid var(--rule);
+  }
+  .strip div:last-child{border-right:0; margin-right:0; padding-right:0}
+  .strip dd{
+    margin:0; font-family:var(--serif); font-weight:700;
+    font-size:21px; line-height:1; color:var(--ink);
+  }
+  .strip dt{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.15em;
+    text-transform:uppercase; color:var(--ink-4);
+  }
+
+  /* ---------- 外壳 ---------- */
+  .wrap{position:relative; z-index:1; max-width:var(--shell); margin:0 auto; padding:6px 34px 90px}
+
+  .offline{
+    margin:0 0 22px; padding:13px 18px;
+    background:var(--err-bg); border:1px solid rgba(163,43,20,.22);
+    border-left:3px solid var(--err);
+    border-radius:2px; color:var(--err); font-size:13px;
+    display:flex; gap:9px; align-items:baseline; flex-wrap:wrap;
+  }
+  .offline[hidden]{display:none}
+  .offline .mono{background:#fff;border:1px solid rgba(163,43,20,.2);border-radius:2px;padding:1px 5px;font-size:12px}
+
+  /* ---------- 步骤 ---------- */
+  .steps{
+    list-style:none; margin:0 0 30px; padding:0;
+    display:grid; grid-template-columns:repeat(4,1fr);
+    border-top:1px solid var(--rule);
+  }
+  .steps li{
+    position:relative; padding:17px 14px 0 0;
+    display:flex; align-items:center; gap:10px;
+    color:var(--ink-4); font-size:12.5px; letter-spacing:.03em;
+  }
+  .steps li:before{
+    content:""; position:absolute; top:-1px; left:0; right:0; height:2px;
+    background:transparent; transition:background .5s var(--ease);
+  }
+  .steps li.done:before{background:var(--ink)}
+  .steps li.on:before{background:var(--seal)}
+  .steps li i{
+    width:26px; height:26px; flex:0 0 auto;
+    border-radius:2px; border:1px solid var(--rule-2); background:var(--paper-2);
+    display:grid; place-items:center;
+    font-family:var(--mono); font-style:normal; font-size:11px; font-weight:500;
+    transition:.34s var(--ease);
+  }
+  .steps li b{font-weight:500; transition:color .3s}
+  .steps li.done{color:var(--ink-2)}
+  .steps li.done i{border-color:var(--ink); background:var(--ink); color:var(--paper)}
+  .steps li.on{color:var(--ink)}
+  .steps li.on b{font-weight:600}
+  .steps li.on i{
+    border-color:var(--seal); color:var(--seal); background:var(--seal-soft);
+    box-shadow:0 0 0 4px rgba(184,56,28,.07);
+  }
+
+  /* ---------- 面板 ---------- */
+  .panel{
+    position:relative;
+    background:var(--paper-2);
+    border:1px solid var(--rule);
+    border-radius:2px;
+    padding:34px 36px 28px;
+    box-shadow:
+      0 1px 0 rgba(19,16,12,.035),
+      0 22px 44px -30px rgba(19,16,12,.34);
+  }
+  .panel[hidden]{display:none}
+  .panel:not([hidden]){animation:panelIn .52s var(--ease) both}
+  @keyframes panelIn{from{opacity:0; transform:translateY(14px)}to{opacity:1; transform:none}}
+
+  .ph{
+    display:grid; grid-template-columns:auto 1fr; column-gap:18px;
+    align-items:start; margin:0 0 26px;
+  }
+  .ph-idx{
+    grid-row:span 2; min-width:26px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em;
+    color:var(--seal); padding-top:10px; line-height:1;
+    border-top:2px solid var(--seal); padding-right:4px;
+  }
+  .ph h2{
+    grid-column:2; margin:0;
+    font-family:var(--serif); font-weight:700;
+    font-size:clamp(21px,2.35vw,27px); line-height:1.2; letter-spacing:-.012em;
+  }
+  .ph p{grid-column:2; margin:8px 0 0; color:var(--ink-3); font-size:13px; line-height:1.7; max-width:64ch}
+  .divider{height:1px;background:var(--rule-3);margin:22px -36px}
+
+  /* ---------- 按钮 ---------- */
+  .btn{
+    appearance:none; position:relative;
+    border:1px solid var(--rule-2); color:var(--ink);
+    height:42px; padding:0 22px; border-radius:2px;
+    font-family:inherit; font-size:13.5px; font-weight:500; letter-spacing:.015em;
+    cursor:pointer; display:inline-flex; align-items:center; gap:9px;
+    background-image:linear-gradient(to top, var(--ink) 0%, var(--ink) 100%);
+    background-repeat:no-repeat; background-position:bottom; background-size:100% 0;
+    transition:background-size .42s var(--ease), color .26s, border-color .26s, transform .16s, box-shadow .3s;
+  }
+  .btn:hover:not(:disabled){background-size:100% 100%; color:var(--paper); border-color:var(--ink)}
+  .btn:active:not(:disabled){transform:translateY(1px)}
+  .btn:focus-visible{outline:2px solid var(--seal); outline-offset:2px}
+  .btn:disabled{opacity:.38; cursor:not-allowed}
+  .btn.primary:disabled{
+    background-color:var(--rule-3); border-color:var(--rule-2);
+    color:var(--ink-4); opacity:1; box-shadow:none;
+  }
+  .btn.primary{
+    background-color:var(--seal); border-color:var(--seal); color:#FDF6F1;
+    background-image:linear-gradient(to top, var(--seal-2) 0%, var(--seal-2) 100%);
+    background-size:100% 0;
+  }
+  .btn.primary:hover:not(:disabled){
+    background-size:100% 100%; color:#fff; border-color:var(--seal-2);
+    transform:translateY(-1px);
+    box-shadow:0 12px 24px -14px rgba(184,56,28,.85);
+  }
+  .btn.ghost{border-color:transparent; color:var(--ink-2); padding:0 12px; background-color:transparent}
+  .btn.ghost:hover:not(:disabled){background-color:transparent; background-size:0 0; color:var(--seal); border-color:transparent; text-decoration:underline; text-underline-offset:4px}
+  .footbar{display:flex; align-items:center; gap:11px; margin-top:30px; padding-top:22px; border-top:1px solid var(--rule-3)}
+  .footbar .hint{
+    color:var(--ink-4); font-family:var(--mono); font-size:10.5px;
+    letter-spacing:.05em; margin-left:auto; text-align:right;
+  }
+
+  /* ---------- 拖入区 ---------- */
+  .drop{
+    position:relative; display:block; cursor:pointer;
+    border:1px dashed var(--rule-2); border-radius:2px;
+    padding:46px 26px; text-align:center;
+    background:transparent;
+    transition:border-color .34s var(--ease), background .34s, transform .34s var(--ease);
+  }
+  .drop:before,.drop:after{
+    content:""; position:absolute; width:16px; height:16px;
+    border:0 solid var(--seal); opacity:0; transition:.36s var(--ease);
+  }
+  .drop:before{top:-1px; left:-1px; border-top-width:2px; border-left-width:2px}
+  .drop:after{bottom:-1px; right:-1px; border-bottom-width:2px; border-right-width:2px}
+  .drop:hover{border-color:var(--ink-4); background:rgba(255,255,255,.5)}
+  .drop:hover:before,.drop:hover:after,
+  .drop.over:before,.drop.over:after{opacity:1; width:30px; height:30px}
+  .drop.over{
+    border-color:var(--seal); border-style:solid;
+    background:rgba(184,56,28,.045); transform:scale(1.003);
+    box-shadow:inset 0 0 40px rgba(184,56,28,.06);
+  }
+  .drop .ic{
+    display:block; width:40px; height:40px; margin:0 auto 18px;
+    color:var(--seal); font-size:0;
+    border:1px solid var(--seal); border-radius:50%;
+    position:relative;
+  }
+  .drop .ic:before{
+    content:""; position:absolute; left:50%; top:50%;
+    width:1px; height:15px; background:var(--seal);
+    transform:translate(-50%,-62%);
+  }
+  .drop .ic:after{
+    content:""; position:absolute; left:50%; top:50%;
+    width:8px; height:8px; border-top:1px solid var(--seal); border-left:1px solid var(--seal);
+    transform:translate(-50%,-50%) rotate(45deg);
+  }
+  .drop:hover .ic{background:var(--seal); color:#fff}
+  .drop:hover .ic:before{background:#fff}
+  .drop:hover .ic:after{border-color:#fff}
+  .drop b{
+    display:block; font-family:var(--serif); font-size:19px; font-weight:700;
+    letter-spacing:.01em; margin-bottom:9px;
+  }
+  .drop span{color:var(--ink-3); font-size:13px; display:block; max-width:58ch; margin:0 auto; line-height:1.65}
+  .drop code{
+    font-family:var(--mono); font-size:11.5px; color:var(--ink-2);
+    background:var(--paper-3); border:1px solid var(--rule-3); border-radius:2px;
+    padding:1px 5px;
+  }
+
+  .hintrow{
+    display:flex; gap:20px; flex-wrap:wrap; margin-top:17px;
+    color:var(--ink-3); font-size:12px; letter-spacing:.01em;
+  }
+  .hintrow i{color:var(--seal); font-style:normal; margin-right:4px}
+
+  /* ---------- 元信息 chips ---------- */
+  .facts{display:flex; flex-wrap:wrap; gap:0; margin:4px 0 24px; border-top:1px solid var(--rule-3)}
+  .fact{
+    display:inline-flex; align-items:baseline; gap:8px;
+    padding:11px 22px 11px 0; margin-right:22px;
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-4); border-bottom:0;
+  }
+  .fact b{
+    font-family:var(--mono); font-size:13px; font-weight:500;
+    letter-spacing:0; text-transform:none; color:var(--ink);
+  }
+
+  /* ---------- 角色 ---------- */
+  .roles{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule-3); border:1px solid var(--rule-3); border-radius:2px; overflow:hidden; margin:0 0 22px}
+  .role{background:var(--paper-2); padding:15px 16px 14px; transition:background .3s}
+  .role:focus-within{background:var(--paper-3)}
+  .role label{
+    display:block; font-family:var(--mono); font-size:9.5px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--ink-4); margin-bottom:9px;
+  }
+  .role select{
+    width:100%; height:34px; border:0; border-bottom:1px solid var(--rule-2); border-radius:0;
+    background:transparent; font-family:inherit; font-size:14px; font-weight:500; color:var(--ink);
+    padding:0 18px 0 0; cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+    background-position:calc(100% - 8px) calc(50% - 1px), calc(100% - 3px) calc(50% - 1px);
+    background-size:5px 5px, 5px 5px; background-repeat:no-repeat;
+    transition:border-color .24s;
+  }
+  .role select:focus{outline:none; border-bottom-color:var(--seal)}
+  .role .why{margin-top:9px; font-size:11px; color:var(--ink-4); line-height:1.55; font-family:var(--mono); letter-spacing:.01em}
+
+  /* ---------- 扁平表 ---------- */
+  .tblwrap{overflow:auto; border:1px solid var(--rule-3); border-radius:2px; margin-top:4px; background:var(--paper-3)}
+  table.flat{border-collapse:collapse; width:100%; font-size:12.5px}
+  table.flat th,table.flat td{padding:9px 14px; border-bottom:1px solid var(--rule-3); text-align:left; white-space:nowrap}
+  table.flat thead th{
+    background:var(--paper-2); font-weight:600; color:var(--ink-2);
+    font-size:10.5px; letter-spacing:.11em; text-transform:uppercase;
+    position:sticky; top:0; border-bottom:1px solid var(--rule-2);
+  }
+  table.flat thead th .t{
+    display:block; font-family:var(--mono); font-size:9px; color:var(--ink-4);
+    font-weight:400; letter-spacing:.06em; text-transform:none; margin-top:3px;
+  }
+  table.flat td{font-variant-numeric:tabular-nums}
+  table.flat td.num{text-align:right; font-family:var(--mono); color:var(--ink); width:1%}
+  table.flat th.numhead{width:1%}
+  table.flat tbody tr:last-child td{border-bottom:0}
+  table.flat tbody tr{transition:background .18s}
+  table.flat tbody tr:hover td{background:rgba(184,56,28,.028)}
+
+  /* ---------- 骨架卡 ---------- */
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--rule-3); border:1px solid var(--rule-3); border-radius:2px; margin-top:4px}
+  .card{
+    position:relative; background:var(--paper-2); border:0; border-radius:0;
+    padding:22px 22px 24px; cursor:pointer; text-align:left; font-family:inherit;
+    display:flex; flex-direction:column; gap:0;
+    transition:background .3s var(--ease), transform .3s var(--ease), box-shadow .3s var(--ease);
+  }
+  .card:before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--seal); transform:scaleY(0); transform-origin:top;
+    transition:transform .42s var(--ease);
+  }
+  .card:hover{background:var(--paper-3); z-index:1; box-shadow:0 -1px 0 rgba(19,16,12,.05), 0 22px 38px -30px rgba(19,16,12,.55)}
+  .card:hover:before{transform:scaleY(1)}
+  .card:hover h3{color:var(--seal)}
+  .card.on{background:var(--paper-3); box-shadow:inset 0 0 0 1.5px var(--seal); z-index:2}
+  .card.on:before{transform:scaleY(1); width:3px}
+  .card h3{transition:color .26s}
+  .card .mini{
+    border:1px solid var(--rule-3); border-radius:1px; overflow:hidden;
+    margin-bottom:18px; background:var(--paper-3);
+    transition:border-color .3s;
+  }
+  .card:hover .mini,.card.on .mini{border-color:var(--rule-2)}
+  .card .mini div{display:flex; height:19px; border-bottom:1px solid var(--rule-3)}
+  .card .mini div:last-child{border-bottom:0}
+  .card .mini span{
+    flex:1; border-right:1px solid var(--rule-3);
+    display:grid; place-items:center;
+    font-family:var(--mono); font-size:8px; color:var(--ink-4); letter-spacing:-.01em;
+  }
+  .card .mini span:last-child{border-right:0}
+  .card .mini .h{background:var(--ink)}
+  .card .mini .h span{color:rgba(244,241,233,.78); font-weight:500; letter-spacing:.04em}
+  .card h3{
+    margin:0 0 5px; font-family:var(--serif); font-size:16.5px; font-weight:700;
+    letter-spacing:.005em;
+  }
+  .card .tg{
+    color:var(--seal); font-family:var(--mono); font-size:10px;
+    letter-spacing:.09em; text-transform:uppercase; margin-bottom:11px;
+  }
+  .card p{margin:0; color:var(--ink-3); font-size:12.5px; line-height:1.68}
+  .card .pick{
+    position:absolute; top:-1px; right:-1px; width:23px; height:23px;
+    border-radius:0 0 0 2px; border:0;
+    display:grid; place-items:center; font-size:10.5px;
+    color:transparent; background:transparent;
+    transition:.26s var(--ease);
+  }
+  .card:hover .pick{background:var(--rule-3); color:var(--ink-4)}
+  .card.on .pick{background:var(--seal); color:#fff}
+
+  /* ---------- 需求步 ---------- */
+  .needgrid{display:grid; grid-template-columns:1.02fr .98fr; gap:36px; margin-top:4px; align-items:start}
+  .needbox label{
+    display:block; font-family:var(--mono); font-size:9.5px;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--ink-4); margin-bottom:9px;
+  }
+  .needbox input[type=text],.needbox textarea{
+    width:100%; border:1px solid var(--rule-2); border-radius:2px;
+    background:var(--paper-3); font:inherit; color:var(--ink);
+    padding:11px 13px; resize:vertical;
+    transition:border-color .24s, box-shadow .24s;
+  }
+  .needbox input[type=text]{height:42px; font-weight:500}
+  .needbox textarea{min-height:118px; line-height:1.78; font-size:14px}
+  .needbox input[type=text]:focus,.needbox textarea:focus{
+    outline:none; border-color:var(--seal);
+    box-shadow:0 0 0 3px rgba(184,56,28,.09);
+  }
+  .needbox ::placeholder{color:var(--ink-4); opacity:1}
+
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 20px}
+  .chip{
+    border:1px solid var(--rule-2); background:transparent; border-radius:2px;
+    padding:5px 11px; font-size:11.5px; font-family:inherit; letter-spacing:.015em;
+    cursor:pointer; color:var(--ink-2);
+    transition:.24s var(--ease);
+    display:inline-flex; align-items:center;
+  }
+  .chip:hover{border-color:var(--ink-3); color:var(--ink); background:rgba(255,255,255,.6)}
+  .chip.on{
+    background:var(--ink); border-color:var(--ink); color:var(--paper);
+    font-weight:500;
+  }
+  .chip.on:before{
+    content:"✓"; margin-right:6px; font-size:8.5px;
+    opacity:.62; line-height:1;
+  }
+  .chip.on:hover{background:var(--ink); color:var(--paper)}
+
+  .colstrip{margin-top:22px; border-top:1px solid var(--rule-3); padding-top:16px}
+  .cs-h{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--ink-4); margin-bottom:11px;
+  }
+  .cs-body{display:flex; flex-wrap:wrap; gap:6px}
+  .colchip{
+    display:inline-flex; align-items:center; gap:6px;
+    border:1px solid var(--rule-3); background:var(--paper-3); border-radius:2px;
+    padding:4px 9px; font-size:12px; color:var(--ink-2);
+    animation:chipIn .4s var(--ease) both;
+  }
+  @keyframes chipIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .colchip b{
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-4);
+    font-weight:500; letter-spacing:.04em;
+  }
+  .colchip.calc{background:var(--seal-soft); border-color:rgba(184,56,28,.24); color:var(--seal)}
+  .colchip.calc b{color:var(--seal); opacity:.6}
+
+  /* ---------- 编译日志 ---------- */
+  .compile{border:1px solid var(--rule); border-radius:2px; background:var(--paper); overflow:hidden}
+  .compile .ch{
+    padding:12px 15px; border-bottom:1px solid var(--rule);
+    display:flex; align-items:center; gap:9px;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; color:var(--ink-3);
+    background:var(--paper-2);
+  }
+  .compile .ch b{
+    font-family:var(--sans); font-size:12.5px; font-weight:600;
+    letter-spacing:.02em; color:var(--ink);
+  }
+  .pulse{width:5px; height:5px; border-radius:50%; background:var(--ok); flex:0 0 auto}
+  .pulse.busy{background:var(--seal); animation:bl 1s infinite}
+  @keyframes bl{50%{opacity:.2}}
+  .compile .cb{
+    padding:18px 18px 22px; max-height:452px; overflow:auto;
+    -webkit-mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
+    mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
+  }
+  .plan{list-style:none; margin:0; padding:0; counter-reset:p}
+  .plan li{
+    position:relative; padding:0 0 15px 24px;
+    font-size:12.5px; line-height:1.62; color:var(--ink-3);
+    animation:planIn .46s var(--ease) both;
+  }
+  @keyframes planIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
+  .plan li:before{
+    counter-increment:p; content:counter(p);
+    position:absolute; left:0; top:0;
+    width:15px; height:15px; border-radius:50%;
+    background:var(--paper-2); border:1px solid var(--rule-2);
+    color:var(--ink-4); font-family:var(--mono); font-size:8.5px;
+    display:grid; place-items:center;
+  }
+  .plan li:after{
+    content:""; position:absolute; left:7px; top:17px; bottom:3px;
+    width:1px; background:var(--rule);
+  }
+  .plan li:last-child{padding-bottom:0}
+  .plan li:last-child:after{display:none}
+  .plan li b{
+    display:block; color:var(--ink); font-size:12px; font-weight:600;
+    letter-spacing:.02em; margin-bottom:2px;
+  }
+  .plan li .mono{
+    background:var(--paper-3); border:1px solid var(--rule-3); border-radius:2px;
+    padding:0 4px; font-size:11px; color:var(--seal);
+  }
+
+  /* ---------- 状态条 ---------- */
+  .statbar{display:flex; flex-wrap:wrap; gap:8px; margin:2px 0 22px}
+  .badge{
+    display:inline-flex; align-items:center; gap:7px;
+    border-radius:2px; padding:6px 11px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.03em;
+    border:1px solid transparent;
+    animation:chipIn .4s var(--ease) both;
+  }
+  .badge b{font-weight:600}
+  .badge.ok{background:var(--ok-bg); color:var(--ok); border-color:rgba(47,107,79,.2)}
+  .badge.warn{background:var(--warn-bg); color:var(--warn); border-color:rgba(138,91,0,.2)}
+  .badge.err{background:var(--err-bg); color:var(--err); border-color:rgba(163,43,20,.2)}
+  .badge.neutral{background:var(--paper-2); color:var(--ink-2); border-color:var(--rule)}
+
+  /* ---------- 报表纸 ---------- */
+  .sheetwrap{
+    margin-top:4px; border:1px solid var(--rule-2); border-radius:2px;
+    overflow:auto; background:#FFFEFB;
+    box-shadow:0 18px 40px -32px rgba(19,16,12,.4);
+  }
+  table.sheet{border-collapse:collapse; width:100%; font-size:12.5px; font-variant-numeric:tabular-nums}
+  table.sheet td{
+    border:1px solid #EDE7D9; padding:7px 11px;
+    vertical-align:middle; white-space:nowrap;
+    transition:background .16s;
+  }
+  table.sheet td.num{text-align:right; font-family:var(--mono)}
+  table.sheet td.c{text-align:center}
+  table.sheet tr.r-title td{
+    background:var(--ink); color:var(--paper);
+    font-family:var(--serif); font-size:16px; font-weight:700;
+    letter-spacing:.04em; text-align:center; padding:11px;
+    border-color:var(--ink);
+  }
+  table.sheet tr.r-note td{
+    color:var(--ink-3); font-size:11px; background:#FFFEFB;
+    padding:6px 11px; border-color:#F2EDE1;
+  }
+  table.sheet tr.r-head td{
+    background:#F1EDE1; color:var(--ink); font-weight:600;
+    text-align:center; border-color:var(--rule-2);
+    font-size:11.5px; letter-spacing:.04em;
+  }
+  table.sheet tr.r-total td{
+    background:#FAF7EF; font-weight:700;
+    border-top:2px solid var(--seal); font-family:var(--mono);
+  }
+  table.sheet tr.r-total td:first-child{font-family:var(--sans)}
+  table.sheet tr.r-foot td{color:var(--ink-4); font-size:10.5px; border-color:#F4F0E6}
+  table.sheet tbody tr:hover td{background:#FCF9F1}
+  table.sheet tr.r-title:hover td{background:var(--ink)}
+  table.sheet tr.r-total:hover td{background:#F6F1E4}
+
+  /* ---------- 产物 ---------- */
+  .files{display:flex; flex-wrap:wrap; gap:9px; margin-top:20px}
+  .file{
+    display:inline-flex; align-items:center; gap:10px;
+    border:1px solid var(--rule-2); border-radius:2px;
+    padding:9px 15px; background:var(--paper-2); text-decoration:none;
+    color:var(--ink); font-size:13px;
+    transition:.28s var(--ease);
+  }
+  .file:hover{
+    border-color:var(--seal); background:var(--paper-3);
+    transform:translateY(-1px);
+    box-shadow:0 10px 20px -16px rgba(184,56,28,.9);
+  }
+  .file .ext{
+    font-family:var(--mono); font-size:8.5px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; color:#fff;
+    background:var(--ink-4); border-radius:1px; padding:3px 5px;
+  }
+  .file .ext.xlsx{background:#1D6F42}
+  .file .ext.csv{background:var(--ink)}
+  .file .ext.json{background:var(--seal)}
+  .file small{color:var(--ink-4); font-family:var(--mono); font-size:10.5px}
+
+  details{margin-top:12px; border:1px solid var(--rule-3); border-radius:2px; background:var(--paper-2)}
+  details summary{
+    cursor:pointer; padding:11px 15px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.07em; color:var(--ink-3);
+    list-style:none; display:flex; align-items:center; gap:9px;
+    transition:color .22s;
+  }
+  details summary:hover{color:var(--ink)}
+  details summary::-webkit-details-marker{display:none}
+  details summary:before{
+    content:"+"; color:var(--seal); font-family:var(--mono);
+    font-size:13px; line-height:1; transition:transform .3s var(--ease);
+  }
+  details[open] summary:before{content:"−"}
+  details .body{padding:0 15px 15px}
+  pre{
+    margin:0; background:var(--paper-3); border:1px solid var(--rule-3); border-radius:2px;
+    padding:14px 16px;
+    font-family:var(--mono); font-size:11px; line-height:1.75;
+    color:var(--ink-2); overflow:auto; max-height:380px;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .errbox{
+    background:var(--err-bg); border:1px solid rgba(163,43,20,.2);
+    border-left:3px solid var(--err);
+    color:var(--err); border-radius:2px; padding:14px 16px; font-size:13px; margin:0 0 18px;
+  }
+  .errbox b{
+    display:block; margin-bottom:5px; font-family:var(--mono);
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  }
+  .spinner{
+    width:13px; height:13px;
+    border:2px solid rgba(253,246,241,.3); border-top-color:#FDF6F1;
+    border-radius:50%; animation:spin .7s linear infinite; display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{color:var(--ink-4); font-size:12px; padding:22px 2px; text-align:center; font-family:var(--mono); letter-spacing:.06em}
+
+  /* ---------- 页脚 ---------- */
+  .colophon{
+    position:relative; z-index:1;
+    max-width:var(--shell); margin:0 auto; padding:0 34px 46px;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-4);
+  }
+  .colophon s{flex:1; height:1px; background:var(--rule); text-decoration:none; min-width:30px}
+  .colophon b{color:var(--ink-3); font-weight:500}
+
+  /* ---------- 响应 ---------- */
+  @media (max-width:780px){
+    .needgrid{grid-template-columns:1fr; gap:26px}
+  }
+  @media (max-width:900px){
+    .hero{padding:44px 22px 24px}
+    .wrap{padding:4px 22px 70px}
+    .topbar-in{padding:12px 22px}
+    .colophon{padding:0 22px 36px}
+    .panel{padding:26px 22px 22px}
+    .divider{margin:20px -22px}
+    .cards,.roles{grid-template-columns:1fr}
+    .steps{
+      grid-template-columns:1fr 1fr; gap:1px;
+      background:var(--rule); border:1px solid var(--rule); border-radius:2px;
+      overflow:hidden;
+    }
+    .steps li{padding:13px 14px; background:var(--paper-2)}
+    .steps li:before{display:none}
+    .steps li i{width:23px; height:23px; font-size:10px}
+    .steps li.on i{box-shadow:none}
+    .steps li.on{background:var(--seal-soft)}
+    .steps li.done{background:var(--paper-2)}
+    .files{gap:7px}
+  }
+  @media (max-width:620px){
+    .topbar-in{flex-wrap:wrap; gap:9px 12px; padding:11px 18px 12px}
+    .env{
+      width:100%; padding:7px 0 0; border-left:0;
+      border-top:1px solid var(--rule-3); font-size:10px;
+    }
+    .hero{padding:34px 18px 20px}
+    .wrap{padding:2px 18px 56px}
+    .colophon{padding:0 18px 30px}
+    .panel{padding:22px 18px 18px}
+    .divider{margin:18px -18px}
+    .hero h1{font-size:clamp(29px,8.6vw,40px)}
+    .hero .lede{font-size:13.5px; line-height:1.78}
+    .hero-kicker{font-size:9px; letter-spacing:.18em; margin-bottom:18px}
+    .drop{padding:40px 18px}
+    .drop b{font-size:17px}
+    .ph{grid-template-columns:1fr; column-gap:0}
+    .ph-idx{
+      grid-row:auto; margin-bottom:12px; padding-top:0; border-top:0;
+    }
+    .ph-idx:before{
+      content:""; display:block; width:22px; height:2px;
+      background:var(--seal); margin-bottom:9px;
+    }
+    .ph h2,.ph p{grid-column:1}
+    .hintrow{gap:10px 16px; font-size:11.5px}
+    .fact{padding:9px 16px 9px 0; margin-right:16px; font-size:9.5px}
+    .badge{font-size:9.5px; padding:4px 8px}
+    .steps{grid-template-columns:1fr 1fr}
+    .footbar{flex-wrap:wrap; gap:9px}
+    .footbar .hint{width:100%; text-align:left; margin:2px 0 0}
+    table.sheet{font-size:11.5px}
+    table.sheet td{padding:6px 8px}
+    .colophon{font-size:9px; letter-spacing:.1em}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*:before,*:after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="mark">R</div>
+    <div class="brand"><b>报表工作台</b><small>RPX Studio</small></div>
+    <div class="spacer"></div>
+    <div class="env"><span class="dot" id="engineDot"></span><span id="engineTxt">本地引擎检测中…</span></div>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="hero-kicker"><s></s><span>本地报表引擎 · 编译器工作台</span></div>
+  <h1>数据进来，<br><em>报表出去</em>。</h1>
+  <p class="lede">上传一份 CSV，用一句话说清口径——「按大区排名，算组内占比」。<b>编译器把它翻成模板，引擎在本机算出成品</b>。不联网，同样的输入永远得到同一份报表。</p>
+  <dl class="strip">
+    <div><dd>3</dd><dt>种骨架</dt></div>
+    <div><dd>5</dd><dt>个特征</dt></div>
+    <div><dd>6</dd><dt>类数据源</dt></div>
+    <div><dd>0</dd><dt>次联网</dt></div>
+  </dl>
+</header>
+
+<div class="wrap">
+  <div class="offline" id="offline" hidden>
+    <b>本地服务没在跑。</b>
+    <span>在 <span class="mono">docs/rpx-studio</span> 目录执行 <span class="mono">python server.py</span>，再打开 <span class="mono">http://127.0.0.1:8777</span>。直接双击这个 HTML 是不够的——生成报表要调本机的 rpx 引擎。</span>
+  </div>
+
+  <ol class="steps" id="steps">
+    <li data-s="1" class="on"><i>1</i><b>上传数据</b></li>
+    <li data-s="2"><i>2</i><b>选骨架</b></li>
+    <li data-s="3"><i>3</i><b>说需求</b></li>
+    <li data-s="4"><i>4</i><b>出结果</b></li>
+  </ol>
+
+  <!-- ================= 1 ================= -->
+  <section class="panel" data-p="1">
+    <div class="ph">
+      <div class="ph-idx">01</div>
+      <h2>把数据交上来</h2>
+      <p>首行当表头，支持逗号 / 分号 / Tab 分隔，UTF-8 或 GBK 自动识别。</p>
+    </div>
+
+    <div id="dropIdle">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".csv,.tsv,.txt" hidden />
+        <div class="ic">↑</div>
+        <b>拖入 CSV，或点击选择文件</b>
+        <span>也可以先试试 <code>store-sales.csv</code> 这种三列结构：分组、明细、金额</span>
+      </label>
+      <div class="hintrow">
+        <span><i>·</i> 不上传外网，文件只落在本机 <span class="mono">work/</span></span>
+        <span><i>·</i> 上限 8MB</span>
+        <span><i>·</i> 空白行自动忽略</span>
+      </div>
+      <button class="btn" id="btnSample" style="margin-top:20px">没有文件？用示例数据（10 家门店）</button>
+    </div>
+
+    <div id="dataBox" hidden>
+      <div class="facts" id="facts"></div>
+
+      <div class="roles" id="roles">
+        <div class="role">
+          <label>分组列</label>
+          <select id="selGroup"></select>
+          <div class="why" id="whyGroup">—</div>
+        </div>
+        <div class="role">
+          <label>明细列</label>
+          <select id="selDetail"></select>
+          <div class="why" id="whyDetail">—</div>
+        </div>
+        <div class="role">
+          <label>数值列</label>
+          <select id="selMeasure"></select>
+          <div class="why" id="whyMeasure">—</div>
+        </div>
+      </div>
+
+      <div class="tblwrap"><table class="flat" id="prevTbl"></table></div>
+      <div class="hintrow"><span id="prevNote"></span></div>
+    </div>
+
+    <div class="footbar">
+      <button class="btn ghost" id="btnReset" hidden>重新选择</button>
+      <button class="btn primary" id="toStep2" disabled>下一步：选骨架</button>
+      <span class="hint" id="hint1">先上传一个文件</span>
+    </div>
+  </section>
+
+  <!-- ================= 2 ================= -->
+  <section class="panel" data-p="2" hidden>
+    <div class="ph">
+      <div class="ph-idx">02</div>
+      <h2>选一张骨架</h2>
+      <p>骨架决定版面和要算哪些列；细节特征到下一步用一句话补。</p>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="footbar">
+      <button class="btn" data-back="1">上一步</button>
+      <button class="btn primary" id="toStep3" disabled>下一步：说需求</button>
+      <span class="hint" id="hint2">选一张</span>
+    </div>
+  </section>
+
+  <!-- ================= 3 ================= -->
+  <section class="panel" data-p="3" hidden>
+    <div class="ph">
+      <div class="ph-idx">03</div>
+      <h2>说清你要什么</h2>
+      <p>写下口径；编译器把它翻成模板表达式，同时给出每一步的决策日志。</p>
+    </div>
+
+    <div class="needgrid">
+      <div class="needbox">
+        <label for="title">报表标题</label>
+        <input type="text" id="title" placeholder="留空则用骨架默认标题" />
+
+        <div style="height:20px"></div>
+        <label for="need">需求</label>
+        <textarea id="need" placeholder="例如：按大区看每家门店的销售额，组内排名，算组内占比，第一名的标出来，最后要一行合计。"></textarea>
+
+        <div class="chips" id="chips"></div>
+
+        <div class="hintrow" style="margin-top:0">
+          <span><i>·</i> 会识别的词：排名 / 占比 / 组内占比 / 第一 / 合计</span>
+          <span><i>·</i> 点名列名可以改角色，如「按部门分组」</span>
+        </div>
+
+        <div class="colstrip">
+          <div class="cs-h">将生成的列</div>
+          <div class="cs-body" id="colstrip"><span class="empty" style="padding:6px 0">—</span></div>
+        </div>
+      </div>
+
+      <div class="compile">
+        <div class="ch"><span class="pulse" id="cPulse"></span><b>编译器决策日志</b><span id="cMeta" style="margin-left:auto"></span></div>
+        <div class="cb">
+          <ul class="plan" id="plan"><li><b>等待输入</b>写下需求后这里会实时变化</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="footbar">
+      <button class="btn" data-back="2">上一步</button>
+      <button class="btn primary" id="btnRun">生成并运行</button>
+      <span class="hint" id="hint3">编译不联网，同样的输入永远得到同样的模板</span>
+    </div>
+  </section>
+
+  <!-- ================= 4 ================= -->
+  <section class="panel" data-p="4" hidden>
+    <div class="ph">
+      <div class="ph-idx">04</div>
+      <h2>报表做好了</h2>
+      <p id="rSub">引擎执行结果、诊断与可下载产物。</p>
+    </div>
+
+    <div class="statbar" id="statbar"></div>
+    <div id="errBox"></div>
+    <div class="sheetwrap" id="sheetWrap"></div>
+    <div class="files" id="files"></div>
+
+    <div id="detWrap"></div>
+
+    <div class="footbar">
+      <button class="btn" data-back="3">改需求重跑</button>
+      <button class="btn" id="btnAgain">再跑一次</button>
+      <button class="btn ghost" id="btnNew">换一份数据</button>
+    </div>
+  </section>
+</div>
+
+<footer class="colophon">
+  <b>RPX STUDIO</b>
+  <s></s>
+  <span>本地运行 · 数据不出本机 · 不联网</span>
+</footer>
+
+<script>
+const S = {
+  step: 1,
+  token: null,
+  file: null,
+  cols: [],
+  roles: {},
+  recipe: null,
+  features: null,
+  template: null,
+  compiled: null,
+  result: null,
+  recipes: [],
+  featureLabels: {},
+};
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtBytes = (n) => n > 1024 * 1024 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const text = await res.text();
+  let j = null;
+  try { j = JSON.parse(text); } catch (e) { throw new Error('服务返回非 JSON：' + text.slice(0, 200)); }
+  if (!j.ok && j.error) { const err = new Error(j.error.message || '请求失败'); err.payload = j; throw err; }
+  return j;
+}
+
+/* ---------------- boot ---------------- */
+(async function boot() {
+  try {
+    const h = await fetch('/api/health').then((r) => r.json());
+    if (h.rpx_exists) {
+      $('#engineTxt').textContent = '本地引擎 rpx 0.16.0 · 数据不出本机';
+    } else {
+      $('#engineDot').classList.add('bad');
+      $('#engineTxt').textContent = '找不到 rpx 可执行文件';
+    }
+    const r = await fetch('/api/recipes').then((x) => x.json());
+    S.recipes = r.recipes || [];
+    S.featureLabels = r.features || {};
+    renderCards();
+    if (!r.rpx_exists) {
+      $('#offline').hidden = false;
+      $('#offline').innerHTML = '<b>找不到 rpx 引擎。</b><span>用 <span class="mono">RPX_BIN</span> 环境变量指向 rpx 可执行文件后重启服务，例如 <span class="mono">RPX_BIN=F:\\project\\report\\rpx\\target\\debug\\rpx.exe python server.py</span>。</span>';
+    }
+  } catch (e) {
+    $('#engineTxt').textContent = '无法连接本地服务';
+    $('#engineDot').classList.add('bad');
+    $('#offline').hidden = false;
+  }
+})();
+
+/* ---------------- steps ---------------- */
+function go(n) {
+  S.step = n;
+  $$('.panel').forEach((p) => (p.hidden = Number(p.dataset.p) !== n));
+  $$('#steps li').forEach((li) => {
+    const s = Number(li.dataset.s);
+    li.classList.toggle('on', s === n);
+    li.classList.toggle('done', s < n);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+$$('[data-back]').forEach((b) => b.addEventListener('click', () => go(Number(b.dataset.back))));
+
+/* ---------------- upload ---------------- */
+const drop = $('#drop'), fileInput = $('#file');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) upload(fileInput.files[0], fileInput.files[0].name); });
+
+$('#btnSample').addEventListener('click', async () => {
+  const b = $('#btnSample');
+  b.disabled = true;
+  b.textContent = '正在读取示例…';
+  try {
+    const buf = await fetch('/api/sample').then((r) => r.arrayBuffer());
+    await upload(buf, 'store-sales.csv');
+  } catch (e) {
+    alert('示例数据不可用：' + e.message);
+  } finally {
+    b.disabled = false;
+    b.textContent = '没有文件？用示例数据（10 家门店）';
+  }
+});
+
+async function upload(f, name) {
+  const t0 = performance.now();
+  $('#hint1').textContent = '正在解析…';
+  try {
+    const body = f instanceof Blob ? await f.arrayBuffer() : f;
+    const res = await api('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv', 'X-Filename': encodeURIComponent(name || 'data.csv') },
+      body,
+    });
+    S.token = res.token; S.file = name; S.cols = res.cols; S.roles = res.roles;
+    renderData(res, Math.round(performance.now() - t0));
+    $('#toStep2').disabled = false;
+    $('#hint1').textContent = '解析完成 · ' + res.row_count + ' 行 · 用时 ' + Math.round(performance.now() - t0) + 'ms';
+  } catch (e) {
+    $('#hint1').textContent = '';
+    alert('解析失败：' + e.message);
+  }
+}
+
+function renderData(res, ms) {
+  $('#dropIdle').hidden = true;
+  $('#dataBox').hidden = false;
+  $('#btnReset').hidden = false;
+
+  $('#facts').innerHTML = [
+    ['文件', res.filename],
+    ['规模', res.row_count + ' 行 × ' + res.cols.length + ' 列'],
+    ['编码', res.encoding],
+    ['分隔符', res.delimiter === '\t' ? 'Tab' : '"' + res.delimiter + '"'],
+    ['耗时', ms + 'ms'],
+  ].map(([k, v]) => '<span class="fact">' + k + ' <b class="mono">' + esc(v) + '</b></span>').join('');
+
+  const sel = (el, on) => {
+    el.innerHTML = '<option value="">（不使用）</option>' + S.cols.map((c) =>
+      '<option value="' + esc(c.name) + '"' + (c.name === on ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+  };
+  sel($('#selGroup'), S.roles.group);
+  sel($('#selDetail'), S.roles.detail);
+  sel($('#selMeasure'), S.roles.measure);
+
+  const why = (name) => {
+    const c = S.cols.find((x) => x.name === name);
+    if (!c) return '未指定';
+    return c.type + ' · ' + c.distinct + ' 个不同值';
+  };
+  $('#whyGroup').textContent = why(S.roles.group) + ' · 建议分组维';
+  $('#whyDetail').textContent = why(S.roles.detail) + ' · 建议明细维';
+  $('#whyMeasure').textContent = why(S.roles.measure) + ' · 求和 / 排名基准';
+
+  const head = '<thead><tr>' + S.cols.map((c) =>
+    '<th>' + esc(c.name) + '<span class="t">' + c.type + '</span></th>').join('') + '</tr></thead>';
+  const body = '<tbody>' + res.preview.map((r) =>
+    '<tr>' + S.cols.map((c, i) => '<td class="' + (c.type === 'int' || c.type === 'decimal' ? 'num' : '') + '">' + esc(r[i]) + '</td>').join('') + '</tr>').join('') + '</tbody>';
+  $('#prevTbl').innerHTML = head + body;
+  $('#prevNote').textContent = '只显示前 ' + res.preview.length + ' 行，共 ' + res.row_count + ' 行。角色会自动推断，也可以手动改。';
+
+  ['#selGroup', '#selDetail', '#selMeasure'].forEach((s) => {
+    $(s).addEventListener('change', () => {
+      S.roles = { group: $('#selGroup').value, detail: $('#selDetail').value, measure: $('#selMeasure').value };
+    });
+  });
+}
+
+$('#btnReset').addEventListener('click', () => {
+  S.token = null; S.recipe = null; S.features = null; S.compiled = null;
+  $('#dropIdle').hidden = false; $('#dataBox').hidden = true;
+  $('#btnReset').hidden = true; $('#toStep2').disabled = true;
+  $('#hint1').textContent = '先上传一个文件';
+  fileInput.value = '';
+});
+
+$('#toStep2').addEventListener('click', () => go(2));
+
+/* ---------------- recipes ---------------- */
+function mini(kind) {
+  const row = (cells, cls) => '<div class="' + (cls || '') + '">' + cells.map((c) => '<span>' + c + '</span>').join('') + '</div>';
+  if (kind === 'rank') {
+    return '<div class="mini">' + row(['分组', '明细', '金额', '名次', '占比', '★'], 'h') +
+      row(['华南', 'A 店', '214k', '1', '41%', '★']) + row(['', 'B 店', '156k', '2', '30%', '']) +
+      row(['华东', 'C 店', '268k', '1', '39%', '★']) + '<div><span style="flex:2">合计</span><span>1.55M</span><span></span><span></span><span></span></div></div>';
+  }
+  if (kind === 'summary') {
+    return '<div class="mini">' + row(['分组', '明细', '金额', '占比'], 'h') +
+      row(['华南', 'A 店', '214k', '13.8%']) + row(['', 'B 店', '156k', '10.0%']) +
+      row(['华东', 'C 店', '268k', '17.3%']) + '<div><span style="flex:2">合计</span><span>1.55M</span><span></span></div></div>';
+  }
+  return '<div class="mini">' + row(['明细', '金额'], 'h') +
+    row(['A 店', '214k']) + row(['B 店', '156k']) + row(['C 店', '268k']) +
+    '<div><span>合计</span><span>1.55M</span></div></div>';
+}
+
+function renderCards() {
+  $('#cards').innerHTML = S.recipes.map((r) => (
+    '<button class="card" data-r="' + r.id + '"><span class="pick">✓</span>' +
+    mini(r.id) +
+    '<h3>' + esc(r.title) + '</h3>' +
+    '<div class="tg">' + esc(r.tagline) + '</div>' +
+    '<p>' + esc(r.desc) + '</p></button>'
+  )).join('');
+  $$('.card').forEach((card) => card.addEventListener('click', () => {
+    S.recipe = card.dataset.r;
+    S.features = null;
+    $$('.card').forEach((c) => c.classList.toggle('on', c === card));
+    $('#toStep3').disabled = false;
+    $('#hint2').textContent = '已选：' + card.querySelector('h3').textContent;
+  }));
+}
+
+$('#toStep3').addEventListener('click', () => { buildChips(); go(3); scheduleCompile(); });
+
+/* ---------------- need ---------------- */
+const CHIP_DEFS = [
+  ['rank', '组内排名'],
+  ['share', '组内占比'],
+  ['share_global', '全表占比'],
+  ['flag', '组内第一标记'],
+  ['total', '合计行'],
+];
+
+function buildChips() {
+  const r = S.recipes.find((x) => x.id === S.recipe);
+  const base = S.features || (r ? r.features.slice() : []);
+  S.features = base.slice();
+  $('#chips').innerHTML = CHIP_DEFS.map(([k, label]) =>
+    '<button class="chip' + (base.includes(k) ? ' on' : '') + '" data-f="' + k + '">' + label + '</button>').join('');
+  $$('.chip').forEach((c) => c.addEventListener('click', () => {
+    const f = c.dataset.f;
+    const i = S.features.indexOf(f);
+    if (i >= 0) S.features.splice(i, 1); else S.features.push(f);
+    if (f === 'flag' && S.features.includes('flag') && !S.features.includes('rank')) S.features.push('rank');
+    if (f === 'share') S.features = S.features.filter((x) => x !== 'share_global');
+    if (f === 'share_global') S.features = S.features.filter((x) => x !== 'share');
+    c.classList.toggle('on');
+    if (S.features.includes('rank')) { const rk = $('.chip[data-f=rank]'); if (rk) rk.classList.add('on'); }
+    scheduleCompile();
+  }));
+  if ($('#title').value === '') {
+    const rr = S.recipes.find((x) => x.id === S.recipe);
+    $('#title').value = rr ? rr.title : '';
+  }
+}
+
+let timer = null;
+function scheduleCompile() {
+  clearTimeout(timer);
+  timer = setTimeout(compile, 320);
+}
+$('#need').addEventListener('input', scheduleCompile);
+$('#title').addEventListener('input', scheduleCompile);
+
+async function compile() {
+  if (!S.token || !S.recipe) return;
+  $('#cPulse').classList.add('busy');
+  $('#cMeta').textContent = '编译中…';
+  try {
+    const r = await api('/api/compile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: S.token, recipe: S.recipe, roles: S.roles,
+        features: S.features, need: $('#need').value, title: $('#title').value,
+      }),
+    });
+    S.template = r.template;
+    S.compiled = r;
+    S.features = r.features;
+    $('#plan').innerHTML = r.plan.map((p) =>
+      '<li><b>' + esc(p.step) + '</b>' + linkify(p.detail) + '</li>').join('');
+    const CALC = ['rank', 'share', 'share_global', 'flag'];
+    $('#colstrip').innerHTML = r.columns.map((c) =>
+      '<span class="colchip' + (CALC.includes(c.key) ? ' calc' : '') + '"><b>' + esc(c.letter) + '</b>' + esc(c.head) + '</span>').join('');
+    $('#cMeta').textContent = r.columns.length + ' 列 · ' + r.grid.rows + ' 行';
+    $('#cPulse').classList.remove('busy');
+    $('#hint3').textContent = '编译不联网，同样的输入永远得到同样的模板';
+  } catch (e) {
+    $('#cPulse').classList.remove('busy');
+    $('#cMeta').textContent = '编译失败';
+    $('#plan').innerHTML = '<li><b>编译失败</b>' + esc(e.message) + '</li>';
+  }
+}
+
+function linkify(s) {
+  return esc(s).replace(/([A-Z]{1,2}\d{1,2}|\`0\`|ds1\.\w+\([^)]*\)|count\(|sum\()/g, (m) => '<span class="mono">' + m + '</span>');
+}
+
+/* ---------------- run ---------------- */
+$('#btnRun').addEventListener('click', run);
+async function run() {
+  if (!S.template) { await compile(); }
+  if (!S.template) return;
+  const btn = $('#btnRun');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 运行中…';
+  try {
+    const r = await api('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: S.token, template: S.template }),
+    });
+    S.result = r;
+    renderResult(r);
+    go(4);
+  } catch (e) {
+    alert('运行失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '生成并运行';
+  }
+}
+$('#btnAgain').addEventListener('click', run);
+$('#btnNew').addEventListener('click', () => location.reload());
+
+function renderResult(r) {
+  const bar = [];
+  const lintOk = r.lint.exit === 0 && r.lint.warnings === 0;
+  bar.push(badge(lintOk ? 'ok' : 'warn', (lintOk ? 'lint 通过' : 'lint ' + r.lint.warnings + ' 条告警') + ' · ' + r.lint.ms + 'ms'));
+  const v = r.validate;
+  bar.push(badge(v.valid ? 'ok' : 'err', 'validate ' + (v.valid ? 'valid' : 'invalid') + ' · checked ' + (v.checked || []).length + ' / deferred ' + (v.deferred || []).length));
+  bar.push(badge(r.ok ? 'ok' : 'err', 'run exit ' + r.run.exit + ' · ' + r.run.ms + 'ms'));
+  if (r.run.layout) {
+    const l = r.run.layout;
+    bar.push(badge('neutral', '结果 <b>' + l.rows + ' 行 × ' + l.cols + ' 列</b> · ' + l.page_count + ' 页'));
+  }
+  if (r.sheet && r.sheet.cells) {
+    const n = Object.keys(r.sheet.cells).length;
+    bar.push(badge('neutral', n + ' 个结果格'));
+  }
+  $('#statbar').innerHTML = bar.join('');
+
+  $('#errBox').innerHTML = r.ok ? '' : (
+    '<div class="errbox"><b>' + esc(r.error.code) + '</b>' + esc(r.error.message) +
+    (r.error.pointer ? '<div class="mono" style="margin-top:6px;font-size:12px">' + esc(r.error.pointer) + '</div>' : '') +
+    (r.error.hint ? '<div style="margin-top:6px;font-size:12px">下一步：' + esc(r.error.hint) + '</div>' : '') + '</div>'
+  );
+
+  $('#rSub').textContent = r.ok
+    ? '引擎执行结果、诊断与可下载产物。'
+    : '引擎拒绝了这份模板，下面是它给的定位信息。';
+
+  if (r.ok && r.sheet) renderSheet(r);
+  else $('#sheetWrap').innerHTML = '';
+
+  $('#files').innerHTML = (r.files || []).map((f) =>
+    '<a class="file" href="/api/download?token=' + S.token + '&f=' + encodeURIComponent(f.name) + '" download>' +
+    '<span class="ext ' + f.ext + '">' + f.ext + '</span>' + esc(f.name) + ' <small>' + fmtBytes(f.size) + '</small></a>'
+  ).join('');
+
+  const det = [];
+  if (r.lint.issues && r.lint.issues.length) {
+    det.push(details('lint 明细（' + r.lint.issues.length + '）',
+      '<pre>' + esc(r.lint.issues.map((i) => (i.code || '') + ' [' + i.level + '] ' + (i.message || '')).join('\n')) + '</pre>'));
+  }
+  if (r.template || S.template) {
+    det.push(details('生成的模板 JSON（可直接给 rpx CLI 用）',
+      '<pre>' + esc(JSON.stringify(S.template, null, 2)) + '</pre>'));
+  }
+  if (r.run.diagnostics && r.run.diagnostics.length) {
+    det.push(details('运行诊断（' + r.run.diagnostics.length + '）',
+      '<pre>' + esc(JSON.stringify(r.run.diagnostics, null, 1)) + '</pre>'));
+  }
+  det.push(details('编译决策（' + (S.compiled ? S.compiled.plan.length : 0) + ' 步）',
+    '<pre>' + esc((S.compiled ? S.compiled.plan : []).map((p, i) => (i + 1) + '. ' + p.step + '  ' + p.detail).join('\n')) + '</pre>'));
+  $('#detWrap').innerHTML = det.join('');
+}
+
+function badge(kind, html) { return '<span class="badge ' + kind + '">' + html + '</span>'; }
+function details(title, body) {
+  return '<details><summary>' + esc(title) + '</summary><div class="body">' + body + '</div></details>';
+}
+
+/* ---------------- sheet ---------------- */
+function renderSheet(r) {
+  const { rows, cols, cells, merges } = r.sheet;
+  const spanAt = {};      // "r,c" -> {rs, cs}
+  const covered = {};     // cells hidden by a merge above/left
+  const map = {};
+  (merges || []).forEach((m) => { map[m.row + ',' + m.col] = m; });
+
+  Object.keys(map).forEach((k) => {
+    const m = map[k];
+    if (m.rows <= 1 && m.cols <= 1) return;
+    let { row, col } = m;
+    const key = m.rows + 'x' + m.cols + '|' + JSON.stringify(m.value);
+    // 向上、向左回溯到真正的锚点
+    while (map[(row - 1) + ',' + col] && map[(row - 1) + ',' + col].rows === m.rows &&
+           map[(row - 1) + ',' + col].cols === m.cols &&
+           JSON.stringify(map[(row - 1) + ',' + col].value) === key.split('|')[1]) row--;
+    while (map[row + ',' + (col - 1)] && map[row + ',' + (col - 1)].rows === m.rows &&
+           map[row + ',' + (col - 1)].cols === m.cols &&
+           JSON.stringify(map[row + ',' + (col - 1)].value) === key.split('|')[1]) col--;
+    spanAt[row + ',' + col] = { rs: m.rows, cs: m.cols };
+  });
+  Object.keys(spanAt).forEach((k) => {
+    const [r0, c0] = k.split(',').map(Number);
+    const { rs, cs } = spanAt[k];
+    for (let i = 0; i < rs; i++) {
+      for (let j = 0; j < cs; j++) {
+        if (i === 0 && j === 0) continue;
+        covered[(r0 + i) + ',' + (c0 + j)] = true;
+      }
+    }
+  });
+
+  const headRow = detectHeadRow();
+  const totalRow = Object.keys(cells).find((k) => cells[k] === '合计');
+  const totalR = totalRow ? Number(totalRow.split(',')[0]) : -1;
+  const footR = rows;
+
+  let html = '<table class="sheet"><colgroup>' + colWidths(cols) + '</colgroup><tbody>';
+  for (let r0 = 1; r0 <= rows; r0++) {
+    let trClass = '';
+    if (r0 === 1) trClass = 'r-title';
+    else if (r0 === 2) trClass = 'r-note';
+    else if (r0 === headRow) trClass = 'r-head';
+    else if (r0 === totalR) trClass = 'r-total';
+    else if (r0 === footR) trClass = 'r-foot';
+    html += '<tr class="' + trClass + '">';
+    for (let c0 = 1; c0 <= cols; c0++) {
+      const key = r0 + ',' + c0;
+      if (covered[key]) continue;
+      const sp = spanAt[key];
+      const attr = sp ? (sp.rs > 1 ? ' rowspan="' + sp.rs + '"' : '') + (sp.cs > 1 ? ' colspan="' + sp.cs + '"' : '') : '';
+      const raw = cells[key];
+      const fmtc = S.compiled && S.compiled.formats ? S.compiled.formats[String(c0)] : null;
+      const isNum = typeof raw === 'number';
+      const text = isNum ? numFmt(raw, fmtc) : esc(raw == null ? '' : raw);
+      const cls = isNum ? 'num' : (typeof raw === 'string' && raw.startsWith('★') ? 'c' : '');
+      html += '<td' + attr + (cls ? ' class="' + cls + '"' : '') + '>' + text + '</td>';
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  $('#sheetWrap').innerHTML = html;
+}
+
+function colWidths(n) {
+  const w = (S.result && S.result.sheet && S.result.sheet.col_widths) || null;
+  const arr = w && w.length === n ? w.slice() : Array(n).fill(1);
+  const sum = arr.reduce((a, b) => a + b, 0) || n;
+  return arr.map((x) => '<col style="width:' + ((x / sum) * 100).toFixed(2) + '%" />').join('');
+}
+
+function detectHeadRow() {
+  if (!S.template) return 3;
+  const heads = S.template.cells.filter((c) => c.back_color);
+  return heads.length ? heads[0].row : 3;
+}
+
+function numFmt(v, fmt) {
+  if (!fmt) return v.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  if (fmt.includes('%')) {
+    const d = (fmt.split('.')[1] || '').replace(/[^0]/g, '').length || 2;
+    return (v * 100).toFixed(d) + '%';
+  }
+  const dec = fmt.includes('.') ? (fmt.split('.')[1] || '').replace(/[^0]/g, '').length : 0;
+  return v.toLocaleString('zh-CN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+$('#need').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); run(); }
+});
+</script>
+
+<style>
+  /* ---------- 流程态：进入工作流后头图让位 ---------- */
+  .hero{transition:padding .55s var(--ease)}
+  .hero h1{transition:font-size .55s var(--ease), letter-spacing .55s var(--ease)}
+  .hero .lede,.hero-kicker{
+    max-height:150px; overflow:hidden;
+    transition:opacity .3s var(--ease), max-height .5s var(--ease), margin .5s var(--ease);
+  }
+  body.flow .hero{padding-top:28px; padding-bottom:14px}
+  body.flow .hero-kicker{opacity:0; max-height:0; margin-bottom:0}
+  body.flow .hero h1{font-size:clamp(23px,2.3vw,29px); letter-spacing:-.008em}
+  body.flow .hero .lede{opacity:0; max-height:0; margin-top:0}
+  body.flow .strip{opacity:0; max-height:0; margin-top:0; border-top-color:transparent}
+
+  /* ---------- 出报章 ---------- */
+  .panel[data-p="4"] .ph{position:relative}
+  .panel[data-p="4"]:has(#statbar .badge.ok):not(:has(#statbar .badge.err)) .ph:after{
+    content:"已出报";
+    position:absolute; right:4px; top:-4px;
+    width:40px; height:74px;
+    border:1.5px solid var(--seal); border-radius:2px;
+    color:var(--seal);
+    font-family:var(--serif); font-weight:700; font-size:15px; line-height:1.1;
+    letter-spacing:.08em;
+    display:grid; place-items:center;
+    writing-mode:vertical-rl;
+    transform:rotate(-7deg); opacity:.8;
+    box-shadow:inset 0 0 0 2px rgba(184,56,28,.1);
+    animation:stampIn .56s var(--ease) .42s both;
+    pointer-events:none;
+  }
+  @keyframes stampIn{
+    from{opacity:0; transform:rotate(-16deg) scale(1.55)}
+    to{opacity:.8; transform:rotate(-7deg) scale(1)}
+  }
+  @media (max-width:760px){
+    .panel[data-p="4"]:has(#statbar .badge.ok):not(:has(#statbar .badge.err)) .ph:after{
+      width:32px; height:60px; font-size:12px;
+      right:0; top:0; border-width:1px;
+      box-shadow:inset 0 0 0 1px rgba(184,56,28,.1);
+    }
+  }
+
+  /* ---------- 表头跟随本列对齐 ---------- */
+  .numhead{text-align:right !important}
+  .chead{text-align:center !important}
+  .lhead{text-align:left !important}
+  body.flow .hero h1 br{display:none}
+
+  /* ---------- 窄屏：表格可横滑的暗示 ---------- */
+  @media (max-width:760px){
+    .sheetwrap,.tblwrap{
+      background:
+        linear-gradient(to left, rgba(19,16,12,.085), rgba(19,16,12,0) 20px) right / 20px 100% no-repeat,
+        #FFFEFB;
+    }
+  }
+
+  /* ---------- 序列入场：面板子元素 ---------- */
+  .panel:not([hidden]) .ph,
+  .panel:not([hidden]) > div:not([hidden]),
+  .panel:not([hidden]) > .needgrid,
+  .panel:not([hidden]) > .footbar{
+    animation:riseIn .58s var(--ease) both;
+  }
+  .panel:not([hidden]) .ph{animation-delay:.05s}
+  .panel:not([hidden]) > div:nth-of-type(1){animation-delay:.11s}
+  .panel:not([hidden]) > div:nth-of-type(2){animation-delay:.15s}
+  .panel:not([hidden]) > div:nth-of-type(3){animation-delay:.19s}
+  .panel:not([hidden]) > .footbar{animation-delay:.23s}
+  @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  /* 决策日志逐条浮现 */
+  .plan li:nth-child(1){animation-delay:.02s}
+  .plan li:nth-child(2){animation-delay:.05s}
+  .plan li:nth-child(3){animation-delay:.08s}
+  .plan li:nth-child(4){animation-delay:.11s}
+  .plan li:nth-child(5){animation-delay:.14s}
+  .plan li:nth-child(6){animation-delay:.17s}
+  .plan li:nth-child(7){animation-delay:.20s}
+  .plan li:nth-child(8){animation-delay:.23s}
+  .plan li:nth-child(9){animation-delay:.26s}
+  .plan li:nth-child(10){animation-delay:.29s}
+  .plan li:nth-child(11){animation-delay:.32s}
+  .plan li:nth-child(12){animation-delay:.35s}
+  .plan li:nth-child(13){animation-delay:.38s}
+  .plan li:nth-child(14){animation-delay:.41s}
+  .plan li:nth-child(n+15){animation-delay:.44s}
+
+  /* 顶栏滚动态 */
+  .topbar.scrolled{box-shadow:0 1px 0 var(--rule), 0 10px 24px -22px rgba(19,16,12,.6)}
+
+  /* 卡片微倾 */
+  .card{transform-style:preserve-3d; will-change:transform}
+  .card.tilt{transition:transform .1s linear, background .3s var(--ease), box-shadow .3s var(--ease)}
+
+  /* 全窗口拖放提示 */
+  .globaldrop{
+    position:fixed; inset:0; z-index:90; display:none;
+    place-items:center; padding:26px;
+    background:rgba(244,241,233,.9);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .globaldrop.on{display:grid; animation:fadeIn .22s var(--ease) both}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .globaldrop div{
+    width:min(520px,100%); padding:52px 30px; text-align:center;
+    border:2px dashed var(--seal); border-radius:2px;
+    background:rgba(255,255,255,.5);
+    font-family:var(--serif); font-size:22px; color:var(--seal);
+    letter-spacing:.02em;
+  }
+  .globaldrop small{
+    display:block; margin-top:10px;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+</style>
+
+<script>
+/* ============================================================
+   视觉层增强：不改变任何业务逻辑
+   ============================================================ */
+(function () {
+  /* --- 印章式 favicon --- */
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+    '<rect width="64" height="64" rx="6" fill="#B8381C"/>' +
+    '<text x="32" y="45" font-family="Georgia,serif" font-size="38" font-weight="700" ' +
+    'fill="#FDF6F1" text-anchor="middle">R</text></svg>';
+  var icon = document.createElement('link');
+  icon.rel = 'icon';
+  icon.href = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  document.head.appendChild(icon);
+
+  /* --- 顶栏滚动态 --- */
+  var bar = document.querySelector('.topbar');
+  var last = 0;
+  function onScroll() {
+    var y = window.scrollY || document.documentElement.scrollTop;
+    if ((y > 8) !== (last > 8)) bar.classList.toggle('scrolled', y > 8);
+    last = y;
+    /* 头图随滚动微微退场，交代层级 */
+    var hero = document.querySelector('.hero');
+    if (hero && y < 420) {
+      hero.style.opacity = String(Math.max(0, 1 - y / 520));
+      hero.style.transform = 'translateY(' + (-y * 0.035) + 'px)';
+    }
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* --- 骨架卡：指针跟随微倾 --- */
+  document.addEventListener('pointermove', function (e) {
+    var card = e.target.closest && e.target.closest('.card');
+    document.querySelectorAll('.card.tilt').forEach(function (c) {
+      if (c !== card) {
+        c.classList.remove('tilt');
+        c.style.transform = '';
+      }
+    });
+    if (!card || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.innerWidth < 900) return;
+    var r = card.getBoundingClientRect();
+    var dx = (e.clientX - r.left) / r.width - 0.5;
+    var dy = (e.clientY - r.top) / r.height - 0.5;
+    card.classList.add('tilt');
+    card.style.transform =
+      'perspective(760px) rotateX(' + (-dy * 3.6).toFixed(2) + 'deg) rotateY(' +
+      (dx * 3.6).toFixed(2) + 'deg) translateY(-2px)';
+  }, { passive: true });
+  document.addEventListener('pointerleave', function () {
+    document.querySelectorAll('.card').forEach(function (c) {
+      c.classList.remove('tilt');
+      c.style.transform = '';
+    });
+  });
+
+  /* --- 拖到窗口任意位置：全屏接收提示 --- */
+  var mask = document.createElement('div');
+  mask.className = 'globaldrop';
+  mask.innerHTML = '<div>松手即可导入<small>CSV · TSV · TXT — 文件不出本机</small></div>';
+  document.body.appendChild(mask);
+
+  var depth = 0;
+  function hasFiles(e) {
+    return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0;
+  }
+  window.addEventListener('dragenter', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    depth++;
+    if (document.querySelector('#dropIdle') && !document.querySelector('#dropIdle').hidden) {
+      mask.classList.add('on');
+    }
+  });
+  window.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('dragleave', function (e) {
+    if (!hasFiles(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (depth === 0) mask.classList.remove('on');
+  });
+  window.addEventListener('drop', function (e) {
+    depth = 0;
+    mask.classList.remove('on');
+    /* 落在拖入区之外也照样收下——既然提示了"松手即可导入" */
+    if (e.target.closest && e.target.closest('#drop')) return;
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    var idle = document.querySelector('#dropIdle');
+    if (f && idle && !idle.hidden && typeof window.upload === 'function') {
+      e.preventDefault();
+      window.upload(f, f.name);
+    }
+  });
+
+  /* --- 步骤切换：头图让位 + 焦点交给新面板标题 --- */
+  var lastStep = null;
+  var stepsEl = document.querySelector('#steps');
+  if (stepsEl) {
+    new MutationObserver(function () {
+      var on = stepsEl.querySelector('li.on');
+      var s = on ? on.dataset.s : null;
+      if (s && s !== lastStep) {
+        lastStep = s;
+        document.body.classList.toggle('flow', s !== '1');
+        var panel = document.querySelector('.panel[data-p="' + s + '"]');
+        var h2 = panel && panel.querySelector('h2');
+        if (h2) {
+          h2.setAttribute('tabindex', '-1');
+          h2.style.outline = 'none';
+          try { h2.focus({ preventScroll: true }); } catch (err) {}
+        }
+      }
+    }).observe(stepsEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  }
+
+  /* --- 表头跟随本列内容的对齐方式：一眼看出哪列是数 --- */
+  function syncHeadAlign(root) {
+    (root || document).querySelectorAll('table').forEach(function (t) {
+      var first = t.querySelector('tbody tr');
+      if (!first) return;
+      var align = {};
+      var i = 0;
+      Array.prototype.forEach.call(first.children, function (cell) {
+        align[i] = cell.classList.contains('num') ? 'num'
+          : (cell.classList.contains('c') ? 'c' : 'l');
+        i += (cell.colSpan || 1);
+      });
+      var targets = Array.prototype.slice.call(t.querySelectorAll('thead tr'));
+      var sheetHead = t.querySelector('tr.r-head');
+      if (sheetHead) targets.push(sheetHead);
+      targets.forEach(function (tr) {
+        var j = 0;
+        Array.prototype.forEach.call(tr.children, function (cell) {
+          var a = align[j];
+          if (a === 'num') { cell.classList.add('numhead'); }
+          else if (a === 'c') { cell.classList.add('chead'); }
+          else { cell.classList.add('lhead'); }
+          j += (cell.colSpan || 1);
+        });
+      });
+    });
+  }
+  var syncTimer = null;
+  new MutationObserver(function () {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () { syncHeadAlign(document); }, 70);
+  }).observe(document.body, { childList: true, subtree: true });
+  syncHeadAlign(document);
+})();
+</script>
+</body>
+</html>

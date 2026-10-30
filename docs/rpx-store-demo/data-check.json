@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "grid": { "rows": 1, "cols": 1 },
+  "datasets": [
+    {
+      "name": "sales",
+      "file": { "file_name": "store-sales.csv", "encoding": "UTF-8", "delimiter": "," }
+    }
+  ],
+  "cells": [{ "row": 1, "col": 1, "text": "probe" }]
+}

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>从 8 行数据到一张排名表：我让 AI 写「门店销售 · 组内排名与组内占比」的全过程 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-store-ranking-repro</code>
+    （生产形态 <code>/t/coucouya/post/rpx-store-ranking-repro</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 09:37 ｜ 正文字符数：13353 ｜ 章节 10 ／ 表格 7 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">从 8 行数据到一张排名表：我让 AI 写「门店销售 · 组内排名与组内占比」的全过程</h1>
+  <article class="article-body">
+<p>月初经营会前一天，区域经理发来一张手绘的草图：每个大区内部，门店销售排第几、占大区多少、谁是组内第一；最下面一行合计，回到全公司口径。这张表用 Excel 拖公式要半小时，还容易把排名写成全员混排。我把它交给 AI，拿回一份 JSON 模板，一条命令跑通，四项断言全部通过。这篇是<strong>从零到跑通的完整过程</strong>——照着做，十分钟可以复现画廊里这张真实报表。</p>
+
+<blockquote><p><strong>一句话答案：</strong>组内排名是「同组比我大的个数加一」，组内占比是「本店销售额除以同组合计」。根坐标 <code>`0</code> 负责取出整个明细集合，条件 <code>A4==$A4</code> 负责收窄到同一大区，合计行不写条件、回到全体。样例数据 8 行、模板 1 份、命令 1 条，四项独立预期全部通过。</p></blockquote>
+
+<h2>一、需求从哪里来：区域经理的那张表</h2>
+
+<p>区域经理的原话是：<strong>「别给我全员排名，我要看每个大区内部谁打谁。」</strong>这句话拆开是<strong>三个口径要求</strong>，每一个都落在模板的一处写法上。</p>
+
+<table>
+<tr><th>他的要求</th><th>口径</th><th>模板里怎么落</th></tr>
+<tr><td>组内排名</td><td>只跟同大区的门店比</td><td><strong>同大区比我大的个数，加一</strong></td></tr>
+<tr><td>组内占比</td><td>分母是本大区销售额</td><td><strong>本店销售额除以同大区合计</strong></td></tr>
+<tr><td>合计行</td><td>回到全公司 8 家</td><td><strong>不过滤条件，对整个明细集合求和</strong></td></tr>
+<tr><td>大区列合并</td><td>三家门店只写一次「华南」</td><td><strong>扩展列加 merge_same 同值合并</strong></td></tr>
+</table>
+
+<p>这三个口径是全文的纲。<strong>排名、占比、合计分别对应三种集合范围</strong>：同组、同组、全体。写错任何一处，表照样能跑出来，但数字是错的——所以第七章的核对一步都不能省。</p>
+
+<h2>二、数据准备：三列八行，一分钟的事</h2>
+
+<p><strong>数据只有一张宽表，三列：</strong><code>region</code> 是分组键，<code>store</code> 是明细键，<code>amount</code> 是度量。8 行，3 个大区——华南 3 家、华东 3 家、华北 2 家。全文就这一个文件：</p>
+
+<pre><code>region,store,amount
+华南,深圳福田,186000
+华南,广州天河,142000
+华南,东莞南城,98000
+华东,上海静安,205000
+华东,杭州西湖,167000
+华东,南京鼓楼,121000
+华北,北京朝阳,198000
+华北,天津和平,88000</code></pre>
+
+<p>保存为 <code>store-sales.csv</code>，<strong>UTF-8、逗号分隔</strong>。模板里要<strong>显式声明分隔符</strong>：</p>
+
+<pre><code>{"name": "sales", "file": {"file_name": "store-sales.csv", "encoding": "UTF-8", "delimiter": ","}}</code></pre>
+
+<p>这句 <code>delimiter</code> 是我实测过的<strong>最贵的一个字段</strong>。删掉它之后，<strong>同一份模板在三道关卡得到三种答案</strong>：</p>
+
+<table>
+<tr><th>关卡</th><th>命令</th><th>实测结果</th></tr>
+<tr><td>静态校验</td><td>template validate</td><td>ok exit 0——<strong>放过</strong>，它不读数据</td></tr>
+<tr><td>数据探针</td><td>template validate --probe-data</td><td>ok exit 4，错误码 DATA_SHAPE，指针指到 /datasets/0/file/delimiter</td></tr>
+<tr><td>真跑</td><td>run</td><td>ok exit 5，CALCULATION_FAILED，hint 提示「文件没被切分」</td></tr>
+</table>
+
+<p>探针的原话是：<strong>「数据集 sales 只解析出 1 列『region,store,amount』，文件没有被切分」</strong>。exit 5 的 hint 还顺手给出修法：给该数据集的 file 加 <code>"delimiter": ","</code>。这就是这套 CLI 的设计哲学——<strong>错误码、指针、hint 三件套一次给全，不用猜。</strong></p>
+
+<h2>三、把需求讲给 AI 听：四句硬约束</h2>
+
+<p>我没有说「帮我做个门店排名表」。<strong>需求说得越随意，交回来的东西越需要返工。</strong>我给了<strong>四句约束</strong>，外加<strong>一道交付闸门</strong>。</p>
+
+<table>
+<tr><th>约束</th><th>为什么</th></tr>
+<tr><td>一列驱动扩展，其余列 left_head 跟随</td><td>多列都写 vertical 会让扩展相乘；仓库实测记录里，6 行明细炸成 798 行</td></tr>
+<tr><td>组内口径用根坐标取集合、用条件收窄</td><td>不写死任何格号，数据从 8 行变 80 行公式不用改</td></tr>
+<tr><td>合计行回到全体</td><td>合计与明细是两种口径，写在两种集合上</td></tr>
+<tr><td>不写 border</td><td>当前导出链路不落地边框，写了也是静默无效；视觉层次靠表头与合计行底色</td></tr>
+</table>
+
+<p>外加一道闸门：<strong>valid: true 不算数，必须真跑并断言产物。</strong>静态校验的 checked 只有 6 项，data_loading、calculation、pagination、export 四项明写在 deferred 里——它证明不了值算对。这道闸门的完整逻辑见<a href="/post/rpx-cli-lint">《lint：拦截「不报错但产物错」的四类写法》</a>。</p>
+
+<h2>四、AI 交回来的模板：逐格拆</h2>
+
+<p>交回来的是一份 <strong>6 行 × 7 列</strong>的 JSON 模板。数据源、列宽、行高之后，是 8 个格子——<strong>整张报表的逻辑全在这 8 行里</strong>：</p>
+
+<pre><code>{
+ "version": 1,
+ "grid": {"rows": 6, "cols": 7},
+ "datasets": [{"name": "sales", "file": {"file_name": "store-sales.csv", "encoding": "UTF-8", "delimiter": ","}}],
+ "cells": [
+  {"row": 3, "col": 1, "text": "大区"},
+  {"row": 3, "col": 2, "text": "门店"},
+  {"row": 3, "col": 3, "text": "销售额"},
+  {"row": 3, "col": 4, "text": "组内排名"},
+  {"row": 3, "col": 5, "text": "组内占比"},
+  {"row": 3, "col": 6, "text": "组内第一"},
+  {"row": 4, "col": 1, "expr": "sales.group(region)", "extend_mode": "vertical", "merge_same": "vertical"},
+  {"row": 4, "col": 2, "expr": "sales.select(store)", "left_head": "A4", "extend_mode": "vertical"},
+  {"row": 4, "col": 3, "expr": "sales.select(amount)", "left_head": "B4", "extend_mode": "none", "format": "#,##0"},
+  {"row": 4, "col": 4, "expr": "count(C4[`0]{C4&gt;$C4 and A4==$A4})+1", "left_head": "B4", "format": "0"},
+  {"row": 4, "col": 5, "expr": "C4/sum(C4[`0]{A4==$A4})", "left_head": "B4", "format": "0.00%"},
+  {"row": 4, "col": 6, "expr": "if(D4==1,'★ 组内第一','')", "left_head": "B4"},
+  {"row": 5, "col": 3, "expr": "sum(C4[`0]{})", "format": "#,##0"},
+  {"row": 5, "col": 5, "expr": "sum(C4[`0]{})/C5", "format": "0.00%"}
+ ]
+}</code></pre>
+
+<p>（完整文件还带标题、表头底色、脚注等展示属性，随引擎仓库发布在画廊，路径 <code>examples/r-model/store-ranking.json</code>。）</p>
+
+<p>逐格拆开看：</p>
+
+<table>
+<tr><th>格</th><th>表达式</th><th>作用</th></tr>
+<tr><td>A4</td><td>sales.group(region)</td><td>大区驱动列，纵向扩展；<strong>merge_same 把同值大区合并成一格</strong></td></tr>
+<tr><td>B4</td><td>sales.select(store)</td><td>门店明细列，left_head 指向 A4，跟着大区走</td></tr>
+<tr><td>C4</td><td>sales.select(amount)</td><td>销售额，left_head 指向 B4，跟着门店走</td></tr>
+<tr><td>D4</td><td>count(C4[`0]{C4&gt;$C4 and A4==$A4})+1</td><td><strong>组内排名</strong>：同大区比我大的个数，加一</td></tr>
+<tr><td>E4</td><td>C4/sum(C4[`0]{A4==$A4})</td><td><strong>组内占比</strong>：本店销售额除以同大区合计</td></tr>
+<tr><td>F4</td><td>if(D4==1,'★ 组内第一','')</td><td>组内第一标注，<strong>排名为 1 才亮</strong></td></tr>
+<tr><td>C5</td><td>sum(C4[`0]{})</td><td><strong>合计</strong>：不写条件，回到全体 8 家</td></tr>
+<tr><td>E5</td><td>sum(C4[`0]{})/C5</td><td>占比合计，<strong>分子分母同集合，恒等于 100%</strong></td></tr>
+</table>
+
+<p>注意<strong>三条结构纪律</strong>：<strong>只有 A4 一个驱动列</strong>写 vertical，B4 虽然也从数据集取值，却写 none 加 left_head——多一个 vertical 就多一份扩展；C4 之后的计算列全部 left_head 指向 B4；明细行第 4 行与合计行第 5 行<strong>紧贴，不留空行</strong>。主格与从格怎么串，见<a href="/post/rpx-extend-cell">《扩展格：中国式报表的核心算法》</a>。</p>
+
+<h2>五、三个语法点：根坐标、$、{}</h2>
+
+<p>这张表的全部秘密在三个语法里。每一个我都做了对照实验——<strong>改一个符号，看集合范围怎么变</strong>。</p>
+
+<h3>根坐标 `0`：取出整个集合，不是收窄</h3>
+
+<p><code>C4[`0]</code> 的意思是取 C4 的<strong>整个扩展集合</strong>——本例是全部 8 个明细实例，而不是当前行那一格。不写坐标的 <code>C4</code> 只是当前门店的销售额，<strong>没法跟别的行比</strong>。</p>
+
+<p>模板脚注写的是「组内排名用根坐标定位到同一大区再统计」。我实测改了 D4 一行：<strong>只去掉 <code>and A4==$A4</code>、保留根坐标</strong>，排名从组内变成全员——8 家店的排名依次是 3、5、7、1、4、6、2、8（205000 的上海静安第 1，88000 的天津和平垫底）。</p>
+
+<p>所以准确的说法是：<strong>根坐标负责取全量，条件负责收窄。</strong><strong>两种说法都能跑出正确结果</strong>，但你改公式前必须知道是谁在收窄——<strong>删错一半，排名就悄悄换了口径</strong>。</p>
+
+<h3>$A4：绑定当前行的主格值</h3>
+
+<p><code>$</code> 绑的是<strong>当前格的主格</strong>。<code>$C4</code> 是当前门店的销售额，<code>$A4</code> 是当前行的大区。排名公式 <code>C4&gt;$C4 and A4==$A4</code> 读作：<strong>在 8 个实例里，挑出销售额比我大、且大区跟我相同的那些</strong>。<strong>count 数个数，加一就是我的名次。</strong></p>
+
+<h3>{}：不写坐标时，范围是共同主格</h3>
+
+<p><code>{}</code> 里不写坐标时，管辖范围取「当前格与目标格的共同主格」。我在明细行里实测过：把 D4 改成 <code>count(C4{C4&gt;$C4})+1</code>（去掉 <code>[`0]</code>），8 家门店<strong>全部变成第 1 名</strong>——因为明细行里 C4 与当前格的<strong>共同主格是门店自己</strong>，集合只剩一格，谁都比我大的个数是 0。</p>
+
+<p>而合计行 C5 与明细行<strong>没有共同主格</strong>，所以 <code>sum(C4[`0]{})</code> <strong>顺顺当当回到全体</strong>，得到 1205000。同一对花括号，写在明细行是「自己」，写在合计行是「全体」——<strong>位置决定语义</strong>。</p>
+
+<table>
+<tr><th>写法</th><th>管辖范围</th><th>实测证据</th></tr>
+<tr><td>C4[`0]{A4==$A4}</td><td><strong>整个集合按条件收窄到同大区</strong></td><td>组内排名 1,2,3 / 1,2,3 / 1,2</td></tr>
+<tr><td>C4[`0]{C4&gt;$C4}</td><td><strong>整个集合，不收窄</strong></td><td>去掉条件后全员排名 3,5,7,1,4,6,2,8</td></tr>
+<tr><td>C4{}</td><td><strong>共同主格：明细行里是门店自己</strong></td><td>去掉坐标后 8 家全是第 1 名</td></tr>
+<tr><td>C4[`0]{}（合计行）</td><td><strong>共同主格为空，回到全体</strong></td><td>sum = 1205000</td></tr>
+</table>
+
+<h2>六、跑起来：一条命令与四个产物</h2>
+
+<p>模板存成 <code>store-ranking.json</code>，<strong>与 CSV 放同一目录</strong>，然后：</p>
+
+<pre><code>rpx template validate store-ranking.json
+rpx lint store-ranking.json
+rpx run store-ranking.json --out-dir ./out --export csv</code></pre>
+
+<p>三条全部 exit 0。run 的返回里带着<strong>版面摘要</strong>：<strong>模板 6×7 扩展成 13 行 × 6 列，1 页</strong>（page_count 1，x_pages 1，y_pages 1）。<strong>产物四个，各司其职：</strong></p>
+
+<pre><code>out/
+  run.json               # 运行记录：修订、输入指纹、耗时、诊断
+  source/template.json   # 当时执行的源码快照
+  inputs/params.json     # 实际参数（本表无参数，为 {}）
+  artifacts/
+    result.json          # 类型化结果，供 result inspect 查询
+    workbook.json        # 展示快照，供网页与打印预览
+    report.csv           # 显式 --export csv 才生成</code></pre>
+
+<p><strong>lint 的结果值得单独说。</strong>它跑 8 项静态检查，这份模板命中 1 条 warning：<strong>L008，第 5 列宽 13mm，两个格用 0.00%</strong>，提示「两位以上小数在窄列会显示 ####；改 #,##0，或把列宽提到 18mm 以上」。加 <code>--strict</code> 就是 exit 3，闸门不过。我诚实地说一句：<strong>画廊里的定稿模板也带着这条 warning</strong>，默认闸门放行是因为占比列确实需要两位小数，13mm 也够显示「43.66%」。<strong>要不要为它加严，是你的工程决策，不是模板的 bug。</strong>相关阅读：<a href="/post/rpx-cli-doctor-capabilities">capabilities 与 doctor 的自描述设计</a>、<a href="/post/rpx-cli-run-export">run 与五种导出</a>。</p>
+
+<p>画廊里看到的真实渲染（结果由 Rust 引擎算出，Univer 只负责显示）：</p>
+
+<p><img src="/uploads/rpx-store-ranking.png" alt="门店销售 · 组内排名与组内占比：画廊真实渲染，8 家门店、组内排名、组内占比与合计行" /></p>
+
+<h2>七、核对：每个数字都能手算</h2>
+
+<p><strong>跑完必须核对。</strong><strong>这份表的每个数字都能用计算器验算</strong>，因为数据就是你上面那 8 行。</p>
+
+<table>
+<tr><th>大区</th><th>门店</th><th>销售额</th><th>组内排名</th><th>组内占比</th><th>组内第一</th></tr>
+<tr><td>华南</td><td>深圳福田</td><td>186,000</td><td>1</td><td>43.66%</td><td>★ 组内第一</td></tr>
+<tr><td>华南</td><td>广州天河</td><td>142,000</td><td>2</td><td>33.33%</td><td></td></tr>
+<tr><td>华南</td><td>东莞南城</td><td>98,000</td><td>3</td><td>23.00%</td><td></td></tr>
+<tr><td>华东</td><td>上海静安</td><td>205,000</td><td>1</td><td>41.58%</td><td>★ 组内第一</td></tr>
+<tr><td>华东</td><td>杭州西湖</td><td>167,000</td><td>2</td><td>33.87%</td><td></td></tr>
+<tr><td>华东</td><td>南京鼓楼</td><td>121,000</td><td>3</td><td>24.54%</td><td></td></tr>
+<tr><td>华北</td><td>北京朝阳</td><td>198,000</td><td>1</td><td>69.23%</td><td>★ 组内第一</td></tr>
+<tr><td>华北</td><td>天津和平</td><td>88,000</td><td>2</td><td>30.77%</td><td></td></tr>
+<tr><td><strong>合计</strong></td><td><strong>8 家门店</strong></td><td><strong>1,205,000</strong></td><td></td><td><strong>100.00%</strong></td><td></td></tr>
+</table>
+
+<p>手算三条，验完再信：华南合计 186000+142000+98000 = <strong>426000</strong>；深圳福田占比 186000÷426000 = <strong>43.66%</strong>；北京朝阳更极端，198000÷286000 = <strong>69.23%</strong>——<strong>华北只有两家店，头部门店吃掉七成。</strong>三个大区的小计分别是 426000、493000、286000，加起来正是合计行的 <strong>1205000</strong>。（占比四舍五入到两位，组内相加为 99.99% 或 100.00%，<strong>属正常舍入</strong>。）</p>
+
+<p><strong>不想开表格，用 CLI 直接问结果文件：</strong></p>
+
+<pre><code>rpx result inspect out/artifacts/result.json --origin C5
+# 返回 1 格：C12，int，1205000
+
+rpx result inspect out/artifacts/result.json --origin D4
+# 返回 8 格：1, 2, 3, 1, 2, 3, 1, 2
+
+rpx result inspect out/artifacts/result.json --origin E4
+# 返回 8 格：0.4366…, 0.3333…, 0.2300…, 0.4158…, 0.3387…, 0.2454…, 0.6923…, 0.3077…</code></pre>
+
+<p>注意 <code>--origin</code> 用的是<strong>模板地址</strong>，返回的是结果地址（C5 的结果落在 C12）。<strong>三套坐标——模板地址、计算结果地址、打印页地址——不能混用</strong>，这是这套系统的基本功。</p>
+
+<h3>并列名次：实测行为</h3>
+
+<p>我把广州天河改成 186000，跟深圳福田并列，重跑：两家<strong>并列第 1，东莞南城是第 3 而不是第 2</strong>；占比变成 39.57%、39.57%、20.85%（分母变成 470000），合计仍是 100.00%。count 数「比我大的个数」，并列时天然拿到同样名次——<strong>这是竞赛排名，不是并列后占两个坑</strong>。</p>
+
+<h3>机器那一侧的核对</h3>
+
+<p>画廊这份样例自带 4 项独立预期：各门店销售额、组内排名、组内第一标注、销售合计，逐项锚在模板原格上。运行校验页四项全部通过：</p>
+
+<p><img src="/uploads/rpx-store-ranking-checks.png" alt="运行校验页：4 项独立预期全部通过，实际值与预期值逐格对照" /></p>
+
+<p>全画廊 29 份样例一共带着 143 条这样的逐格断言，<strong>这份贡献 4 条</strong>。断言怎么设计的，见<a href="/post/rpx-json-report-catalog">《29 份报表，143 条断言》</a>。</p>
+
+<h2>八、定稿前踩过的三个坑</h2>
+
+<p>这份模板定稿前返工过三次，三次都栽在同一个地方：<strong>扩展块里的集合语义</strong>。三个坑都有<strong>实测记录</strong>，抄模板前先看一遍。</p>
+
+<table>
+<tr><th>坑</th><th>现象</th><th>规则</th></tr>
+<tr><td>多列都写 vertical</td><td>扩展相乘，6 行明细炸成 798 行</td><td><strong>只有一列驱动，其余列 none 加 left_head</strong></td></tr>
+<tr><td>扩展块里写 C4+D4</td><td>引擎显式报 UnsupportedExpr——那是整列集合相加，不是两格相加</td><td><strong>计算列写数据集表达式，不做格间四则</strong></td></tr>
+<tr><td>明细行与合计行之间留空模板行</td><td>空行被算进扩展块，合计被推到更下方</td><td><strong>两行紧贴，不留空行</strong></td></tr>
+</table>
+
+<p>还有一条展示层的：<strong>border 在当前导出链路不落地</strong>，模板里声明了也不会出现在 xlsx 与快照里。这份模板因此不写边框，层次全靠表头深色底与合计行浅色底——<strong>丑一点，但每一根线都是真的</strong>。</p>
+
+<h2>九、复现：十分钟从零做一张</h2>
+
+<p><strong>完整复现流程，七步：</strong></p>
+
+<ol>
+<li>建目录，把第二章的 CSV 存为 <code>store-sales.csv</code>；</li>
+<li>把第四章的 JSON 存为 <code>store-ranking.json</code>，与 CSV 同目录；</li>
+<li><code>rpx template validate store-ranking.json</code>——exit 0，checked 6 项；</li>
+<li><code>rpx lint store-ranking.json</code>——exit 0，1 条 L008 warning（可接受）；</li>
+<li><code>rpx run store-ranking.json --out-dir ./out --export csv</code>——exit 0，13 行 × 6 列 1 页；</li>
+<li><code>rpx result inspect out/artifacts/result.json --origin C5</code>——核对 1205000；</li>
+<li>改一个数重跑，看排名与占比怎么动——比如把广州天河改成 186000。</li>
+</ol>
+
+<p>想改口径，<strong>第五章那三种写法就是全部开关</strong>：收窄到组内、回到全体、排全员名次，各改一处。</p>
+
+<h3>常见问题</h3>
+
+<p><strong>并列名次怎么算？</strong>count 数「比我大的个数」，并列同样名次；<strong>实测两家并列第 1 后，下一名是第 3</strong>。</p>
+
+<p><strong>想改成全员排名？</strong>删掉 <code>and A4==$A4</code>，保留根坐标，实测排名变为 3,5,7,1,4,6,2,8。<strong>注意只删坐标</strong>（变成 <code>C4{}</code>）会全部变成第 1 名——共同主格把集合收窄到了门店自己。</p>
+
+<p><strong>数据变多会分页吗？</strong>看 run 返回的 <code>data.layout</code>：page_count、x_pages、y_pages。本样例 13 行 1 页；<strong>明细变多先看 y_pages，列变多看 x_pages</strong>。</p>
+
+<p><strong>占比合计一定是 100% 吗？</strong>是。<strong>E5 的分子分母是同一个集合，恒等于 1</strong>——这是免费的自校验，若它不是 100%，说明合计行的条件写错了。</p>
+
+<p><strong>为什么不用 Excel？</strong>Excel 当然能做。区别在<strong>复现与验证</strong>：这份定义是纯文本，进 git、能 diff；run 留痕源码修订与输入指纹；四项断言随样例发布。定义即代码的全部逻辑见<a href="/post/rpx-json-cli-agent">《报表定义即代码：JSON 定义 + CLI + Agent》</a>；同一批机制落在 7 份真实业务报表上的拆解见<a href="/post/rpx-business-reports">《7 份业务报表，逐格拆解》</a>。</p>
+
+<h2>口径说明</h2>
+
+<p>本文所有数字来自 rpx 0.16.0 于 2026-10-21 的实测运行：8 行门店数据、组内排名 1,2,3 / 1,2,3 / 1,2、组内占比至两位小数、合计 1205000、并列实验 39.57%/20.85%、全员排名变体 3,5,7,1,4,6,2,8。样例「门店销售 · 组内排名与组内占比」随引擎仓库发布在画廊（29 份样例之一，自带 4 项断言）。模板属性（列宽、字号、底色）以仓库当期文件为准，表达式语义以你本机版本实测为准——<strong>本文数字是实测快照，不是承诺</strong>。</p>
+
+  </article>
+</div>
+</body>
+</html>

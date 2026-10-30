@@ -1,0 +1,222 @@
+{
+  "version": 1,
+  "grid": {
+    "rows": 6,
+    "cols": 6
+  },
+  "datasets": [
+    {
+      "name": "sales",
+      "file": {
+        "file_name": "store-sales.csv",
+        "encoding": "UTF-8",
+        "delimiter": ","
+      }
+    }
+  ],
+  "col_props": [
+    {
+      "col": 1,
+      "width": 14
+    },
+    {
+      "col": 2,
+      "width": 20
+    },
+    {
+      "col": 3,
+      "width": 18
+    },
+    {
+      "col": 4,
+      "width": 13
+    },
+    {
+      "col": 5,
+      "width": 20
+    },
+    {
+      "col": 6,
+      "width": 16
+    }
+  ],
+  "row_props": [
+    {
+      "row": 1,
+      "height": 30
+    },
+    {
+      "row": 3,
+      "height": 22
+    },
+    {
+      "row": 5,
+      "height": 22
+    }
+  ],
+  "cells": [
+    {
+      "row": 1,
+      "col": 1,
+      "text": "门店销售 · 组内排名与组内占比",
+      "font_size": 16,
+      "bold": true,
+      "h_align": "center",
+      "merge": {
+        "rows": 1,
+        "cols": 6
+      }
+    },
+    {
+      "row": 2,
+      "col": 1,
+      "text": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体",
+      "font_size": 9,
+      "fore_color": "#666666",
+      "merge": {
+        "rows": 1,
+        "cols": 6
+      }
+    },
+    {
+      "row": 3,
+      "col": 1,
+      "text": "大区",
+      "bold": true,
+      "back_color": "#2C4A5A",
+      "fore_color": "#FFFFFF",
+      "h_align": "center"
+    },
+    {
+      "row": 3,
+      "col": 2,
+      "text": "门店",
+      "bold": true,
+      "back_color": "#2C4A5A",
+      "fore_color": "#FFFFFF",
+      "h_align": "center"
+    },
+    {
+      "row": 3,
+      "col": 3,
+      "text": "销售额",
+      "bold": true,
+      "back_color": "#2C4A5A",
+      "fore_color": "#FFFFFF",
+      "h_align": "center"
+    },
+    {
+      "row": 3,
+      "col": 4,
+      "text": "组内排名",
+      "bold": true,
+      "back_color": "#2C4A5A",
+      "fore_color": "#FFFFFF",
+      "h_align": "center"
+    },
+    {
+      "row": 3,
+      "col": 5,
+      "text": "组内占比",
+      "bold": true,
+      "back_color": "#2C4A5A",
+      "fore_color": "#FFFFFF",
+      "h_align": "center"
+    },
+    {
+      "row": 3,
+      "col": 6,
+      "text": "组内第一",
+      "bold": true,
+      "back_color": "#2C4A5A",
+      "fore_color": "#FFFFFF",
+      "h_align": "center"
+    },
+    {
+      "row": 4,
+      "col": 1,
+      "extend_mode": "vertical",
+      "expr": "sales.group(region)"
+    },
+    {
+      "row": 4,
+      "col": 2,
+      "extend_mode": "vertical",
+      "left_head": "A4",
+      "expr": "sales.select(store)"
+    },
+    {
+      "row": 4,
+      "col": 3,
+      "extend_mode": "none",
+      "left_head": "B4",
+      "expr": "sales.select(amount)",
+      "format": "#,##0",
+      "h_align": "right"
+    },
+    {
+      "row": 4,
+      "col": 4,
+      "extend_mode": "none",
+      "left_head": "B4",
+      "expr": "count(C4[`0]{C4>$C4 and A4==$A4})+1",
+      "h_align": "center"
+    },
+    {
+      "row": 4,
+      "col": 5,
+      "extend_mode": "none",
+      "left_head": "B4",
+      "expr": "C4/sum(C4[`0]{A4==$A4})",
+      "format": "0.00%",
+      "h_align": "right"
+    },
+    {
+      "row": 4,
+      "col": 6,
+      "extend_mode": "none",
+      "left_head": "B4",
+      "expr": "if(D4==1,'★ 组内第一','')",
+      "h_align": "center"
+    },
+    {
+      "row": 5,
+      "col": 1,
+      "text": "合计",
+      "bold": true
+    },
+    {
+      "row": 5,
+      "col": 2,
+      "text": "10 家门店",
+      "bold": true
+    },
+    {
+      "row": 5,
+      "col": 3,
+      "expr": "sum(C4[`0]{})",
+      "format": "#,##0",
+      "bold": true,
+      "h_align": "right"
+    },
+    {
+      "row": 5,
+      "col": 5,
+      "expr": "sum(C4[`0]{})/C5",
+      "format": "0.00%",
+      "bold": true,
+      "h_align": "right"
+    },
+    {
+      "row": 6,
+      "col": 1,
+      "text": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。",
+      "font_size": 9,
+      "fore_color": "#666666",
+      "merge": {
+        "rows": 1,
+        "cols": 6
+      }
+    }
+  ]
+}

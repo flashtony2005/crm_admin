@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>从一张空表开始：手录 10 家门店数据，一步步做出组内排名报表 · 正文预览</title>
+<style>
+  :root{
+    --bg:#faf7f2; --surface:#ffffff; --surface-2:#f2ede5; --border:#e4ddd1;
+    --text:#221f1b; --muted:#6f675c; --accent:#b8860b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Noto Sans SC",-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:788px;margin:0 auto;padding:28px 20px 80px}
+  .meta{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 18px;font-size:13px;line-height:1.75;color:var(--muted);margin-bottom:26px}
+  .meta b{color:var(--text)}
+  .meta code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;
+             padding:1px 5px;font-size:12px}
+  h1.title{font-size:26px;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .article-body{font-size:16px;line-height:1.85;color:var(--text);word-break:break-word}
+  .article-body > * + *{margin-top:1.1em}
+  .article-body h1,.article-body h2,.article-body h3,.article-body h4{
+    font-weight:800;line-height:1.3;letter-spacing:-.01em}
+  .article-body > * + h1,.article-body > * + h2{margin-top:2em}
+  .article-body > * + h3,.article-body > * + h4{margin-top:1.6em}
+  .article-body h2{font-size:1.4em}
+  .article-body h3{font-size:1.18em}
+  .article-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .article-body ul,.article-body ol{padding-left:1.4em}
+  .article-body ul{list-style:disc}
+  .article-body ol{list-style:decimal}
+  .article-body li + li{margin-top:.35em}
+  .article-body blockquote{padding:4px 0 4px 18px;border-left:3px solid var(--accent);color:var(--muted)}
+  .article-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+    padding:.15em .42em;border-radius:6px;background:var(--surface-2);border:1px solid var(--border)}
+  .article-body hr{border:0;border-top:1px solid var(--border);margin:2.2em 0}
+  .article-body table{width:100%;border-collapse:collapse;font-size:.94em;
+    display:block;overflow-x:auto;background:var(--surface)}
+  .article-body th,.article-body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  .article-body th{background:var(--surface-2);font-weight:700}
+  @media (max-width:700px){
+    .article-body th,.article-body td{min-width:80px}
+    .article-body th:first-child,.article-body td:first-child{min-width:104px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">
+    <b>正文预览</b> —— 这段内容已写入站内 CMS，线上地址 <code>/post/rpx-store-ranking-from-zero</code>
+    （生产形态 <code>/t/coucouya/post/rpx-store-ranking-from-zero</code>）。本文件只是把
+    <code>articles.content</code> 原文套上站点 <code>.article-body</code> 的样式，方便离线通读；
+    <b>要改正文请改 CMS，不要改这个文件</b>。<br>
+    生成时间：2026-10-21 10:04 ｜ 正文字符数：17289 ｜ 章节 14 ／ 表格 9 ｜
+    数据口径与核对时间见正文末尾。
+  </div>
+  <h1 class="title">从一张空表开始：手录 10 家门店数据，一步步做出组内排名报表</h1>
+  <article class="article-body">
+<h2>这次不用样例：数据是我自己敲的</h2>
+
+<p>画廊里那张「门店销售 · 组内排名与组内占比」可以直接跑（<a href="http://127.0.0.1:5199/post/rpx-store-ranking-repro">那次用样例数据的复现过程</a>），但用的还是仓库自带的数据。真实场景是相反的：<strong>数据在自己手里，从一张空表开始</strong>。所以这篇文章换一条路——我从键盘敲了 10 家门店的销售数据，从零走完「录数据 → 证数据 → 写模板 → 过闸 → 交付」，每一步都是 agent 真执行过的，命令和输出照抄就能复现。</p>
+
+<p>全程只用到两个东西：一个 CLI（<code>rpx</code> 0.16.0），一个验证脚本（skill 自带的 <code>verify_report.py</code>）。没有服务、没有登录、没有网络。</p>
+
+<h2>第 1 步 目录与 CSV：到底录了什么</h2>
+
+<p>先建一个只放两样东西的目录：一份数据、一份模板。数据放 <code>data/</code> 子目录，模板放根上。</p>
+
+<pre>rpx-agent-store/
+├─ data/
+│   └─ store-sales.csv        ← 我手录的 10 行数据
+├─ data-check.json            ← 探针模板（第 2 步用，1 个格子）
+└─ template.json              ← 正式模板（第 5 步写）</pre>
+
+<p>CSV 全文 11 行（表头 + 10 家店），三个字段，一个多余的空格都没有：</p>
+
+<pre>region,store,amount
+华南,深圳南山,214000
+华南,广州越秀,156000
+华南,佛山禅城,87000
+华南,珠海香洲,63000
+华东,上海浦东,268000
+华东,杭州滨江,193000
+华东,南京建邺,134000
+华东,苏州姑苏,92000
+华北,北京海淀,241000
+华北,天津河西,105000</pre>
+
+<p>录的时候有四条硬规矩，违反了不会报错，只会静默算错：</p>
+
+<table>
+<thead><tr><th>规矩</th><th>写错会怎样</th></tr></thead>
+<tbody>
+<tr><td>逗号分隔，<strong>不能是制表符或分号</strong></td><td>列名不会被切开，整行变成一个字段名；到 <code>run</code> 才报 <code>UnknownCell</code>，且不告诉你是分隔符问题</td></tr>
+<tr><td>表头用<strong>英文列名</strong>（region / store / amount）</td><td>表达式里要按列名取值，中文列名也能用，但引号和转义更容易出错</td></tr>
+<tr><td>金额<strong>只写数字</strong>，不写千分位、不写「元」</td><td><code>214,000</code> 会被当字符串，或被逗号切成两列；<code>214000 元</code> 直接算不了</td></tr>
+<tr><td>存<strong>无 BOM 的 UTF-8</strong></td><td>带 BOM 时首列名会变成 <code>\ufeffregion</code>，表达式里写 region 就取不到值</td></tr>
+</tbody>
+</table>
+
+<p>这 10 家店故意做成<strong>三个大区、门店数不等</strong>（4 / 4 / 2）。等长分组最容易掩盖错误——组内排名和组内占比如果写错成全体口径，每组数量一样时看不出破绽；不等长才能暴露问题。</p>
+
+<table>
+<thead><tr><th>大区</th><th>门店数</th><th>销售额小计</th><th>组内最高</th></tr></thead>
+<tbody>
+<tr><td>华南</td><td>4</td><td>520,000</td><td>深圳南山 214,000</td></tr>
+<tr><td>华东</td><td>4</td><td>687,000</td><td>上海浦东 268,000</td></tr>
+<tr><td>华北</td><td>2</td><td>346,000</td><td>北京海淀 241,000</td></tr>
+<tr><td><strong>合计</strong></td><td><strong>10</strong></td><td><strong>1,553,000</strong></td><td>—</td></tr>
+</tbody>
+</table>
+
+<h2>第 2 步 先证数据，再碰版式</h2>
+
+<p>这一步是整条流程里最容易被跳过、也最容易省出几小时的一步。<strong>数据没被证实能加载之前，一个业务单元格都不要写。</strong></p>
+
+<p>先用一个「什么都不做」的探针模板：1 行 1 列，只有一个格子和一条数据集声明。</p>
+
+<pre>{
+  "version": 1,
+  "grid": { "rows": 1, "cols": 1 },
+  "datasets": [
+    {
+      "name": "sales",
+      "file": { "file_name": "store-sales.csv", "encoding": "UTF-8",
+                "delimiter": "," }
+    }
+  ],
+  "cells": [{ "row": 1, "col": 1, "text": "probe" }]
+}</pre>
+
+<p>然后只跑一条命令看数据：</p>
+
+<pre>$ rpx dataset inspect data-check.json --name sales --data-dir data --limit 3
+columns: ['region', 'store', 'amount']
+rows: 10
+sample:
+  ["华南", "深圳南山", {"type": "int", "value": 214000}]</pre>
+
+<p>输出里三件事必须同时成立，缺一条就停手：</p>
+
+<table>
+<thead><tr><th>判据</th><th>本次实测</th><th>不成立说明什么</th></tr></thead>
+<tbody>
+<tr><td><strong>columns 是真正的列名列表</strong></td><td><code>['region','store','amount']</code></td><td>若是一整串 <code>['region,store,amount']</code>，就是分隔符没生效</td></tr>
+<tr><td><strong>值类型对</strong></td><td>amount 是 <code>int</code>，不是 <code>string</code></td><td>若是字符串，后面所有 sum / 除法都会算成 0 或报类型错</td></tr>
+<tr><td><strong>行数等于源文件</strong></td><td>rows: <code>10</code></td><td>少了说明有空行被吞，多了说明换行符不对</td></tr>
+</tbody>
+</table>
+
+<h2>第 3 步 确认工具链</h2>
+
+<pre>$ rpx doctor
+ok: true | version: 0.16.0
+binary: ok（当前目录不在源码仓库内，不做版本比对）
+pdf:    available=false（未找到 Chrome/Chromium/Edge，--export pdf 不可用）</pre>
+
+<p>doctor 会自己说清楚两件事：<strong>二进制版本</strong>和<strong>哪条出口不可用</strong>。本次 <code>pdf</code> 不可用是环境事实——所以后面只导出 csv / xlsx / print-xlsx，不承诺 PDF。<strong>先确认出口，再承诺交付物</strong>，比跑到最后一步才发现导不出要省事。</p>
+
+<h2>第 4 步 模板是哪个：三个来源，我选了手写</h2>
+
+<p>「模板」在 rpx 里就是一份 JSON，不需要从空白写起。三个来源，各有适用场景：</p>
+
+<table>
+<thead><tr><th>来源</th><th>命令</th><th>能不能直接用</th></tr></thead>
+<tbody>
+<tr><td><strong>内置示例</strong>（5 份）</td><td><code>rpx template create --example grouped-sales --out-dir .</code></td><td>最接近。<code>grouped-sales</code> 就是「区域 → 城市两级 + 组内排名 + 图表」，第 4 列已是 <code>count(C3[A3]{C3&gt;$C3})+1</code></td></tr>
+<tr><td><strong>目录库预制</strong>（5 份）</td><td><code>rpx library init ./reports --presets</code></td><td>写入 complex-master / grouped-sales / multi-column / chart-gallery / images 五份，带 manifest 与修订号，适合当长期资产</td></tr>
+<tr><td><strong>画廊定稿</strong>（examples/r-model）</td><td>不是 catalog 内建示例</td><td><code>--example store-ranking</code> 会直接报 <code>EXAMPLE_UNKNOWN</code>（stage: catalog）。它是仓库里的例子文件，只能拷贝，不能 create</td></tr>
+<tr><td><strong>手写最小骨架</strong></td><td>自己写 6 个格子先跑通</td><td><strong>本次选它</strong>：只要 6 列、不要图表，改示例反而要删东西</td></tr>
+</tbody>
+</table>
+
+<p>顺手把 <code>grouped-sales</code> 跑了一遍确认它的口径：华东 40/30/20 得到排名 1/2/3、华南 60/25/15 得到 1/2/3，<strong>确实是组内排名</strong>。它用的是 <code>[A3]</code> 局部坐标限定分组；画廊定稿用的是 <code>[`0]</code> 根坐标 + 条件收窄。两条都通，前者更短，后者更好解释「为什么是同一大区」。</p>
+
+<h2>第 5 步 模板长什么样：一格一格说清楚</h2>
+
+<p>画布是 <strong>6 行 × 6 列</strong>：第 1 行标题、第 2 行说明、第 3 行表头、第 4 行明细（会纵向扩展）、第 5 行合计、第 6 行脚注。</p>
+
+<p>列宽不是随手写的，按内容定：</p>
+
+<table>
+<thead><tr><th>列</th><th>内容</th><th>宽度</th><th>为什么</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>大区</td><td>14mm</td><td>两个字加留白</td></tr>
+<tr><td>B</td><td>门店</td><td>20mm</td><td>四个汉字放得下，不折行</td></tr>
+<tr><td>C</td><td>销售额</td><td>18mm</td><td><code>#,##0</code> 到 7 位数不出现 <code>####</code></td></tr>
+<tr><td>D</td><td>组内排名</td><td>13mm</td><td>只放一位数</td></tr>
+<tr><td>E</td><td>组内占比</td><td><strong>20mm</strong></td><td><code>0.00%</code> 需要 ≥18mm，留 2mm 余量</td></tr>
+<tr><td>F</td><td>组内第一</td><td>16mm</td><td>放得下「★ 组内第一」</td></tr>
+</tbody>
+</table>
+
+<p>合计 101mm，A4 可用宽度约 172mm，很宽松——<strong>宽松是有意的</strong>：宽度不够会横向分页，或让窄列显示 <code>####</code>，这两种都不报错。</p>
+
+<p>七个功能格，每个都只回答一个问题：</p>
+
+<table>
+<thead><tr><th>格</th><th>角色</th><th>表达式</th><th>它在干什么</th></tr></thead>
+<tbody>
+<tr><td>A4</td><td>纵向扩展</td><td><code>sales.group(region)</code></td><td>按大区去重，一个区一行，是整块的根</td></tr>
+<tr><td>B4</td><td>纵向扩展</td><td><code>sales.select(store)</code>，<code>left_head=A4</code></td><td>挂在大区下面列门店，父格指定 A4，形成父子链</td></tr>
+<tr><td>C4</td><td>不扩展</td><td><code>sales.select(amount)</code>，<code>left_head=B4</code></td><td>跟着门店走，取当前门店的金额</td></tr>
+<tr><td>D4</td><td>计算列</td><td><code>count(C4[`0]{C4&gt;$C4 and A4==$A4})+1</code></td><td>全表里同大区、金额比我大的门店数 + 1</td></tr>
+<tr><td>E4</td><td>计算列</td><td><code>C4/sum(C4[`0]{A4==$A4})</code></td><td>我的金额 ÷ 同大区合计</td></tr>
+<tr><td>F4</td><td>计算列</td><td><code>if(D4==1,'★ 组内第一','')</code></td><td>排名第一打个标，其余留空</td></tr>
+<tr><td>C5</td><td>合计</td><td><code>sum(C4[`0]{})</code></td><td>整根格集求和，回到全体</td></tr>
+</tbody>
+</table>
+
+<p>D4 和 E4 里那个 <code>[`0]</code> 是<strong>根坐标</strong>（这套集合语义的完整拆解见<a href="http://127.0.0.1:5199/post/rpx-extend-cell">格集与扩展块</a>）：它把集合从「当前组的这几行」换成「全表所有明细行」。没有它，<code>C4{}</code> 的共同主格会收窄到门店自己，8 家店会全变成第 1 名。有了它之后，<strong>再用 <code>A4==$A4</code> 收窄到同一大区</strong>——这两件事是分开的，一个给全集，一个给范围。</p>
+
+<p><code>$A4</code> 的美元符号是「当前行」，<code>A4==$A4</code> 意思是「这一行的 A 列值 = 我这一行的 A 列值」，也就是同大区。这是全篇最容易写错的一处。</p>
+
+<p>完整模板（就是实际跑的这份，可直接拷）：</p>
+
+<pre>{
+  "version": 1,
+  "grid": { "rows": 6, "cols": 6 },
+  "datasets": [
+    { "name": "sales",
+      "file": { "file_name": "store-sales.csv", "encoding": "UTF-8",
+                "delimiter": "," } }
+  ],
+  "col_props": [
+    { "col": 1, "width": 14 }, { "col": 2, "width": 20 }, { "col": 3, "width": 18 },
+    { "col": 4, "width": 13 }, { "col": 5, "width": 20 }, { "col": 6, "width": 16 }
+  ],
+  "row_props": [
+    { "row": 1, "height": 30 }, { "row": 3, "height": 22 }, { "row": 5, "height": 22 }
+  ],
+  "cells": [
+    { "row": 1, "col": 1, "text": "门店销售 · 组内排名与组内占比",
+      "font_size": 16, "bold": true, "h_align": "center",
+      "merge": { "rows": 1, "cols": 6 } },
+    { "row": 2, "col": 1,
+      "text": "数据自录：10 家门店 / 3 个大区；排名与占比均为大区内口径，合计行回到全体",
+      "font_size": 9, "fore_color": "#666666", "merge": { "rows": 1, "cols": 6 } },
+
+    { "row": 3, "col": 1, "text": "大区", "bold": true,
+      "back_color": "#2C4A5A", "fore_color": "#FFFFFF", "h_align": "center" },
+    { "row": 3, "col": 2, "text": "门店", "bold": true,
+      "back_color": "#2C4A5A", "fore_color": "#FFFFFF", "h_align": "center" },
+    { "row": 3, "col": 3, "text": "销售额", "bold": true,
+      "back_color": "#2C4A5A", "fore_color": "#FFFFFF", "h_align": "center" },
+    { "row": 3, "col": 4, "text": "组内排名", "bold": true,
+      "back_color": "#2C4A5A", "fore_color": "#FFFFFF", "h_align": "center" },
+    { "row": 3, "col": 5, "text": "组内占比", "bold": true,
+      "back_color": "#2C4A5A", "fore_color": "#FFFFFF", "h_align": "center" },
+    { "row": 3, "col": 6, "text": "组内第一", "bold": true,
+      "back_color": "#2C4A5A", "fore_color": "#FFFFFF", "h_align": "center" },
+
+    { "row": 4, "col": 1, "extend_mode": "vertical", "expr": "sales.group(region)" },
+    { "row": 4, "col": 2, "extend_mode": "vertical", "left_head": "A4",
+      "expr": "sales.select(store)" },
+    { "row": 4, "col": 3, "extend_mode": "none", "left_head": "B4",
+      "expr": "sales.select(amount)", "format": "#,##0", "h_align": "right" },
+    { "row": 4, "col": 4, "extend_mode": "none", "left_head": "B4",
+      "expr": "count(C4[`0]{C4&gt;$C4 and A4==$A4})+1", "h_align": "center" },
+    { "row": 4, "col": 5, "extend_mode": "none", "left_head": "B4",
+      "expr": "C4/sum(C4[`0]{A4==$A4})", "format": "0.00%", "h_align": "right" },
+    { "row": 4, "col": 6, "extend_mode": "none", "left_head": "B4",
+      "expr": "if(D4==1,'★ 组内第一','')", "h_align": "center" },
+
+    { "row": 5, "col": 1, "text": "合计", "bold": true },
+    { "row": 5, "col": 2, "text": "10 家门店", "bold": true },
+    { "row": 5, "col": 3, "expr": "sum(C4[`0]{})", "format": "#,##0",
+      "bold": true, "h_align": "right" },
+    { "row": 5, "col": 5, "expr": "sum(C4[`0]{})/C5", "format": "0.00%",
+      "bold": true, "h_align": "right" },
+    { "row": 6, "col": 1,
+      "text": "说明：排名 = 同组内比我大的门店数 + 1；占比 = 本店金额 / 同组合计。",
+      "font_size": 9, "fore_color": "#666666", "merge": { "rows": 1, "cols": 6 } }
+  ]
+}</pre>
+
+<p>三个细节容易被忽略：<strong>没有声明任何 border</strong>——这个版本的边框不落地，快照和 xlsx 都不带，分层只能靠 <code>back_color</code>；<strong>合计行紧贴明细行</strong>，中间不能插空行，否则空行会被算进扩展块；<strong>F4 用了单引号字符串</strong>，双引号在 JSON 里要转义，单引号更省事。</p>
+
+<h2>第 6 步 三道静态关，一条命令跑完</h2>
+
+<pre>$ rpx lint template.json --data-dir data
+{"ok":true,"data":{"gate":{"exit_code":0,"passed":true},
+ "summary":{"codes":[],"error":0,"warning":0,"total":0}}}
+
+$ rpx template validate template.json --probe-data --data-dir data
+{"valid":true,"probe":{"probed":true,"rows_total":10,
+ "datasets":[{"name":"sales","columns_ok":true,"rows":10}]}}
+checked:  schema / declared_heads / unconditional_scalar_cycles /
+          formula_preparation / parameter_binding / inferred_heads
+deferred: data_loading / calculation / pagination / export</pre>
+
+<p>三道关的分工必须分清，否则会误判「已经没问题了」：</p>
+
+<table>
+<thead><tr><th>关卡</th><th>它到底证明什么</th><th>它不证明什么</th></tr></thead>
+<tbody>
+<tr><td><code>lint</code></td><td>没有已知的静默失败写法（宏写错位置、多个纵向扩展未收敛、扩展块有空行、窄列配两位小数…）</td><td>不证明能算出来</td></tr>
+<tr><td><code>validate</code></td><td>结构合法：6 项静态检查全过</td><td><strong>deferred 里明写 data_loading / calculation / pagination / export 都没查</strong></td></tr>
+<tr><td><code>validate --probe-data</code></td><td>数据集真的能加载：列名对、行数对</td><td>不证明公式算得对</td></tr>
+</tbody>
+</table>
+
+<p>所以看到 <code>valid: true</code> 就收工，是这个工具链上最贵的误判。本次 lint <strong>0 告警</strong>，是因为列宽一开始就按 <code>0.00%</code> 需要 18mm 来定；画廊那份定稿模板反而是 13mm，跑 lint 会带 1 条 L008 告警。</p>
+
+<h2>第 7 步 跑一次，看它真的扩成了几行几页</h2>
+
+<pre>$ rpx run template.json --data-dir data --out-dir run \
+    --export csv --export xlsx --export print-xlsx
+{"ok":true,"data":{"layout":{"rows":15,"page_count":1,"x_pages":1,"y_pages":1}}}
+
+run/artifacts/
+├─ result.json          逐格结果（值 + 类型）
+├─ workbook.json        快照与分页
+├─ report.csv           15 行纯值
+├─ report.xlsx          带格式
+└─ report-print.xlsx    打印用</pre>
+
+<p>模板只写了 6 行，结果 <strong>15 行</strong>：标题 1 + 说明 1 + 表头 1 + 明细 10 + 合计 1 + 脚注 1。这就是「扩展」——<strong>写 6 行，出 15 行，页数还是 1</strong>。<code>layout</code> 里同时给出 <code>x_pages</code> 和 <code>y_pages</code>，横向有没有分页一眼可见，不用去翻 workbook.json。</p>
+
+<h2>第 8 步 过闸：第一次是 FAIL</h2>
+
+<p>前三关全绿，也不代表能交付。<strong>唯一能证明「算对了」的是断言产物里的值</strong>，这件事由 skill 自带的 <code>verify_report.py</code> 一次做完：lint → validate → run（csv + xlsx + print-xlsx）→ 读 CSV 断言指定格。</p>
+
+<p>第一次跑，直接 FAIL：</p>
+
+<pre>$ python verify_report.py template.json --data-dir data --expect-rows 15 --max-pages 1
+[FAIL] template.json
+  产物 0 个 | CSV None 行 | 分页 None
+  ERROR R002 run 失败：DATA_MISSING
+        F:\tmp\rpx-agent-store\store-sales.csv: 系统找不到指定的文件。
+          → 看 run.json 的 diagnostics；数据集类错误先跑 dataset inspect</pre>
+
+<p>注意报错路径：<code>rpx-agent-store\store-sales.csv</code>——少了中间的 <code>data\</code>。也就是说 <code>--data-dir data</code> 传给了 lint，<strong>却没传给 run</strong>，脚本以为数据在模板同级目录。这不是我们的模板错，是验证脚本的一个真 bug。</p>
+
+<p>修法只有两行（脚本里 run 的参数拼装处）：</p>
+
+<pre>run_args = ["run", tpl_path, "--out-dir", out_dir] + exports
+if base:
+    # 必须透传：数据放子目录（如 ./data/）时，run 默认只在模板同级找文件，
+    # 否则会误报 DATA_MISSING
+    run_args += ["--data-dir", base]</pre>
+
+<p>补上之后同一份模板、同一条命令：</p>
+
+<pre>[PASS] template.json
+  产物 5 个 | CSV 15 行 | 分页 {'page_count': 1, 'x_pages': 1, 'y_pages': 1} | 边框定义 1
+  无告警</pre>
+
+<p>还有两个坑，都是这次真踩的：<code>--expect-cell</code> 读的是 <strong>report.csv，所以坐标是结果坐标</strong>，不是模板坐标（模板里合计在 C5，结果里在 C14）；<code>long</code> / <code>decimal</code> 的值是<strong>字符串精确比对</strong>，写 <code>0.3077</code> 会 FAIL，必须写全精度 <code>0.3076923076923077</code>。</p>
+
+<h2>第 9 步 逐格核对：引擎算的和我手算的一样吗</h2>
+
+<p>闸门只断言了 3 个格。剩下的我用一份独立脚本从源 CSV 重算了一遍——<strong>不用引擎的任何中间结果</strong>，纯 Python 排序求排名、除法求占比，再和 result.json 逐格对拍：</p>
+
+<table>
+<thead><tr><th>门店</th><th>销售额</th><th>排名（引擎 / 重算）</th><th>占比（引擎 / 重算）</th></tr></thead>
+<tbody>
+<tr><td>深圳南山</td><td>214,000</td><td>1 / 1</td><td>41.15% / 41.15%</td></tr>
+<tr><td>广州越秀</td><td>156,000</td><td>2 / 2</td><td>30.00% / 30.00%</td></tr>
+<tr><td>佛山禅城</td><td>87,000</td><td>3 / 3</td><td>16.73% / 16.73%</td></tr>
+<tr><td>珠海香洲</td><td>63,000</td><td>4 / 4</td><td>12.12% / 12.12%</td></tr>
+<tr><td>上海浦东</td><td>268,000</td><td>1 / 1</td><td>39.01% / 39.01%</td></tr>
+<tr><td>杭州滨江</td><td>193,000</td><td>2 / 2</td><td>28.09% / 28.09%</td></tr>
+<tr><td>南京建邺</td><td>134,000</td><td>3 / 3</td><td>19.51% / 19.51%</td></tr>
+<tr><td>苏州姑苏</td><td>92,000</td><td>4 / 4</td><td>13.39% / 13.39%</td></tr>
+<tr><td>北京海淀</td><td>241,000</td><td>1 / 1</td><td>69.65% / 69.65%</td></tr>
+<tr><td>天津河西</td><td>105,000</td><td>2 / 2</td><td>30.35% / 30.35%</td></tr>
+</tbody>
+</table>
+
+<p>10 行全对，<strong>不一致条数 0</strong>；合计 1,553,000 与独立重算一致，占比 100.00%。每组占比各自加到 100%——这一点很关键，如果分母漏了条件，每组加起来会是几百%。</p>
+
+<p><img src="http://127.0.0.1:8088/uploads/rpx-store-demo-table.png" alt="自录 10 家门店的结果表：三组不等长、组内排名 1-4、组内占比每组加到 100%、合计 1,553,000" /></p>
+
+<p><img src="http://127.0.0.1:8088/uploads/rpx-store-demo-term.png" alt="四步命令的真实终端输出：lint 0 告警、validate 探针 10 行、run 15 行 1 页、verify_report PASS" /></p>
+
+<h2>第 10 步 一个反直觉的地方：CSV 不带格式</h2>
+
+<p><code>report.csv</code> 里读到的占比是 <code>0.4115384615384615</code>，不是 <code>41.15%</code>：</p>
+
+<pre>华南,深圳南山,214000,1,0.4115384615384615,★ 组内第一
+华东,上海浦东,268000,1,0.3901018922852984,★ 组内第一</pre>
+
+<p>这不是 bug。<code>format</code> 只写进 <code>workbook.json</code> 和 <code>xlsx</code>，<strong>CSV 永远输出原始值</strong>。所以：</p>
+
+<ul>
+<li><code>--expect-cell E13=0.30346820809248554</code> 要写全精度，写 <code>30.35%</code> 一定不过；</li>
+<li>给人看的版本用 <code>report.xlsx</code> 或 <code>report-print.xlsx</code>，那里才是 <code>41.15%</code>；</li>
+<li>给下游程序用的用 CSV，<strong>格式化交给下游</strong>，别指望 CSV 帮你四舍五入。</li>
+</ul>
+
+<h2>换成你自己的数据，只改三处</h2>
+
+<p>这份模板不是为这 10 家店定制的，换数据只动三个地方：</p>
+
+<table>
+<thead><tr><th>改哪里</th><th>改什么</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td>CSV 文件名</td><td><code>datasets[0].file.file_name</code></td><td>文件名改了就同步改这里，否则 <code>DATA_MISSING</code></td></tr>
+<tr><td>列名</td><td>表达式里的 <code>group(region)</code> / <code>select(store)</code> / <code>select(amount)</code></td><td>要和 CSV 表头<strong>逐字一致</strong>，大小写敏感</td></tr>
+<tr><td>门店数文案</td><td>B5 的「10 家门店」</td><td>这是写死的文本格，不会自动变；写成 <code>count(sales.select(store))&amp;" 家门店"</code> 也可以，但要确认字符串拼接语法</td></tr>
+</tbody>
+</table>
+
+<p>其余全部不动：排名和占比的口径是<strong>按列名绑定的语义</strong>，不按行数、不按门店名。加一个大区、加十家店，模板一行都不用改。</p>
+
+<h2>复跑清单（照抄即可）</h2>
+
+<pre># 0 建目录
+mkdir -p rpx-agent-store/data &amp;&amp; cd rpx-agent-store
+
+# 1 写 data/store-sales.csv（11 行，无 BOM，逗号分隔）
+# 2 先证数据
+rpx dataset inspect data-check.json --name sales --data-dir data --limit 3
+
+# 3 静态三关
+rpx lint template.json --data-dir data
+rpx template validate template.json --probe-data --data-dir data
+
+# 4 跑 + 三种导出
+rpx run template.json --data-dir data --out-dir run \
+  --export csv --export xlsx --export print-xlsx
+
+# 5 过闸（含 3 个断言）
+python verify_report.py template.json --data-dir data \
+  --expect-rows 15 --max-pages 1 --print \
+  --expect-cell C14=1553000 --expect-cell D12=1 \
+  --expect-cell E13=0.30346820809248554</pre>
+
+<h2>FAQ</h2>
+
+<p><strong>为什么不用画廊那份现成的 JSON？</strong> 因为它绑定了 8 家店的样例数据，而且它是仓库例子不是 catalog 示例（<code>--example store-ranking</code> 报 <code>EXAMPLE_UNKNOWN</code>）。更重要的是：<strong>抄一份别人的模板，你永远不知道自己哪一步写错了</strong>。从 6 个格子自己搭一遍，出问题时能定位到具体那一列。</p>
+
+<p><strong>一定要先写探针模板吗？</strong> 不一定。但它只花 30 秒，能挡掉「跑到最后一步才发现列名是 <code>\ufeffregion</code>」这类事故。列名一旦错，<code>validate</code> 依然返回 <code>valid: true</code>，要到 <code>run</code> 才炸，而且报的是 <code>UnknownCell</code>——不会告诉你是编码问题。</p>
+
+<p><strong>排名遇到并列会怎样？</strong> 这是竞赛排名：两家并列第 1，下一名直接第 3。因为公式是「比我大的个数 + 1」，两个相等的值互相都不大于对方，所以并列同名次、后面跳号。要改成顺序排名（1、2、3 不跳号）得换写法。</p>
+
+<p><strong>怎么确认「组内」而不是「全体」？</strong> 两个信号：每组占比各自加到 100%；每组第一名的标记出现在三个不同大区。如果收窄失效，占比会变成占全体（三组加起来 100%，每组只有 30% 多），组内第一只剩一个。</p>
+
+  </article>
+</div>
+</body>
+</html>
