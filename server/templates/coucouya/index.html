@@ -3,13 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- 图标走 public/favicon.svg，构建时 vite 会按 base 重写为 /t/coucouya/favicon.svg；
-         缺了它浏览器会去请求根路径 /favicon.ico，在反代/同源托管下必然 404。 -->
-    <link rel="icon" type="image/svg+xml" href="/t/coucouya/favicon.svg" />
-    <title>可可鸭 CouCouYa · Community Growth &amp; Learning in Public</title>
+    <!-- 图标与引擎画廊同源（rpx/web/public/）：favicon.png 为图标部分，
+         apple-touch-icon.png 供 iOS 添加到主屏。构建时 vite 按 base 重写为
+         /t/coucouya/favicon.png；缺了它浏览器会去请求根路径 /favicon.ico，
+         在反代/同源托管下必然 404。 -->
+    <link rel="icon" type="image/png" href="/t/coucouya/favicon.png" />
+    <link rel="apple-touch-icon" href="/t/coucouya/apple-touch-icon.png" />
+    <!-- title / description 是**后台不可用时的最后兜底**：正常运行时由
+         src/App.tsx 用后台「站点名称 / 站点标语」覆盖，同源伺服时后端还会
+         在直出 HTML 里覆盖一次（agent_layer::build_site_head）。
+         这里必须与当前站点品牌保持一致，否则后端一挂就露出上一个品牌名。 -->
+    <title>AI 报表引擎 · 一份 JSON，跑通中国式复杂报表。</title>
     <meta
       name="description"
-      content="可可鸭 CouCouYa —— KOSX.ai 社群增长操盘手。在 AI 时代，帮有才华的人被看见。"
+      content="AI 报表引擎由 Rust 重写：多源关联分片、不规则分组、自由格间运算、交叉表合并、统计图与条码，全部收敛到一份 JSON 定义，直接交付 Excel / HTML / PDF。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,8 +35,8 @@
       http://127.0.0.1:8088/... 读模板清单 —— 生产域名下既跨域又指向服务器
       本机回环，必然失败且被静默吞掉，已移除。
     -->
-    <script type="module" crossorigin src="/t/coucouya/assets/index-B7gyMKNI.js"></script>
-    <link rel="stylesheet" crossorigin href="/t/coucouya/assets/index-Dgezm9b1.css">
+    <script type="module" crossorigin src="/t/coucouya/assets/index-CBZDcsXX.js"></script>
+    <link rel="stylesheet" crossorigin href="/t/coucouya/assets/index-DE2puM1l.css">
   </head>
   <body>
     <div id="root"></div>
