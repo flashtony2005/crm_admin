@@ -154,7 +154,7 @@ function ArticlesPage() {
               .map((t) => t.trim())
               .filter(Boolean)
               .map((t) => (
-                <span key={t} className="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-xs">
+                <span key={t} className="award-tag px-1.5 py-0.5 rounded-md text-xs">
                   {t}
                 </span>
               ))}
@@ -169,7 +169,7 @@ function ArticlesPage() {
       header: '精选',
       render: (r) =>
         r.featured ? (
-          <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-600">★ Featured</span>
+          <span className="award-tag-featured px-1.5 py-0.5 rounded-md text-xs font-medium">★ Featured</span>
         ) : (
           <span className="text-os-text-muted text-xs">—</span>
         ),
@@ -181,18 +181,18 @@ function ArticlesPage() {
         const lv = Number(r.paidLevel ?? 0)
         if (lv > 0) {
           const map: Record<number, { label: string; cls: string }> = {
-            1: { label: '订阅', cls: 'bg-amber-50 text-amber-600' },
-            2: { label: '积分', cls: 'bg-violet-50 text-violet-600' },
-            3: { label: '邀请', cls: 'bg-rose-50 text-rose-600' },
+            1: { label: '订阅', cls: 'award-tag' },
+            2: { label: '积分', cls: 'award-tag' },
+            3: { label: '邀请', cls: 'award-tag' },
           }
           const m = map[lv] || map[1]
           return <span className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${m.cls}`}>{m.label}</span>
         }
         const v = r.visibility || 'public'
         const map: Record<string, { label: string; cls: string }> = {
-          public: { label: '公开', cls: 'bg-slate-100 text-slate-600' },
-          members: { label: '会员', cls: 'bg-indigo-50 text-indigo-600' },
-          paid: { label: '付费', cls: 'bg-amber-50 text-amber-600' },
+          public: { label: '公开', cls: 'award-tag' },
+          members: { label: '会员', cls: 'award-tag' },
+          paid: { label: '付费', cls: 'award-tag' },
         }
         const m = map[v] || map.public
         return <span className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${m.cls}`}>{m.label}</span>
@@ -204,7 +204,7 @@ function ArticlesPage() {
 
   return (
     <div className="p-1 md:p-2">
-      <CmsPageHeader title="Articles" desc="文章与动态：写好交给 AI 检查，发布前会请求批准。" />
+      <CmsPageHeader title="文章" desc="文章与动态：写好交给 AI 检查，发布前会请求批准。" />
       <CmsToolbar
         searchPlaceholder="搜索标题 / 摘要 / 分类…"
         searchValue={t.search}

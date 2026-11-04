@@ -116,7 +116,7 @@ export function MainLayout() {
   const contentMaxWidth = config.contentLayout === 'fixed' ? '1024px' : '100%'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-default-50">
+    <div className="award-shell">
       {showMobileSidebar && !collapsed && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -126,6 +126,7 @@ export function MainLayout() {
         />
       )}
 
+      <div className="award-frame">
       {showSidebar || showMobileSidebar ? (
         <div
           className={`relative z-50 transition-all duration-300 flex-shrink-0 ${
@@ -142,13 +143,14 @@ export function MainLayout() {
         {isHorizontal && <HorizontalMenuBar />}
         {config.tabbarEnabled && !isFullscreen && <TabBar />}
         <main
-          className="flex-1 overflow-auto min-h-0"
+          className="award-main flex-1 overflow-auto min-h-0"
           style={{ padding: isFullscreen ? 0 : config.contentCompact ? '0.25rem' : config.contentPadding }}
         >
-          <div className="w-full h-full mx-auto" style={{ maxWidth: contentMaxWidth }}>
+          <div className="award-main-inner w-full h-full mx-auto" style={{ maxWidth: contentMaxWidth }}>
             <Outlet />
           </div>
         </main>
+      </div>
       </div>
     </div>
   )

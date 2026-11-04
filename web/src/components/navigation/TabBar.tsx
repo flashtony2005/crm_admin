@@ -26,10 +26,15 @@ const TAB_TITLE_KEYS: Record<string, string> = {
   '/sys/cache_store': 'tableLabel.cache_store',
 }
 
+import { flattenNavLeaves } from '../../config/nav'
+
 /** 根据路径获取当前语言的 tab 标题 */
 function tabTitle(path: string, t: (key: string) => string): string {
   const key = TAB_TITLE_KEYS[path]
   if (key) return t(key)
+  // 产品导航（前端持有）优先，避免回退成英文路径段
+  const leaf = flattenNavLeaves().find((l) => l.path === path)
+  if (leaf) return leaf.label
   return path.split('/').pop() ?? path
 }
 
@@ -130,7 +135,7 @@ export function TabBar() {
 
   return (
     <div
-      className="flex items-center bg-background border-b border-default-200 px-2 gap-1 overflow-x-auto scrollbar-thin"
+      className="award-tabs flex items-center bg-background border-b border-default-200 px-2 gap-1 overflow-x-auto scrollbar-thin"
       style={{ height: tabbarHeight }}
     >
       {tabs.map((tab) => {

@@ -141,7 +141,7 @@ function AssistantPage() {
     <div className="p-1 md:p-2 flex flex-col h-full gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-os-text-primary tracking-tight">AI 助手</h1>
+          <h1 className="award-page-h1 text-xl font-semibold text-os-text-primary tracking-tight">AI 助手</h1>
           <p className="text-sm text-os-text-muted mt-0.5">
             理解 → 操作 → 审批 → 完成；AI 是执行者，但发布权在你手里。
           </p>

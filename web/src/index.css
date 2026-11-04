@@ -1,53 +1,55 @@
 @import "@heroui/styles";
+@import "./styles/award.css";
 
 /* ── 设计令牌 ───────────────────────────────
- * 基于 Confidency OS 风格：干净、柔和、以卡片/表格为核心的 SaaS 控制台。
- * 通过 Tailwind v4 @theme 注入，可直接使用 bg-os-bg-base、text-os-primary 等。
+ * Metric 风格：冷白中性面，无衬线标题，靛蓝仅作交互信号。
+ * 令牌名保持与既有组件一致（os-*），仅重定义取值，
+ * 避免新增不存在的令牌导致 Tailwind v4 静默不生成样式。
  * -------------------------------------------------------- */
 @theme {
   /* 中性色 */
-  --color-os-bg-base: #F8F9FB;
-  --color-os-bg-sidebar: #F4F5F7;
+  --color-os-bg-base: #FFFFFF;
+  --color-os-bg-sidebar: #FAFBFC;
   --color-os-bg-card: #FFFFFF;
-  --color-os-bg-hover: #F9FAFB;
-  --color-os-bg-selected: #F3F0FF;
-  --color-os-border: #E5E7EB;
-  --color-os-border-light: #F3F4F6;
-  --color-os-text-primary: #111827;
-  --color-os-text-secondary: #6B7280;
-  --color-os-text-muted: #9CA3AF;
+  --color-os-bg-hover: #F4F6F8;
+  --color-os-bg-selected: #EEF3FD;
+  --color-os-border: #E4E7EB;
+  --color-os-border-light: #EFF1F3;
+  --color-os-text-primary: #16181D;
+  --color-os-text-secondary: #4B515A;
+  --color-os-text-muted: #7E858F;
 
-  /* 强调色 */
-  --color-os-primary-50: #F3F0FF;
-  --color-os-primary-100: #E9E3FF;
-  --color-os-primary-500: #7C5CFF;
-  --color-os-primary-600: #6B4DE6;
+  /* 交互主色：克制的靛蓝；暖红退为数据/错误色 */
+  --color-os-primary-50: #EEF3FD;
+  --color-os-primary-100: #DDE8FB;
+  --color-os-primary-500: #3C6FE3;
+  --color-os-primary-600: #2E5BC4;
 
-  /* 状态色：浅底深字 */
-  --color-os-success-bg: #DCFCE7;
-  --color-os-success-text: #166534;
-  --color-os-warning-bg: #FEF9C3;
-  --color-os-warning-text: #854D0E;
-  --color-os-info-bg: #DBEAFE;
-  --color-os-info-text: #1E40AF;
-  --color-os-danger-bg: #FEE2E2;
-  --color-os-danger-text: #991B1B;
-  --color-os-purple-bg: #F3E8FF;
-  --color-os-purple-text: #6B21A8;
-  --color-os-neutral-bg: #F3F4F6;
-  --color-os-neutral-text: #374151;
+  /* 状态色：低饱和 */
+  --color-os-success-bg: #E9F6EF;
+  --color-os-success-text: #1E8A5A;
+  --color-os-warning-bg: #FAF2DE;
+  --color-os-warning-text: #A9761B;
+  --color-os-info-bg: #EEF3FD;
+  --color-os-info-text: #2E5BC4;
+  --color-os-danger-bg: #FBEEEA;
+  --color-os-danger-text: #C2412A;
+  --color-os-purple-bg: #F0EDF8;
+  --color-os-purple-text: #5A4B86;
+  --color-os-neutral-bg: #F4F6F8;
+  --color-os-neutral-text: #4B515A;
 
-  /* 圆角 */
-  --radius-os-sm: 8px;
-  --radius-os-md: 10px;
-  --radius-os-lg: 12px;
-  --radius-os-xl: 16px;
+  /* 圆角：统一 4 / 6 / 8px 三档 */
+  --radius-os-sm: 4px;
+  --radius-os-md: 6px;
+  --radius-os-lg: 8px;
+  --radius-os-xl: 8px;
 
-  /* 阴影 */
-  --shadow-os-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  --shadow-os-button: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-os-button-hover: 0 4px 12px rgba(124, 92, 255, 0.25);
-  --shadow-os-dropdown: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  /* 阴影：只留给浮层与装裱画布 */
+  --shadow-os-card: none;
+  --shadow-os-button: none;
+  --shadow-os-button-hover: none;
+  --shadow-os-dropdown: 0 18px 44px -24px rgba(16, 20, 28, .35);
 }
 
 /* 侧边栏滚动条美化 */
@@ -74,34 +76,27 @@
   scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
 
-/* 渐变按钮效果 */
+/* 渐变按钮效果（档案柜体系：改为墨底填充，不用渐变） */
 @layer utilities {
   .btn-gradient {
-      background-image: linear-gradient(to right, #25aae1, #40e495, #30dd8a, #2bb673) !important;
-      background-size: 300% 100% !important;
-      box-shadow: 0 4px 15px 0 rgba(49, 196, 190, 0.75) !important;
-      transition: all .4s ease-in-out !important;
+      background: #16181D !important;
+      box-shadow: none !important;
+      transition: background .28s cubic-bezier(.22,.61,.36,1), color .28s !important;
   }
 
-  .btn-gradient:hover {
-      background-position: 100% 0 !important;
-  }
+  .btn-gradient:hover { background: #3C6FE3 !important; color: #fff !important; }
+  .btn-gradient:focus { outline: 2px solid #3C6FE3; outline-offset: 2px; }
 
-  .btn-gradient:focus {
-      outline: none !important;
-  }
-
-  /* Tab 激活态：亮黄色渐变 */
+  /* Tab 激活态：朱砂下边线，不用亮黄渐变 */
   .tab-active-gradient {
-      background-image: linear-gradient(to right, #fef08a, #fde047, #facc15, #eab308) !important;
-      background-size: 300% 100% !important;
-      box-shadow: 0 2px 8px 0 rgba(250, 204, 21, 0.5) !important;
-      transition: all .4s ease-in-out !important;
+      background: #FFFFFF !important;
+      background-image: none !important;
+      box-shadow: inset 0 -2px 0 #3C6FE3 !important;
+      color: #17150F !important;
+      transition: background .24s !important;
   }
 
-  .tab-active-gradient:hover {
-      background-position: 100% 0 !important;
-  }
+  .tab-active-gradient:hover { background: #F4F6F8 !important; }
 }
 
 /* ── 页面级 Header 样式（参考 light 风格） ─────────────── */

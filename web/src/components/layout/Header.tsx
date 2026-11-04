@@ -75,7 +75,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
   })
 
   return (
-    <div className="dash-header">
+    <div className="dash-header award-header">
       <div className="dash-header-inner">
         {/* 左侧 */}
         <div className="dash-header-left">

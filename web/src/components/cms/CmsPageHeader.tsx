@@ -14,9 +14,9 @@ interface Props {
  */
 export function CmsPageHeader({ title, desc, actions }: Props) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-4">
+    <div className="award-page-head flex items-start justify-between gap-4 mb-4">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold text-os-text-primary tracking-tight">{title}</h1>
+        <h1 className="award-page-h1 text-xl font-semibold text-os-text-primary tracking-tight">{title}</h1>
         {desc && <p className="text-sm text-os-text-muted mt-0.5">{desc}</p>}
       </div>
       {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}

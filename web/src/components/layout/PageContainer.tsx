@@ -24,10 +24,10 @@ export function PageContainer({
     <Card className={`w-full h-full ${className}`}>
       {showHeader && (title || actions) && (
         <Card.Header>
-          <div className="flex items-center justify-between w-full border-b border-default-200 pb-4">
+          <div className="award-page-head flex items-center justify-between w-full border-b border-default-200 pb-4">
             <div className="flex flex-col gap-1">
               {title && (
-                <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+                <h1 className="award-page-h1 text-xl font-semibold text-foreground">{title}</h1>
               )}
               {subtitle && (
                 <p className="text-sm text-default-500">{subtitle}</p>

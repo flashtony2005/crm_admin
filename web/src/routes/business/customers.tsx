@@ -100,7 +100,7 @@ function CustomersPage() {
 
   return (
     <div className="p-1 md:p-2">
-      <CmsPageHeader title="Customers" desc="客户档案：谁在买、买过什么、下一步该做什么。" />
+      <CmsPageHeader title="客户档案" desc="客户档案：谁在买、买过什么、下一步该做什么。" />
       <CmsToolbar searchPlaceholder="搜索姓名 / 电话 / 备注…" searchValue={t.search} onSearchChange={t.setSearch}>
         <Auth perm={P.businessCustomersCreate}>
           <Button variant="primary" size="sm" onPress={() => { setEditing(null); setModalOpen(true) }}>

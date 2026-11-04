@@ -29,35 +29,31 @@ function HomePage() {
   ]
 
   return (
-    <div className="p-1 md:p-2 flex flex-col gap-5">
+    <div className="award-home p-1 md:p-2 flex flex-col gap-5">
       {/* 欢迎语 + AI 主入口 */}
       <section>
-        <h1 className="text-2xl font-semibold text-os-text-primary tracking-tight mb-1">
+        <h1 className="award-h1 text-2xl font-semibold text-os-text-primary tracking-tight mb-1">
           今天想完成什么？
         </h1>
-        <p className="text-sm text-os-text-muted mb-4">
+        <p className="award-lede text-sm text-os-text-muted mb-4">
           用一句话把事情交给 AI，重要操作会先请求你的批准。
         </p>
         <AiPromptCard />
       </section>
 
-      {/* 统计卡 */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* 业务关键指标：竖线分隔的裸指标，无卡片、不伪造趋势 */}
+      <section className="award-kpi">
         {cards.map((c) => (
-          <Link key={c.label} to={c.to} className="no-underline">
-            <div className="rounded-xl border border-os-border bg-white p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg font-semibold" style={{ background: c.bg, color: c.accent }}>
-                {c.value}
-              </div>
-              <p className="mt-3 text-sm text-os-text-secondary">{c.label}</p>
-            </div>
+          <Link key={c.label} to={c.to} className="award-kpi-item">
+            <span className="award-kpi-label">{c.label}</span>
+            <span className="award-kpi-value">{c.value}</span>
           </Link>
         ))}
       </section>
 
-      <div className="grid lg:grid-cols-2 gap-5">
+      <div className="award-panels grid lg:grid-cols-2 gap-5">
         {/* 待审批 */}
-        <section className="rounded-xl border border-os-border bg-white shadow-sm p-4">
+        <section className="award-panel rounded-xl border border-os-border bg-white shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-os-text-primary">等待审批</h2>
             <Link to="/ai/approvals" className="text-xs text-[#6366F1] no-underline hover:underline">全部 →</Link>
@@ -88,7 +84,7 @@ function HomePage() {
         </section>
 
         {/* AI 任务动态 */}
-        <section className="rounded-xl border border-os-border bg-white shadow-sm p-4">
+        <section className="award-panel rounded-xl border border-os-border bg-white shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-os-text-primary">AI 最近在做什么</h2>
             <Link to="/ai/tasks" className="text-xs text-[#6366F1] no-underline hover:underline">全部 →</Link>

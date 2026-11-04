@@ -95,18 +95,17 @@ export function Sidebar({ collapsed, className = '', onToggle }: SidebarProps) {
     )
 
   return (
-    <aside className={`h-screen z-20 sticky top-0 ${className}`}>
-      <div className={['flex flex-col h-full overflow-y-auto', 'bg-background border-r border-divider', 'py-6 px-3 md:w-full'].join(' ')}>
+    <aside className={`award-sidebar h-screen z-20 sticky top-0 ${className}`}>
+      <div className="award-sidebar-inner flex flex-col h-full overflow-y-auto bg-background border-r border-divider md:w-full">
         {/* Brand */}
-        <div className="flex gap-8 items-center px-6 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-sm">
-              ✦
+        <div className="award-brand">
+          <div className="award-brand-mark">✦</div>
+          {!collapsed && (
+            <div className="award-brand-txt">
+              <span className="award-brand-name">AI 工作台</span>
+              <span className="award-brand-sub">Content Operations</span>
             </div>
-            {!collapsed && (
-              <span className="text-lg font-semibold text-default-900 tracking-tight">AI 工作台</span>
-            )}
-          </div>
+          )}
         </div>
 
         {/* 导航：前端持有产品 IA（config/nav.ts），不依赖后端菜单接口 */}
@@ -115,8 +114,8 @@ export function Sidebar({ collapsed, className = '', onToggle }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-2 pt-8 pb-4 px-4 border-t border-divider mt-4">
-          {!collapsed && <span className="text-xs text-default-400">AI-Native CMS · v0.1</span>}
+        <div className="award-sidebar-foot flex items-center justify-between gap-2 border-t border-divider">
+          {!collapsed && <span className="award-sidebar-version">Workspace · v0.1</span>}
           {onToggle && (
             <button
               type="button"
@@ -159,10 +158,8 @@ function NavGroup({
     )
   }
   return (
-    <div className="flex gap-1.5 flex-col">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-default-400 px-3.5">
-        {sectionTitle}
-      </span>
+    <div className="award-group">
+      <div className="award-group-label">{sectionTitle}</div>
       {section.children.map((child) => (
         <NavItemComp key={child.key} item={child} currentPath={currentPath} collapsed={collapsed} badges={badges} />
       ))}
@@ -188,24 +185,17 @@ function NavItemComp({
   const badge = badges[item.path] ?? 0
 
   return (
-    <Link to={item.path} className="text-gray-900 no-underline block active:scale-[0.98] transition-transform">
+    <Link to={item.path} className="award-nav-link block">
       <div
         aria-current={isActive ? 'page' : undefined}
-        className={`relative flex gap-2 w-full min-h-[38px] h-full items-center px-3 rounded-lg cursor-pointer transition-colors duration-150 ${
-          isActive
-            ? 'bg-[#EEF2FF] text-[#4F46E5] font-medium'
-            : 'text-gray-600 hover:bg-gray-100/80'
-        }`}
+        className={`award-nav-item relative flex gap-2 w-full min-h-[38px] h-full items-center cursor-pointer${isActive ? ' is-active' : ''}`}
       >
-        {isActive && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 -ml-1.5 w-1 h-4 rounded-full bg-[#6366F1]" />
-        )}
-        <span className={`flex-shrink-0 ${isActive ? '' : 'opacity-70'}`}>
+        <span className="award-nav-icon flex-shrink-0">
           <NavIcon d={iconD(item.icon)} size={18} />
         </span>
-        {!collapsed && <span className="text-sm">{itemTitle}</span>}
+        {!collapsed && <span className="award-nav-text">{itemTitle}</span>}
         {!collapsed && !!badge && badge > 0 && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-[#6366F1] text-white text-[11px] font-semibold">
+          <span className="award-nav-badge ml-auto">
             {badge}
           </span>
         )}
