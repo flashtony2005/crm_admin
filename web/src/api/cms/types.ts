@@ -280,6 +280,7 @@ export interface InviteCode extends BaseRecord {
   /** 过期时间（ISO 字符串；空 = 永不过期） */
   expiresAt?: string
   enabled: boolean
+  note?: string
 }
 
 /** 兑换码（一次性：kind points=充积分 / plan_days=会员天数） */
@@ -406,6 +407,23 @@ export interface WebhookSubscription extends BaseRecord {
   secret: string
   active: boolean
   deliveries?: number
+  lastDeliveryAt?: string
+  lastStatus?: number
+}
+
+/** Webhook 投递历史日志 */
+export interface WebhookDeliveryLog {
+  id: string
+  subscriptionId?: string
+  event: string
+  url: string
+  status: number | string
+  statusText: string
+  durationMs: number
+  requestHeaders: Record<string, string>
+  requestBody: string
+  responseBody?: string
+  createdAt: string
 }
 
 /** 多语言翻译字典 */
@@ -442,6 +460,7 @@ export interface ReconResp {
 
 /** 审计日志行（P2：/api 写操作留痕） */
 export interface AuditRow {
+  id?: string
   userId: string
   username: string
   method: string
@@ -500,4 +519,13 @@ export interface SubscriptionRecord extends BaseRecord {
   startedAt?: string
   /** 非空 = 已终结（到期降级已处理），调度器不会重复处理 */
   closedAt?: string
+}
+
+/** 团队成员 / 系统账号 */
+export interface TeamMember extends BaseRecord {
+  name: string
+  username?: string
+  role: string
+  status: string | number
+  lastActiveAt?: string
 }

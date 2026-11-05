@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, Modal, toast, Input, Label, type UseOverlayStateReturn } from '@heroui/react'
+import { Button, Label, toast } from '@heroui/react'
 import { createFileRoute } from '@tanstack/react-router'
 
 import { CmsPageHeader } from '../../components/cms/CmsPageHeader'
@@ -8,209 +8,362 @@ import { Auth } from '../../components/cms/Auth'
 import { P } from '../../config/permissions'
 import { fmtRelative } from '../../components/cms/format'
 import { StatusBadge, toneFromStatus } from '../../components/common/StatusBadge'
-import { CMS_MODE } from '../../api/cms'
-import { api } from '../../api/client'
+import { teamUsersApi, type TeamMember } from '../../api/cms'
+import { usePermissionStore } from '../../store/permission'
 
-/** 成员（mock 为静态演示；real 来自 /api/team/users） */
-interface TeamMember {
-  id: string
-  name: string
-  username?: string
-  role: 'owner' | 'editor' | 'viewer'
-  status: string | number
-  lastActiveAt?: string
-  createdAt?: string
+function PlusIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  )
 }
 
-const MOCK_MEMBERS: TeamMember[] = [
-  { id: 'u1', name: '林小茶（我）', role: 'owner', status: 'Active', lastActiveAt: new Date().toISOString() },
-  { id: 'u2', name: '陈师傅', role: 'editor', status: 'Active', lastActiveAt: new Date(Date.now() - 3600_000).toISOString() },
-  { id: 'u3', name: '周周', role: 'editor', status: 'Active', lastActiveAt: new Date(Date.now() - 86400_000).toISOString() },
-  { id: 'u4', name: '王会计', role: 'viewer', status: 'Inactive' },
-]
-
-const ROLE_META: Record<TeamMember['role'], { label: string; cls: string }> = {
-  owner: { label: 'Owner · 老板', cls: 'bg-indigo-50 text-indigo-600' },
-  editor: { label: 'Editor · 可以编辑内容', cls: 'bg-blue-50 text-blue-600' },
-  viewer: { label: 'Viewer · 只能查看', cls: 'bg-gray-100 text-gray-500' },
+function SearchIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  )
 }
 
-const isActive = (s: string | number) => s === 'Active' || s === 1
+function TrashIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  )
+}
+
+const isActive = (s: string | number | undefined) => s === 'Active' || s === 1 || s === 'active'
 
 function TeamUsersPage() {
   const qc = useQueryClient()
-  const [inviteOpen, setInviteOpenRaw] = useState(false)
-  const inviteModal: UseOverlayStateReturn = {
-    isOpen: inviteOpen,
-    setOpen: (v) => setInviteOpenRaw(v),
-    open: () => setInviteOpenRaw(true),
-    close: () => setInviteOpenRaw(false),
-    toggle: () => setInviteOpenRaw((v) => !v),
-  }
-  const [form, setForm] = useState({ username: '', nickname: '', role: 'editor' as TeamMember['role'] })
+  const { roles } = usePermissionStore()
 
-  const isReal = CMS_MODE === 'real'
-  const { data: members = [] } = useQuery({
-    queryKey: ['team-members', CMS_MODE],
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [form, setForm] = useState({ username: '', name: '', role: 'editor' })
+
+
+  // 查询团队成员列表
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ['team-members'],
     queryFn: async (): Promise<TeamMember[]> => {
-      if (!isReal) return MOCK_MEMBERS
-      const rows = await api<{ id: string; username: string; nickname: string; role: TeamMember['role']; status: number; createdAt: string }[]>('/api/team/users')
-      return rows.map((r) => ({
-        id: r.id, name: r.nickname || r.username, username: r.username,
-        role: r.role, status: r.status, createdAt: r.createdAt,
-      }))
+      return await teamUsersApi.list()
     },
   })
 
+  // 邀请 / 创建新成员
   const invite = useMutation({
-    mutationFn: (input: typeof form) =>
-      api('/api/team/users', { method: 'POST', body: JSON.stringify(input) }),
+    mutationFn: async (input: typeof form) => {
+      return await teamUsersApi.create({
+        name: input.name.trim(),
+        username: input.username.trim(),
+        role: input.role,
+        status: 'Active',
+        lastActiveAt: new Date().toISOString(),
+      })
+    },
     onSuccess: () => {
-      toast.success('已邀请，初始密码 demo1234')
-      inviteModal.close()
-      setForm({ username: '', nickname: '', role: 'editor' })
+      toast.success('已添加成员，初始密码 demo1234')
+      setInviteOpen(false)
+      setForm({ username: '', name: '', role: 'editor' })
       void qc.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: (err: Error) => {
+      toast.danger(err.message || '邀请成员失败')
     },
   })
 
+  // 更新成员属性（角色、启用/停用）
   const patch = useMutation({
-    mutationFn: ({ id, ...updates }: { id: string; role?: string; status?: number }) =>
-      api(`/api/team/users/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+    mutationFn: async ({ id, ...updates }: { id: string; role?: string; status?: string | number }) => {
+      return await teamUsersApi.update(id, updates)
+    },
     onSuccess: () => {
-      toast.success('已更新')
+      toast.success('成员信息已更新')
       void qc.invalidateQueries({ queryKey: ['team-members'] })
     },
+    onError: (err: Error) => {
+      toast.danger(err.message || '更新成员失败')
+    },
   })
+
+  // 删除成员
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      return await teamUsersApi.remove(id)
+    },
+    onSuccess: () => {
+      toast.success('已移除成员')
+      void qc.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: (err: Error) => {
+      toast.danger(err.message || '移除成员失败')
+    },
+  })
+
+  // 搜索和角色过滤
+  const filteredMembers = useMemo(() => {
+    return members.filter((m) => {
+      if (roleFilter && m.role !== roleFilter) return false
+      if (!search.trim()) return true
+      const q = search.toLowerCase()
+      return (
+        m.name.toLowerCase().includes(q) ||
+        (m.username && m.username.toLowerCase().includes(q))
+      )
+    })
+  }, [members, search, roleFilter])
 
   return (
-    <div className="p-1 md:p-2">
+    <div className="p-2 md:p-4 max-w-7xl mx-auto flex flex-col gap-6">
       <CmsPageHeader
-        title="成员"
-        desc="谁在用这个系统，各自能做什么。"
+        title="团队成员管理"
+        desc="配置使用管理后台的团队成员、各自担当的角色以及账号启停状态。"
         actions={
           <Auth perm={P.teamUsersInvite}>
-            <Button variant="primary" size="sm" onPress={inviteModal.open}>
-              + 邀请成员
+            <Button
+              variant="primary"
+              size="sm"
+              onPress={() => setInviteOpen(true)}
+              className="flex items-center gap-1.5"
+            >
+              <PlusIcon /> 邀请新成员
             </Button>
           </Auth>
         }
       />
 
-      <div className="rounded-xl border border-os-border bg-white shadow-sm divide-y divide-os-border-light overflow-hidden">
-        {members.map((m) => (
-          <div key={m.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-os-bg-hover transition-colors flex-wrap">
-            {/* 头像 */}
-            <span className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-white text-sm font-medium flex items-center justify-center flex-shrink-0">
-              {m.name[0]}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-os-text-primary">{m.name}</p>
-              <p className="text-xs text-os-text-muted mt-0.5">
-                {m.username ? `@${m.username} · ` : ''}
-                {m.lastActiveAt ? `最近活跃 ${fmtRelative(m.lastActiveAt)}` : m.createdAt ? `加入于 ${fmtRelative(m.createdAt)}` : '从未登录'}
-              </p>
-            </div>
+      {/* 搜索与过滤工具栏 */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-os-border shadow-xs">
+        <div className="relative flex-1 max-w-md">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-os-text-muted">
+            <SearchIcon />
+          </span>
+          <input
+            type="text"
+            placeholder="按姓名或用户名搜索成员..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-9 pl-9 pr-3 text-xs rounded-lg border border-os-border outline-none focus:border-indigo-500"
+          />
+        </div>
 
-            {/* 角色变更（real 且有邀请权时开放） */}
-            {isReal ? (
-              <Auth perm={P.teamUsersInvite}>
-                <select
-                  value={m.role}
-                  aria-label={`变更 ${m.name} 的角色`}
-                  onChange={(e) => patch.mutate({ id: m.id, role: e.target.value })}
-                  className="h-7 px-1.5 text-xs rounded-md border border-os-border bg-white outline-none focus:border-[#6366f1]"
-                >
-                  {(Object.keys(ROLE_META) as TeamMember['role'][]).map((k) => (
-                    <option key={k} value={k}>{ROLE_META[k].label}</option>
-                  ))}
-                </select>
-              </Auth>
-            ) : (
-              <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${ROLE_META[m.role].cls}`}>
-                {ROLE_META[m.role].label}
-              </span>
-            )}
-
-            <StatusBadge tone={toneFromStatus(isActive(m.status) ? 'Active' : 'Inactive')} dot>
-              {isActive(m.status) ? '正常' : '停用'}
-            </StatusBadge>
-
-            {/* 停用 / 启用 */}
-            {isReal && (
-              <Auth perm={P.teamUsersInvite} mode="disable">
-                <Button
-                  variant="ghost" size="sm"
-                  className={isActive(m.status) ? 'text-os-danger-text hover:bg-os-danger-bg' : ''}
-                  onPress={() => patch.mutate({ id: m.id, status: isActive(m.status) ? 0 : 1 })}
-                >
-                  {isActive(m.status) ? '停用' : '启用'}
-                </Button>
-              </Auth>
-            )}
-          </div>
-        ))}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-os-text-secondary whitespace-nowrap">角色筛选：</label>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label="角色筛选"
+            className="h-9 px-2 text-xs rounded-lg border border-os-border bg-white outline-none focus:border-indigo-500"
+          >
+            <option value="">全部角色 ({members.length})</option>
+            {roles.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <p className="text-xs text-os-text-muted mt-4 px-1">
-        权限模型：Owner 可管理团队与审批；Editor 可编辑内容但不能直接发布；Viewer 只读。
-        AI 同样遵守这套权限 —— 它是执行者，不是超级管理员。
-      </p>
+      {/* 成员列表卡片 */}
+      <div className="rounded-2xl border border-os-border bg-white shadow-xs divide-y divide-os-border-light overflow-hidden">
+        {isLoading ? (
+          <div className="py-12 text-center text-xs text-os-text-muted">加载成员列表中...</div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="py-12 text-center text-xs text-os-text-muted">未找到匹配的成员</div>
+        ) : (
+          filteredMembers.map((m) => {
+            const active = isActive(m.status)
 
-      {/* 邀请弹窗（real 模式） */}
-      {isReal && (
-        <Modal state={inviteModal}>
-          <Modal.Backdrop />
-          <Modal.Container>
-            <Modal.Dialog>
-              <Modal.Header>
-                <h3 className="text-base font-semibold">邀请成员</h3>
-              </Modal.Header>
-              <Modal.Body>
-                <div className="flex flex-col gap-3">
+            return (
+              <div
+                key={m.id}
+                className="flex items-center gap-4 px-5 py-4 hover:bg-os-bg-hover transition-colors flex-wrap justify-between"
+              >
+                {/* 成员基本信息 */}
+                <div className="flex items-center gap-3.5 min-w-[200px]">
+                  <span className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-bold flex items-center justify-center shrink-0 shadow-xs">
+                    {m.name ? m.name[0] : 'U'}
+                  </span>
                   <div>
-                    <Label htmlFor="inv-username">用户名（登录用）</Label>
-                    <Input
-                      id="inv-username" value={form.username}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, username: e.target.value })}
-                      placeholder="如 xiaozhou"
-                    />
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-os-text-primary">{m.name}</p>
+                      {m.role === 'owner' && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          超级管理员
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-os-text-muted mt-0.5">
+                      {m.username ? `@${m.username} · ` : ''}
+                      {m.lastActiveAt
+                        ? `最近活跃 ${fmtRelative(m.lastActiveAt)}`
+                        : m.createdAt
+                        ? `加入于 ${fmtRelative(m.createdAt)}`
+                        : '从未登录'}
+                    </p>
                   </div>
-                  <div>
-                    <Label htmlFor="inv-nickname">显示名</Label>
-                    <Input
-                      id="inv-nickname" value={form.nickname}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, nickname: e.target.value })}
-                      placeholder="如 收银小周"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="inv-role">角色</Label>
+                </div>
+
+                {/* 角色与状态控制操作 */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* 角色变更下拉框 */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-os-text-secondary hidden sm:inline">分配角色:</span>
                     <select
-                      id="inv-role" value={form.role}
-                      onChange={(e) => setForm({ ...form, role: e.target.value as TeamMember['role'] })}
-                      className="w-full h-9 px-2 text-sm rounded-lg border border-os-border bg-white outline-none focus:border-[#6366f1]"
+                      value={m.role}
+                      aria-label={`变更 ${m.name} 的角色`}
+                      onChange={(e) => patch.mutate({ id: m.id, role: e.target.value })}
+                      className="h-8 px-2 text-xs rounded-lg border border-os-border bg-white text-os-text-primary outline-none focus:border-indigo-500 font-medium"
                     >
-                      {(Object.keys(ROLE_META) as TeamMember['role'][]).map((k) => (
-                        <option key={k} value={k}>{ROLE_META[k].label}</option>
+                      {roles.map((r) => (
+                        <option key={r.key} value={r.key}>
+                          {r.name}
+                        </option>
                       ))}
                     </select>
                   </div>
-                  <p className="text-xs text-os-text-muted">初始密码 demo1234；对方首次登录时会被要求修改。</p>
+
+                  {/* 账号状态指示 */}
+                  <StatusBadge tone={toneFromStatus(active ? 'Active' : 'Inactive')} dot>
+                    {active ? '正常运行' : '已停用'}
+                  </StatusBadge>
+
+                  {/* 停用 / 启用按钮 */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`text-xs ${active ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
+                    onPress={() => patch.mutate({ id: m.id, status: active ? 'Inactive' : 'Active' })}
+                  >
+                    {active ? '停用账号' : '恢复启用'}
+                  </Button>
+
+                  {/* 删除成员按钮 */}
+                  {m.role !== 'owner' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`确定要移除成员「${m.name}」吗？移除后对方将无法登录后台。`)) {
+                          remove.mutate(m.id)
+                        }
+                      }}
+                      className="p-1.5 text-os-text-muted hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      title="移除成员"
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
                 </div>
-              </Modal.Body>
-              <Modal.Footer>
-                <Button variant="ghost" size="sm" onPress={inviteModal.close}>取消</Button>
-                <Button
-                  variant="primary" size="sm"
-                  isDisabled={!form.username.trim() || !form.nickname.trim() || invite.isPending}
-                  onPress={() => invite.mutate(form)}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/40 text-xs text-indigo-900 leading-relaxed">
+        <p className="font-semibold text-indigo-950 mb-1">💡 团队协同与安全边界：</p>
+        <p>
+          所有账号执行的高风险操作（如文章发布、配置保存、成员变更）均会自动记录到系统审计日志中。
+          如需定制角色的具体能力（如只能看报表不能改数据），请前往<strong>「角色与权限」</strong>页面进行精细化授权。
+        </p>
+      </div>
+
+      {/* 邀请成员弹窗 */}
+      {inviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-os-border overflow-hidden">
+            <div className="p-5 border-b border-os-border bg-os-bg-base flex items-center justify-between">
+              <h3 className="text-base font-bold text-os-text-primary flex items-center gap-2">
+                <PlusIcon /> 邀请 / 添加成员
+              </h3>
+              <button
+                type="button"
+                onClick={() => setInviteOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-200 flex items-center justify-center text-gray-500"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <Label htmlFor="inv-name" className="text-xs font-medium text-os-text-secondary">
+                  成员显示名 *
+                </Label>
+                <input
+                  id="inv-name"
+                  type="text"
+                  placeholder="如 收银小周 / 李运营"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full h-9 px-3 mt-1 text-xs rounded-lg border border-os-border outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="inv-username" className="text-xs font-medium text-os-text-secondary">
+                  登录用户名 *
+                </Label>
+                <input
+                  id="inv-username"
+                  type="text"
+                  placeholder="如 xiaozhou (用于系统登录)"
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  className="w-full h-9 px-3 mt-1 text-xs rounded-lg border border-os-border outline-none font-mono focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="inv-role" className="text-xs font-medium text-os-text-secondary">
+                  所属角色 *
+                </Label>
+                <select
+                  id="inv-role"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  className="w-full h-9 px-3 mt-1 text-xs rounded-lg border border-os-border bg-white outline-none focus:border-indigo-500"
                 >
-                  {invite.isPending ? '创建中…' : '创建账号'}
-                </Button>
-              </Modal.Footer>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal>
+                  {roles.map((r) => (
+                    <option key={r.key} value={r.key}>
+                      {r.name} ({r.key})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-os-text-muted mt-1">
+                  该成员登录后将享有该角色被配置的所有功能权限。
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-xs text-os-text-muted">
+                新账号初始密码为 <code className="font-mono text-indigo-600 font-bold">demo1234</code>，对方首次登录后可在个人中心随时修改。
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-os-border bg-os-bg-base flex items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" onPress={() => setInviteOpen(false)}>
+                取消
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                isDisabled={!form.username.trim() || !form.name.trim() || invite.isPending}
+                onPress={() => invite.mutate(form)}
+              >
+                {invite.isPending ? '创建中...' : '确认创建'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -17,6 +17,7 @@ import { ArrowLeft, Rss } from 'lucide-react'
 import { SITE_THEMES, themeCssVars } from '../themes/siteThemes'
 import { useSiteTheme } from '../themes/useSiteTheme'
 import { buildSrcset } from '../utils/imgSrcset'
+import { articlesApi } from '../api/cms'
 
 export const SITE_NAME = 'LightPress'
 
@@ -144,16 +145,37 @@ function SitePage() {
 
   const load = useCallback(async () => {
     setPhase('loading')
-    // 免认证公开 API：仅已发布文章，含 slug/meta_title/meta_description
-    const r = await req<{ data?: SiteArticle[] }>('/api/public/articles')
-    if (r.error !== undefined) {
-      setErrMsg(r.error)
-      setPhase('error')
-      return
+    try {
+      const r = await req<{ data?: SiteArticle[] }>('/api/public/articles')
+      if (r.error === undefined && Array.isArray(r.data) && r.data.length > 0) {
+        setList(r.data)
+        setPhase('ready')
+        return
+      }
+    } catch {
+      // ignore
     }
-    const all = Array.isArray(r.data) ? r.data : []
-    setList(all)
-    setPhase('ready')
+    try {
+      const all = await articlesApi.list()
+      const mapped: SiteArticle[] = all.map((a) => ({
+        id: a.id,
+        title: a.title,
+        slug: a.slug || a.id,
+        summary: a.summary,
+        content: a.content,
+        tags: a.tags,
+        featured_image: a.featuredImage,
+        published_at: a.publishedAt,
+        updated_at: a.updatedAt,
+        author: a.author,
+        status: a.status,
+      }))
+      setList(mapped)
+      setPhase('ready')
+    } catch (e) {
+      setErrMsg((e as Error).message)
+      setPhase('error')
+    }
   }, [])
 
   useEffect(() => {

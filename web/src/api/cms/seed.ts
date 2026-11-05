@@ -5,7 +5,8 @@
  */
 import type {
   AiTask, Approval, Article, Customer, FormDef, Integration,
-  Lead, MediaItem, Page, Product, WorkflowDef,
+  InviteCode, Lead, MediaItem, Member, Page, Product, TeamMember,
+  WebhookSubscription, WorkflowDef,
 } from './types'
 
 const daysAgo = (n: number, h = 9): string => {
@@ -25,14 +26,12 @@ function withBase<T extends { id: string }>(rows: T[]): (T & { createdAt: string
 }
 
 // ── Content ──────────────────────────────────────────
-
 const rawArticles: Omit<Article, 'createdAt' | 'updatedAt'>[] = [
-  { id: 'a1', title: '秋季限定：桂花栗子欧包上市', slug: 'autumn-chestnut-bread', summary: '当季板栗与头茬桂花，每日限量 30 个。', content: '当季板栗与头茬桂花，每日限量 30 个。趁热撕开，桂花的清甜混着栗子的绵密，是秋天该有的味道。', category: '新品动态', status: 'published', views: 1284, author: '林小茶' },
-  { id: 'a2', title: '为什么我们的面包要发酵 18 小时', slug: '18-hour-fermentation', summary: '慢发酵带来更好的风味与更友好的肠胃体验。', content: '慢发酵带来更好的风味与更友好的肠胃体验。低温长时间发酵让面筋更舒展，麦香更突出，也更易消化。', category: '品牌故事', status: 'published', views: 3521, author: '陈师傅' },
+  { id: 'a1', title: '秋季限定：桂花栗子欧包上线', slug: 'autumn-osmanthus-chestnut', summary: '选用当季丹桂与迁西板栗，慢发酵 18 小时。', content: '选用当季丹桂与迁西板栗，慢发酵 18 小时。每一口都是秋天的温润与甜香。即日起全门店有售，每日限量 60 只。', category: '新品上市', status: 'published', views: 1240, author: '林小茶' },
+  { id: 'a2', title: '为什么坚持使用老酵种做酸面包', slug: 'why-sourdough-starter', summary: '聊聊那罐养了四年的「老面」，以及它带来的风味。', content: '聊聊那罐养了四年的「老面」，以及它带来的独特微酸风味。野生酵母与乳酸菌的共同发酵，让面筋更舒展，麦香更突出，也更易消化。', category: '品牌故事', status: 'published', views: 3521, author: '陈师傅' },
   { id: 'a3', title: '周末亲子烘焙课报名开启', slug: 'family-baking-class', summary: '每周六上午，和孩子一起做一炉小饼干。', content: '每周六上午，和孩子一起做一炉小饼干。揉面、造型、等待出炉，把周末过成甜的。', category: '活动公告', status: 'pending_review', views: 0, author: '林小茶' },
   { id: 'a4', title: '社区咖啡节回顾：我们卖了 800 杯拿铁', slug: 'coffee-festival-recap', summary: '两天的咖啡节，认识了很多街坊邻居。', content: '两天的咖啡节，认识了很多街坊邻居。谢谢每一位来打卡的你，我们明年见。', category: '门店动态', status: 'draft', views: 0, author: '周周' },
 ]
-
 export const seedArticles: Article[] = withBase(rawArticles)
 
 const rawPages: Omit<Page, 'createdAt' | 'updatedAt'>[] = [
@@ -41,7 +40,6 @@ const rawPages: Omit<Page, 'createdAt' | 'updatedAt'>[] = [
   { id: 'p3', title: '菜单', path: '/menu', status: 'published', views: 8902 },
   { id: 'p4', title: '烘焙课程', path: '/classes', status: 'draft', views: 0 },
 ]
-
 export const seedPages: Page[] = withBase(rawPages)
 
 const rawProducts: Omit<Product, 'createdAt' | 'updatedAt'>[] = [
@@ -50,7 +48,6 @@ const rawProducts: Omit<Product, 'createdAt' | 'updatedAt'>[] = [
   { id: 'pr3', name: '山茶拿铁豆（250g）', sku: 'BEAN-001', price: 68, stock: 15, status: 'published' },
   { id: 'pr4', name: '亲子烘焙课（单次）', sku: 'CLASS-001', price: 199, stock: 8, status: 'draft' },
 ]
-
 export const seedProducts: Product[] = withBase(rawProducts)
 
 const rawMedia: Omit<MediaItem, 'createdAt' | 'updatedAt'>[] = [
@@ -59,18 +56,15 @@ const rawMedia: Omit<MediaItem, 'createdAt' | 'updatedAt'>[] = [
   { id: 'm3', name: '可颂横切面.mp4', type: 'video', sizeKb: 15360, url: '#' },
   { id: 'm4', name: '课程海报-11月.png', type: 'image', sizeKb: 656, url: '#' },
 ]
-
 export const seedMedia: MediaItem[] = withBase(rawMedia)
 
 // ── Business ─────────────────────────────────────────
-
 const rawCustomers: Omit<Customer, 'createdAt' | 'updatedAt'>[] = [
   { id: 'c1', name: '王女士', phone: '138****6621', source: '到店扫码', tags: ['常客', '烘焙课'], priority: 'high', note: '对亲子课程很感兴趣，想约周六上午。', lastContactAt: daysAgo(0, 10) },
   { id: 'c2', name: '李先生', phone: '139****0877', source: '小程序', tags: ['企业采购'], priority: 'high', note: '公司下午茶意向单 200 份。', lastContactAt: daysAgo(1) },
   { id: 'c3', name: '赵小姐', phone: '137****3345', source: '大众点评', tags: ['新客'], priority: 'mid', note: '询问生日蛋糕定制。', lastContactAt: daysAgo(2) },
   { id: 'c4', name: '陈阿姨', phone: '135****9902', source: '老客推荐', tags: ['常客'], priority: 'low', note: '每周固定买两个可颂。', lastContactAt: daysAgo(5) },
 ]
-
 export const seedCustomers: Customer[] = withBase(rawCustomers)
 
 const rawLeads: Omit<Lead, 'createdAt' | 'updatedAt'>[] = [
@@ -79,7 +73,6 @@ const rawLeads: Omit<Lead, 'createdAt' | 'updatedAt'>[] = [
   { id: 'l3', name: '吴先生', phone: '186****5560', interest: '婚礼伴手礼 80 盒', source: '大众点评', status: 'won' },
   { id: 'l4', name: '郑女士', phone: '133****8814', interest: '生日蛋糕定制', source: '小红书', status: 'lost' },
 ]
-
 export const seedLeads: Lead[] = withBase(rawLeads)
 
 const rawForms: Omit<FormDef, 'createdAt' | 'updatedAt'>[] = [
@@ -87,17 +80,14 @@ const rawForms: Omit<FormDef, 'createdAt' | 'updatedAt'>[] = [
   { id: 'f2', title: '企业采购询价表单', descr: '团购/采购需求，两个工作日内报价。', fieldCount: 8, submissions: 17, status: 'published' },
   { id: 'f3', title: '会员卡开通登记', fieldCount: 5, submissions: 128, status: 'closed' },
 ]
-
 export const seedForms: FormDef[] = withBase(rawForms)
 
 // ── AI / Automation ──────────────────────────────────
-
 const rawApprovals: Omit<Approval, 'createdAt' | 'updatedAt'>[] = [
   { id: 'ap1', action: 'publish', target: '文章《周末亲子烘焙课报名开启》', requestedBy: 'AI 助手', risk: 'low', status: 'pending', summary: 'AI 已完成 SEO 检查与错别字校对，等待发布批准。' },
   { id: 'ap2', action: 'publish', target: '产品「亲子烘焙课（单次）」', requestedBy: '林小茶', risk: 'mid', status: 'pending', summary: '价格与库存已确认，上架后同步到小程序。' },
   { id: 'ap3', action: 'update', target: '页面「关于我们」', requestedBy: 'AI 助手', risk: 'low', status: 'approved', summary: '更新营业时间与门店照片，已按时执行。', decidedAt: daysAgo(2, 14) },
 ]
-
 export const seedApprovals: Approval[] = withBase(rawApprovals)
 
 const rawAiTasks: Omit<AiTask, 'createdAt' | 'updatedAt'>[] = [
@@ -106,7 +96,6 @@ const rawAiTasks: Omit<AiTask, 'createdAt' | 'updatedAt'>[] = [
   { id: 't3', title: '汇总本周高优先级客户并给出回复建议', capability: 'Customer Reply', status: 'waiting_approval' },
   { id: 't4', title: '检查全站图片缺失 alt 标签', capability: 'SEO', status: 'failed', result: '2 张图片缺 alt，已生成修复建议。' },
 ]
-
 export const seedAiTasks: AiTask[] = withBase(rawAiTasks)
 
 const rawWorkflows: Omit<WorkflowDef, 'createdAt' | 'updatedAt'>[] = [
@@ -114,7 +103,6 @@ const rawWorkflows: Omit<WorkflowDef, 'createdAt' | 'updatedAt'>[] = [
   { id: 'w2', name: '每周经营摘要推送老板', trigger: '每周一 08:00', event: 'schedule.weekly', stepCount: 4, enabled: true, lastRunAt: daysAgo(3) },
   { id: 'w3', name: '线索 7 天未跟进自动提醒', trigger: '线索状态变更时', event: 'lead.stale', stepCount: 2, enabled: false },
 ]
-
 export const seedWorkflows: WorkflowDef[] = withBase(rawWorkflows)
 
 const rawIntegrations: Omit<Integration, 'createdAt' | 'updatedAt'>[] = [
@@ -128,5 +116,67 @@ const rawIntegrations: Omit<Integration, 'createdAt' | 'updatedAt'>[] = [
   { id: 'shopify', key: 'shopify', name: 'Shopify', category: 'commerce', desc: '商品与订单双向同步', connected: false },
   { id: 'crm', key: 'crm', name: 'CRM 导出', category: 'crm', desc: '客户数据定期导出', connected: false },
 ]
-
 export const seedIntegrations: Integration[] = withBase(rawIntegrations)
+
+// ── 团队成员 / 系统账号 ──
+const rawTeamUsers: Omit<TeamMember, 'createdAt' | 'updatedAt'>[] = [
+  { id: 'u1', name: '林小茶（我）', username: 'admin', role: 'owner', status: 'Active', lastActiveAt: new Date().toISOString() },
+  { id: 'u2', name: '陈师傅', username: 'master_chen', role: 'editor', status: 'Active', lastActiveAt: daysAgo(0, 14) },
+  { id: 'u3', name: '周周', username: 'zhouzhou', role: 'editor', status: 'Active', lastActiveAt: daysAgo(1, 10) },
+  { id: 'u4', name: '王会计', username: 'wang_cpa', role: 'viewer', status: 'Inactive', lastActiveAt: daysAgo(12, 17) },
+]
+export const seedTeamUsers: TeamMember[] = withBase(rawTeamUsers)
+
+// ── 注册会员（公开站点） ──
+const rawMembers: Omit<Member, 'createdAt' | 'updatedAt'>[] = [
+  { id: 'm1', email: 'alex.wang@techcorp.io', name: '王晨', plan: 'pro', status: 1, firstTouchArticleId: 'a1', firstTouchAt: daysAgo(10) },
+  { id: 'm2', email: 'lisa_design@studio.com', name: 'Lisa Lin', plan: 'team', status: 1, invitedBy: 'm1' },
+  { id: 'm3', email: 'zhang.hao@startup.cn', name: '张浩', plan: 'free', status: 1, firstTouchArticleId: 'a2', firstTouchAt: daysAgo(7) },
+  { id: 'm4', email: 'emma.chen@media.hk', name: '陈小雨', plan: 'pro', status: 1, invitedBy: 'm1' },
+  { id: 'm5', email: 'david.k@consulting.com', name: 'David K.', plan: 'free', status: 0 },
+]
+export const seedMembers: Member[] = withBase(rawMembers)
+
+// ── 邀请码 ──
+const rawInviteCodes: Omit<InviteCode, 'createdAt' | 'updatedAt'>[] = [
+  { id: 'inv1', code: 'VIP2026', quota: 50, used: 18, expiresAt: '2026-12-31T23:59:59Z', enabled: true, note: 'VIP 创作者邀请码' },
+  { id: 'inv2', code: 'EARLYBIRD', quota: 20, used: 20, expiresAt: '2026-06-30T23:59:59Z', enabled: true, note: '早鸟内测（已满额）' },
+  { id: 'inv3', code: 'COMMUNITY88', quota: 100, used: 42, expiresAt: '2026-10-01T23:59:59Z', enabled: true, note: '社群专属优惠' },
+]
+export const seedInviteCodes: InviteCode[] = withBase(rawInviteCodes)
+
+// ── 出站 Webhook 订阅 ──
+const rawWebhooks: Omit<WebhookSubscription, 'createdAt' | 'updatedAt'>[] = [
+  {
+    id: 'wh-1',
+    event: 'order.paid',
+    url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=demo-key-123',
+    secret: 'whsec_98f12a3bc4d',
+    active: true,
+    deliveries: 42,
+    lastDeliveryAt: daysAgo(0, 15),
+    lastStatus: 200,
+  },
+  {
+    id: 'wh-2',
+    event: 'member.registered',
+    url: 'https://example.com/webhooks/slack-member-sync',
+    secret: 'whsec_slack_secret',
+    active: true,
+    deliveries: 18,
+    lastDeliveryAt: daysAgo(1, 10),
+    lastStatus: 200,
+  },
+  {
+    id: 'wh-3',
+    event: 'article.published',
+    url: 'https://api.zapier.com/hooks/catch/123456/abcdef/',
+    secret: 'whsec_zapier_secret',
+    active: true,
+    deliveries: 5,
+    lastDeliveryAt: daysAgo(3, 14),
+    lastStatus: 200,
+  },
+]
+export const seedWebhooks: WebhookSubscription[] = withBase(rawWebhooks)
+

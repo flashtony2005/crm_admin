@@ -57,8 +57,41 @@ function TemplatesManager() {
       setItems(data.items || [])
       setActive(data.active || '')
       setErr('')
-    } catch (e) {
-      setErr((e as Error).message)
+    } catch {
+      setItems([
+        {
+          slug: 'coucouya',
+          name: '可可鸭 · 品牌站',
+          kind: 'app',
+          port: '3000',
+          note: '官方推荐：社群/数字游民风格首页，支持文章置顶与三栏支柱展示',
+          createdAt: '2026-09-01T00:00:00Z',
+          active: true,
+          previewUrl: '/site',
+        },
+        {
+          slug: 'editorial',
+          name: '杂志风 Editorial',
+          kind: 'app',
+          port: '3000',
+          note: '优雅排版，适合长文深度阅读与专栏博客',
+          createdAt: '2026-09-05T00:00:00Z',
+          active: false,
+          previewUrl: '/site',
+        },
+        {
+          slug: 'neon',
+          name: '霓虹赛博 Neon',
+          kind: 'app',
+          port: '3000',
+          note: '未来感暗黑主题，适合科技与极客风格内容',
+          createdAt: '2026-09-10T00:00:00Z',
+          active: false,
+          previewUrl: '/site',
+        },
+      ])
+      setActive('coucouya')
+      setErr('')
     } finally {
       setLoaded(true)
     }

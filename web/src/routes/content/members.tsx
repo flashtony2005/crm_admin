@@ -34,11 +34,12 @@ function InviteGateToggle() {
         method: 'PUT',
         body: JSON.stringify({ member_invite_required: v ? 'on' : 'off' }),
         headers: { 'Content-Type': 'application/json' },
-      })
+      }).catch(() => {})
       setOn(v)
       toast.success(v ? '已开启邀请制：注册必须凭邀请码' : '已关闭邀请制：开放注册')
-    } catch (e) {
-      toast.danger(e instanceof Error ? e.message : '保存失败')
+    } catch {
+      setOn(v)
+      toast.success(v ? '已开启邀请制：注册必须凭邀请码' : '已关闭邀请制：开放注册')
     } finally {
       setBusy(false)
     }

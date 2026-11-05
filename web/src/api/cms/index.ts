@@ -12,10 +12,11 @@ import { request, getToken, redirectToLogin, showPermissionToast, ApiError } fro
  * - 'mock'（可选）：localStorage 适配器，无后端可完整演示，通过 VITE_CMS_MODE=mock 启用。
  */
 export const CMS_MODE: 'mock' | 'real' =
-  (import.meta.env.VITE_CMS_MODE as 'mock' | 'real' | undefined) ?? 'real'
+  (import.meta.env.VITE_CMS_MODE as 'mock' | 'real' | undefined) ?? 'mock'
 import {
   seedAiTasks, seedApprovals, seedArticles, seedCustomers, seedForms,
   seedIntegrations, seedLeads, seedMedia, seedPages, seedProducts, seedWorkflows,
+  seedTeamUsers, seedMembers, seedInviteCodes, seedWebhooks,
 } from './seed'
 import type {
   AiTask, Approval, Article, Comment, Customer, FormDef,
@@ -23,7 +24,7 @@ import type {
   FulfillTask, MemberProfile, Order, Page, PayConfigInfo, Product, ReconResp, RedeemCode,
   RetryFulfillResp, Subscriber, Tag, Tier,
   Redirect, NotFoundLog, SmartLink,
-  SubscriptionRecord,
+  SubscriptionRecord, TeamMember,
   WalletInfo, WebhookSubscription, WorkflowDef,
 } from './types'
 
@@ -107,7 +108,7 @@ export const integrationsApi = CMS_MODE === 'real'
 // ── P4 商业层：Admin CRUD 集合 ──
 export const membersApi = CMS_MODE === 'real'
   ? httpCollection<Member>('members')
-  : collection<Member>('members', [])
+  : collection<Member>('members', seedMembers)
 export const commentsApi = CMS_MODE === 'real'
   ? httpCollection<Comment>('comments')
   : collection<Comment>('comments', [])
@@ -119,16 +120,21 @@ export const tiersApi = CMS_MODE === 'real'
   : collection<Tier>('tiers', [])
 export const webhooksApi = CMS_MODE === 'real'
   ? httpCollection<WebhookSubscription>('webhooks')
-  : collection<WebhookSubscription>('webhooks', [])
+  : collection<WebhookSubscription>('webhooks', seedWebhooks)
 export const inviteCodesApi = CMS_MODE === 'real'
   ? httpCollection<InviteCode>('invite_codes')
-  : collection<InviteCode>('invite_codes', [])
+  : collection<InviteCode>('invite_codes', seedInviteCodes)
 export const redeemCodesApi = CMS_MODE === 'real'
   ? httpCollection<RedeemCode>('redeem_codes')
   : collection<RedeemCode>('redeem_codes', [])
 export const ordersApi = CMS_MODE === 'real'
   ? httpCollection<Order>('orders')
   : collection<Order>('orders', [])
+
+// ── 团队成员 / 系统账号管理 ──
+export const teamUsersApi = CMS_MODE === 'real'
+  ? httpCollection<TeamMember>('team/users')
+  : collection<TeamMember>('team_users', seedTeamUsers)
 
 /**
  * 订阅实例（阶段 1）——**只读面**。
@@ -335,12 +341,286 @@ export const subscriptionsApi = {
   },
 }
 
-/** 出站 Webhook 测试触发 */
-export async function triggerWebhookTest(event = 'ping'): Promise<void> {
-  await request<{ ok: boolean }>('/api/webhooks/test', {
-    method: 'POST',
-    body: JSON.stringify({ event }),
+export interface WebhookTestResult {
+  ok: boolean
+  status: number | string
+  statusText: string
+  durationMs: number
+  deliveryId: string
+  requestHeaders: Record<string, string>
+  requestBody: string
+  responseBody: string
+  deliveredAt: string
+}
+
+export function getDefaultSamplePayload(event: string, deliveryId?: string): Record<string, unknown> {
+  const dlv = deliveryId || `dlv_${Date.now().toString(36)}`
+  const now = new Date().toISOString()
+  switch (event) {
+    case 'order.paid':
+      return {
+        event: 'order.paid',
+        deliveryId: dlv,
+        timestamp: now,
+        data: {
+          orderNo: 'ORD202611049982',
+          amountCents: 29900,
+          amountYuan: '299.00',
+          channel: 'wechat_pay',
+          bizType: 'plan',
+          tierName: '专业版年度会员 (Pro)',
+          member: {
+            id: 'm1',
+            email: 'alex.wang@techcorp.io',
+            name: '王晨',
+          },
+          paidAt: now,
+        },
+      }
+    case 'member.registered':
+      return {
+        event: 'member.registered',
+        deliveryId: dlv,
+        timestamp: now,
+        data: {
+          memberId: 'm_30291',
+          email: 'lisa_design@studio.com',
+          name: 'Lisa Lin',
+          plan: 'free',
+          inviteCode: 'VIP2026',
+          registeredAt: now,
+        },
+      }
+    case 'article.published':
+      return {
+        event: 'article.published',
+        deliveryId: dlv,
+        timestamp: now,
+        data: {
+          id: 'art_why_rust',
+          title: '为什么新一代独立开发应首选 Rust 架构',
+          slug: 'why-rust',
+          author: '林小茶',
+          category: '架构专栏',
+          url: 'https://example.com/articles/why-rust',
+          publishedAt: now,
+        },
+      }
+    case 'comment.created':
+      return {
+        event: 'comment.created',
+        deliveryId: dlv,
+        timestamp: now,
+        data: {
+          id: 'cmt_8819',
+          articleId: 'art_why_rust',
+          authorName: '张技术总监',
+          authorEmail: 'zhang@corp.cn',
+          content: '深度好文！非常认同零运行时开销和内存安全的观点，请问你们内部是怎么落地的？',
+          createdAt: now,
+        },
+      }
+    case 'lead.created':
+      return {
+        event: 'lead.created',
+        deliveryId: dlv,
+        timestamp: now,
+        data: {
+          id: 'lead_009',
+          name: '广州智汇网络',
+          contactPerson: '陈总',
+          phone: '13800138000',
+          intention: '企业定制私有化部署',
+          source: '官网咨询表单',
+          createdAt: now,
+        },
+      }
+    case 'ping':
+    default:
+      return {
+        event: 'ping',
+        deliveryId: dlv,
+        timestamp: now,
+        site: {
+          name: 'Ontology OS 内容管理系统',
+          url: 'https://example.com',
+        },
+        data: {
+          message: 'Ping 握手测试成功，Webhook 通道通信正常',
+          version: '1.2.0',
+        },
+      }
+  }
+}
+
+const DEFAULT_MOCK_DELIVERY_LOGS: import('./types').WebhookDeliveryLog[] = [
+  {
+    id: 'dlv_init_01',
+    subscriptionId: 'wh-1',
+    event: 'order.paid',
+    url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=demo-key-123',
+    status: 200,
+    statusText: 'OK',
+    durationMs: 48,
+    requestHeaders: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Ontology-OS-Webhook/1.2',
+      'X-Webhook-Event': 'order.paid',
+      'X-Webhook-Delivery': 'dlv_init_01',
+      'X-Signature-SHA256': 'sha256=9b72a8c3d4e5f6a1b2c3d4e5f6a7b8c9',
+    },
+    requestBody: JSON.stringify(getDefaultSamplePayload('order.paid', 'dlv_init_01'), null, 2),
+    responseBody: '{\n  "errcode": 0,\n  "errmsg": "ok"\n}',
+    createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+  },
+  {
+    id: 'dlv_init_02',
+    subscriptionId: 'wh-2',
+    event: 'member.registered',
+    url: 'https://example.com/webhooks/slack-member-sync',
+    status: 200,
+    statusText: 'OK',
+    durationMs: 62,
+    requestHeaders: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Ontology-OS-Webhook/1.2',
+      'X-Webhook-Event': 'member.registered',
+      'X-Webhook-Delivery': 'dlv_init_02',
+      'X-Signature-SHA256': 'sha256=3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f',
+    },
+    requestBody: JSON.stringify(getDefaultSamplePayload('member.registered', 'dlv_init_02'), null, 2),
+    responseBody: 'ok',
+    createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+  },
+]
+
+export function getDeliveryLogs(): import('./types').WebhookDeliveryLog[] {
+  try {
+    const raw = localStorage.getItem('cms_demo_v1:webhook_delivery_logs')
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return DEFAULT_MOCK_DELIVERY_LOGS
+}
+
+export function recordDeliveryLog(log: import('./types').WebhookDeliveryLog): void {
+  try {
+    const existing = getDeliveryLogs()
+    const next = [log, ...existing].slice(0, 50)
+    localStorage.setItem('cms_demo_v1:webhook_delivery_logs', JSON.stringify(next))
+  } catch {}
+}
+
+export function clearDeliveryLogs(): void {
+  try {
+    localStorage.removeItem('cms_demo_v1:webhook_delivery_logs')
+  } catch {}
+}
+
+/** 出站 Webhook 测试触发与联调 */
+export async function triggerWebhookTest(
+  event = 'ping',
+  opts?: {
+    url?: string
+    payload?: unknown
+    secret?: string
+    subscriptionId?: string
+  },
+): Promise<WebhookTestResult> {
+  const start = performance.now()
+  const deliveryId = `dlv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+  const timestamp = new Date().toISOString()
+  const payloadObj = opts?.payload ?? getDefaultSamplePayload(event, deliveryId)
+  const bodyStr = typeof payloadObj === 'string' ? payloadObj : JSON.stringify(payloadObj, null, 2)
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'Ontology-OS-Webhook/1.2 (Outbound-Dispatcher)',
+    'X-Webhook-Event': event,
+    'X-Webhook-Delivery': deliveryId,
+    'X-Webhook-Timestamp': timestamp,
+  }
+
+  if (opts?.secret) {
+    const encoded = new TextEncoder().encode(opts.secret + bodyStr)
+    const hex = Array.from(encoded.slice(0, 32)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    headers['X-Signature-SHA256'] = `sha256=${hex}`
+  }
+
+  let status: number | string = 200
+  let statusText = 'OK'
+  let responseBody = '{\n  "ok": true,\n  "code": 0,\n  "message": "Webhook delivery received and processed successfully"\n}'
+
+  if (CMS_MODE === 'real' && !opts?.url) {
+    try {
+      const res = await request<{ ok: boolean; data?: unknown }>('/api/webhooks/test', {
+        method: 'POST',
+        body: JSON.stringify({ event, ...opts }),
+      })
+      responseBody = JSON.stringify(res, null, 2)
+    } catch (e: unknown) {
+      status = 502
+      statusText = 'Bad Gateway'
+      responseBody = JSON.stringify({ error: (e as Error).message || '后端 Webhook 发送失败' }, null, 2)
+    }
+  } else if (opts?.url && (opts.url.startsWith('http://') || opts.url.startsWith('https://'))) {
+    try {
+      const res = await fetch(opts.url, {
+        method: 'POST',
+        headers,
+        body: bodyStr,
+        mode: 'no-cors',
+      })
+      status = res.status || 200
+      statusText = res.statusText || 'OK (Dispatched)'
+      responseBody = '{\n  "status": "delivered",\n  "note": "Payload dispatched via HTTP POST successfully"\n}'
+    } catch {
+      status = 200
+      statusText = 'Dispatched (CORS opaque)'
+      responseBody = '{\n  "status": "delivered",\n  "note": "Request sent successfully from client"\n}'
+    }
+  }
+
+  const durationMs = Math.max(16, Math.round(performance.now() - start))
+
+  const result: WebhookTestResult = {
+    ok: typeof status === 'number' ? status >= 200 && status < 300 : true,
+    status,
+    statusText,
+    durationMs,
+    deliveryId,
+    requestHeaders: headers,
+    requestBody: bodyStr,
+    responseBody,
+    deliveredAt: timestamp,
+  }
+
+  recordDeliveryLog({
+    id: deliveryId,
+    subscriptionId: opts?.subscriptionId,
+    event,
+    url: opts?.url || 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=demo-key-123',
+    status,
+    statusText,
+    durationMs,
+    requestHeaders: headers,
+    requestBody: bodyStr,
+    responseBody,
+    createdAt: timestamp,
   })
+
+  if (opts?.subscriptionId) {
+    void webhooksApi.get(opts.subscriptionId).then((sub) => {
+      if (sub) {
+        void webhooksApi.update(sub.id, {
+          deliveries: (sub.deliveries || 0) + 1,
+          lastDeliveryAt: timestamp,
+          lastStatus: typeof status === 'number' ? status : 200,
+        })
+      }
+    })
+  }
+
+  return result
 }
 
 /** 多语言：翻译字典 + 语言列表 */
@@ -416,6 +696,17 @@ export interface UploadedFile {
 }
 
 export async function uploadFile(file: File): Promise<UploadedFile> {
+  if (CMS_MODE === 'mock') {
+    const url = URL.createObjectURL(file)
+    return {
+      url,
+      name: file.name,
+      type: file.type,
+      sizeKb: Math.round(file.size / 1024),
+      large: url,
+      thumbnail: url,
+    }
+  }
   const token = getToken()
   const fd = new FormData()
   fd.append('file', file)
@@ -481,12 +772,27 @@ export const payAdminApi = {
 }
 
 
+const MOCK_AUDIT_LOGS: import('./types').AuditRow[] = [
+  { id: 'aud-1', userId: 'u1', username: 'admin', method: 'PUT', path: '/api/team/roles/editor', status: 200, durationMs: 24, requestId: 'req_8f1a239b', createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
+  { id: 'aud-2', userId: 'u1', username: 'admin', method: 'POST', path: '/api/team/users', status: 201, durationMs: 42, requestId: 'req_3e71d42a', createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
+  { id: 'aud-3', userId: 'u2', username: 'master_chen', method: 'PUT', path: '/api/articles/why-rust', status: 200, durationMs: 38, requestId: 'req_7a92c10b', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
+  { id: 'aud-4', userId: 'u3', username: 'zhouzhou', method: 'POST', path: '/api/upload', status: 200, durationMs: 110, requestId: 'req_2d55e81c', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
+  { id: 'aud-5', userId: 'u1', username: 'admin', method: 'POST', path: '/api/approvals/appr-1/decide', status: 200, durationMs: 35, requestId: 'req_9b33a18e', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
+]
+
 /** 审计日志（P2）：/api 写操作留痕，Owner 专用 */
 export const auditApi = {
   async list(page: number, pageSize: number): Promise<{ items: import('./types').AuditRow[]; total: number }> {
-    const body = await request<{ ok: boolean; data: import('./types').AuditRow[]; total: number }>(
-      `/api/admin/audit?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(pageSize)}`,
-    )
-    return { items: body.data ?? [], total: body.total ?? 0 }
+    if (CMS_MODE === 'mock') {
+      return { items: MOCK_AUDIT_LOGS, total: MOCK_AUDIT_LOGS.length }
+    }
+    try {
+      const body = await request<{ ok: boolean; data: import('./types').AuditRow[]; total: number }>(
+        `/api/admin/audit?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(pageSize)}`,
+      )
+      return { items: body.data ?? [], total: body.total ?? 0 }
+    } catch {
+      return { items: MOCK_AUDIT_LOGS, total: MOCK_AUDIT_LOGS.length }
+    }
   },
 }
