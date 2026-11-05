@@ -82,3 +82,17 @@ web/.tsb/
 
 # ── Windows 快捷方式 ──
 *.lnk
+
+# ── AI Studio Preview 根路径运行产物 ──
+/index.html
+/metadata.json
+/package.json
+/tsconfig*.json
+/vite.config.ts
+/src/
+/.playwright-cli/
+/.aistudio/
+/.tsb/
+/dist/
+
+
